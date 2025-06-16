@@ -1,9 +1,10 @@
-
-Create Tables by Migration
-php artisan migrate
-
-
 # [Laravel](https://laravel.com/) with [Filament](https://filamentphp.com/) Template
+
+## Change Directory to Laravel
+
+```
+cd laravel
+```
 
 ## Install Dependencies
 
@@ -40,4 +41,10 @@ php artisan make:filament-user
 
 ```
 php artisan serve
+```
+
+## Visit the Admin Panel
+
+```
+http://127.0.0.1:8000/admin
 ```

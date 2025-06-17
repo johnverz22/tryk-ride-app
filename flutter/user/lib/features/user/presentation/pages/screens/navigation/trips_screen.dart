@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../widgets/custom_top_bar.dart';
 
-final primaryColor = const Color(0xFF4F46E5); // Brand color
-
 List<Map<String, dynamic>> mockTrips = [
   {
     'id': '1',
@@ -241,6 +239,8 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Colors.pink; // Brand color
+
     return Scaffold(
     backgroundColor: Colors.white,
     appBar: AppBar( // Move this OUT of body and into Scaffold

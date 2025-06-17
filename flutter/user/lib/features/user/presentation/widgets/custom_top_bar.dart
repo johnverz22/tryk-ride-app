@@ -13,48 +13,56 @@ class CustomTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String currentDate = DateFormat('MMMM d, y').format(DateTime.now());
+    final date = DateFormat.yMMMMd().format(DateTime.now());
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundImage: NetworkImage(profileImageUrl),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Profile Section
+        Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundImage: NetworkImage(profileImageUrl),
+            ),
+            const SizedBox(width: 10),
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(userName,
+                Text('Hi, $userName 👋',
                     style: const TextStyle(
-                      fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      fontSize: 16,
                       color: Colors.white,
                     )),
-                Text(currentDate,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white,
+                Text(date,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white70,
                     )),
               ],
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none),
-            color: Colors.white,
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            color: Colors.white,
-            onPressed: () {},
-          ),
-        ],
-      ),
+          ],
+        ),
+
+        // Actions: Settings + Notifications
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.settings, color: Colors.white),
+              onPressed: () {
+                // TODO: Add settings navigation
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.notifications_none, color: Colors.white),
+              onPressed: () {
+                // TODO: Add notifications navigation
+              },
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

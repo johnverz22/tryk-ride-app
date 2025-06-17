@@ -7,7 +7,7 @@ class WalletScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = const Color(0xFF4F46E5); // Brand color
+    final primaryColor = Colors.pink; // Brand color
 
     return Scaffold(
       appBar: AppBar(
@@ -116,17 +116,6 @@ class WalletScreen extends StatelessWidget {
           ),
 
           const SizedBox(height: 80),
-        ],
-      ),
-
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 2,
-        onTap: (index) {},
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Trips'),
-          BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet), label: 'Wallet'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );

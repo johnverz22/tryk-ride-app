@@ -1,30 +1,16 @@
 import 'package:flutter/material.dart';
 import '../ride_booking_screen.dart';
-import '../../../widgets/custom_top_bar.dart';
+import '../../../widgets/custom_app_bar.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = const Color(0xFF4F46E5); // Brand color
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: primaryColor,
-        elevation: 0,
-        toolbarHeight: 75,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            CustomTopBar(
-              userName: 'John Doe',
-              profileImageUrl: 'https://example.com/profile.jpg',
-            ),
-          ],
-        ),
-      ),
+      appBar: const CustomUserAppBar(),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -49,7 +35,7 @@ class HomeScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: const [
               Text('Saved Places', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Text('See All', style: TextStyle(color: Colors.blue)),
+              Text('See All', style: TextStyle(color: Colors.pink)),
             ],
           ),
           const SizedBox(height: 12),
@@ -85,7 +71,7 @@ class HomeScreen extends StatelessWidget {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
+              backgroundColor: Theme.of(context).primaryColor,
               minimumSize: const Size.fromHeight(50),
             ),
             child: const Text('Search Rides', style: TextStyle(color: Colors.white)),

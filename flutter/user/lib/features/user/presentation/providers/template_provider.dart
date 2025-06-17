@@ -10,25 +10,25 @@ import '../../../../../core/errors/failure.dart';
 import '../../../../../core/params/params.dart';
 import '../../business/entities/user_entity.dart';
 import '../../business/usecases/get_user.dart';
-import '../../data/datasources/template_local_data_source.dart';
-import '../../data/datasources/template_remote_data_source.dart';
-import '../../data/repositories/template_repository_impl.dart';
+import '../../data/datasources/user_local_data_source.dart';
+import '../../data/datasources/user_remote_data_source.dart';
+import '../../data/repositories/user_repository_impl.dart';
 
-class TemplateProvider extends ChangeNotifier {
-  TemplateEntity? template;
+class UserProvider extends ChangeNotifier {
+  UserEntity? user;
   Failure? failure;
 
-  TemplateProvider({
-    this.template,
+  UserProvider({
+    this.user,
     this.failure,
   });
 
-  void eitherFailureOrTemplate() async {
-    TemplateRepositoryImpl repository = TemplateRepositoryImpl(
-      remoteDataSource: TemplateRemoteDataSourceImpl(
+  void eitherFailureOrUser() async {
+    UserRepositoryImpl repository = UserRepositoryImpl(
+      remoteDataSource: UserRemoteDataSourceImpl(
         dio: Dio(),
       ),
-      localDataSource: TemplateLocalDataSourceImpl(
+      localDataSource: UserLocalDataSourceImpl(
         sharedPreferences: await SharedPreferences.getInstance(),
       ),
       networkInfo: NetworkInfoImpl(
@@ -36,18 +36,18 @@ class TemplateProvider extends ChangeNotifier {
       ),
     );
 
-    final failureOrTemplate = await GetTemplate(templateRepository: repository).call(
-      templateParams: TemplateParams(),
+    final failureOrUser = await GetUser(userRepository: repository).call(
+      userParams: UserParams(),
     );
 
-    failureOrTemplate.fold(
+    failureOrUser.fold(
       (Failure newFailure) {
-        template = null;
+        user = null;
         failure = newFailure;
         notifyListeners();
       },
-      (TemplateEntity newTemplate) {
-        template = newTemplate;
+      (UserEntity newUser) {
+        user = newUser;
         failure = null;
         notifyListeners();
       },

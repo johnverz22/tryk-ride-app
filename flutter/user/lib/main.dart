@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/main_navigation_screen.dart';
+import 'features/user/presentation/pages/screens/main_navigation_screen.dart';
 
 void main() {
   runApp(const MainApp());

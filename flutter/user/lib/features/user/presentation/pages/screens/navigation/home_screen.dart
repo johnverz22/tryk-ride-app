@@ -7,7 +7,6 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const CustomUserAppBar(),
@@ -81,7 +80,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPlaceChip(String label, IconData icon) {
+  static Widget _buildPlaceChip(String label, IconData icon) {
     return Chip(
       avatar: Icon(icon, size: 20),
       label: Text(label),

@@ -5,12 +5,11 @@ class RideBookingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF4F46E5);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Choose Ride'),
-        backgroundColor: primaryColor,
+        backgroundColor: Theme.of(context).primaryColor,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -26,7 +25,7 @@ class RideBookingScreen extends StatelessWidget {
               // Confirm ride logic here
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
+              backgroundColor: Theme.of(context).primaryColor,
               minimumSize: const Size.fromHeight(50),
             ),
             child: const Text('Request Economy', style: TextStyle(color: Colors.white)),

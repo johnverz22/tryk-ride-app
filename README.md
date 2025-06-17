@@ -31,6 +31,12 @@ php artisan key:generate
 php artisan migrate
 ```
 
+## Seed the Roles Table
+
+```
+php artisan db:seed --class=RoleSeeder
+```
+
 ## Create a Filament User
 
 ```
@@ -40,7 +46,7 @@ php artisan make:filament-user
 ## Run the Server
 
 ```
-php artisan serve
+php artisan serve --host=0.0.0.0 --port=8000
 ```
 
 ## Visit the Admin Panel

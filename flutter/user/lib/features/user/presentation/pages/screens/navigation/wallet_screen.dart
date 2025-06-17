@@ -1,6 +1,5 @@
 // wallet_screen.dart
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../../widgets/custom_top_bar.dart';
 
 class WalletScreen extends StatelessWidget {
@@ -9,7 +8,6 @@ class WalletScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primaryColor = const Color(0xFF4F46E5); // Brand color
-    final today = DateFormat('MMMM d, yyyy').format(DateTime.now());
 
     return Scaffold(
       appBar: AppBar(

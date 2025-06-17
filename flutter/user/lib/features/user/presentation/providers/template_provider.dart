@@ -9,7 +9,7 @@ import '../../../../../core/connection/network_info.dart';
 import '../../../../../core/errors/failure.dart';
 import '../../../../../core/params/params.dart';
 import '../../business/entities/user_entity.dart';
-import '../../business/usecases/get_template.dart';
+import '../../business/usecases/get_user.dart';
 import '../../data/datasources/template_local_data_source.dart';
 import '../../data/datasources/template_remote_data_source.dart';
 import '../../data/repositories/template_repository_impl.dart';

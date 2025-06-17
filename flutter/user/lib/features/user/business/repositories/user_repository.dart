@@ -4,8 +4,8 @@ import '../../../../../core/params/params.dart';
 import '../entities/user_entity.dart';
 
 
-abstract class TemplateRepository {
-  Future<Either<Failure, TemplateEntity>> getTemplate({
-    required TemplateParams templateParams,
+abstract class UserRepository {
+  Future<Either<Failure, UserEntity>> getUser({
+    required UserParams userParams,
   });
 }

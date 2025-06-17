@@ -2,7 +2,7 @@ import '../../../../../core/constants/constants.dart';
 import '../../business/entities/user_entity.dart';
 
 class UserModel extends UserEntity {
-  UserModel({
+  const UserModel({
     required String id,
     required String fullName,
     required String email,

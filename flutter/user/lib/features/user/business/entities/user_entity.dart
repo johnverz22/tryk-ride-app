@@ -12,7 +12,7 @@ class UserEntity {
   final DateTime updatedAt;
   final DateTime? lastLoginAt;
 
-  UserEntity({
+  const UserEntity({
     required this.id,
     required this.fullName,
     required this.email,

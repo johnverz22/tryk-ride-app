@@ -41,3 +41,5 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     }
   }
 }
+// This code defines a local data source for caching user data using SharedPreferences.
+// It provides methods to cache a user and retrieve the last cached user.

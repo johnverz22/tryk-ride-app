@@ -35,6 +35,7 @@ class UserRepositoryImpl implements UserRepository {
         return Left(ServerFailure(errorMessage: 'This is a server exception'));
       }
     } else {
+      // If there is no internet connection, we will try to get the user from the local cache
       try {
         UserModel localUser = await localDataSource.getLastUser();
         return Right(localUser);

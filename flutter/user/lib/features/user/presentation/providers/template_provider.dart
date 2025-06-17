@@ -30,7 +30,7 @@ class UserProvider extends ChangeNotifier {
       ),
       localDataSource: UserLocalDataSourceImpl(
         sharedPreferences: await SharedPreferences.getInstance(),
-      ),
+      ), // This is the local data source that will be used to cache the user data
       networkInfo: NetworkInfoImpl(
         DataConnectionChecker(),
       ),

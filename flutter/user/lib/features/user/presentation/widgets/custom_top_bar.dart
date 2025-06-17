@@ -33,21 +33,24 @@ class CustomTopBar extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     )),
                 Text(currentDate,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey[600],
+                      color: Colors.white,
                     )),
               ],
             ),
           ),
           IconButton(
             icon: const Icon(Icons.notifications_none),
+            color: Colors.white,
             onPressed: () {},
           ),
           IconButton(
             icon: const Icon(Icons.settings),
+            color: Colors.white,
             onPressed: () {},
           ),
         ],

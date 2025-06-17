@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../widgets/custom_top_bar.dart';
+
+final primaryColor = const Color(0xFF4F46E5); // Brand color
 
 List<Map<String, dynamic>> mockTrips = [
   {
@@ -64,7 +67,7 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 30),
       child: Row(
         children: [
           Expanded(
@@ -238,27 +241,45 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _buildSearchBar(),
-        TabBar(
-          controller: _tabController,
-          labelColor: Theme.of(context).primaryColor,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Theme.of(context).primaryColor,
-          tabs: tripCategories
-              .map((category) => Tab(text: '$category Trips'))
-              .toList(),
+    return Scaffold(
+    backgroundColor: Colors.white,
+    appBar: AppBar( // Move this OUT of body and into Scaffold
+      backgroundColor: primaryColor,
+      elevation: 0,
+      toolbarHeight: 75,
+      title: const CustomTopBar(
+        userName: 'John Doe',
+        profileImageUrl: 'https://example.com/profile.jpg',
+      ),
+    ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildSearchBar(),
+
+            // Tabs
+            TabBar(
+              controller: _tabController,
+              labelColor: Theme.of(context).primaryColor,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: Theme.of(context).primaryColor,
+              tabs: tripCategories
+                  .map((category) => Tab(text: '$category Trips'))
+                  .toList(),
+            ),
+
+            // Trip Lists
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: tripCategories
+                    .map((category) => _buildTripList(category))
+                    .toList(),
+              ),
+            ),
+          ],
         ),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: tripCategories
-                .map((category) => _buildTripList(category))
-                .toList(),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

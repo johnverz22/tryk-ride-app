@@ -9,6 +9,10 @@ class UserProvider with ChangeNotifier {
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
+  UserProvider() {
+      loadUserData();
+    }
+
   UserModel? get user => _user;
   String? get token => _token;
 
@@ -28,21 +32,21 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadUser() async {
+  Future<void> loadUserData() async {
+    final token = await _storage.read(key: 'token');
     final userJson = await _storage.read(key: 'user');
+
+    if (token != null) _token = token;
+
     if (userJson != null) {
       try {
-        final userMap = jsonDecode(userJson) as Map<String, dynamic>;
+        final userMap = jsonDecode(userJson);
         _user = UserModel.fromJson(json: userMap);
       } catch (e) {
         debugPrint('[UserProvider] Error decoding user: $e');
       }
     }
-    notifyListeners();
-  }
 
-  Future<void> loadToken() async {
-    _token = await _storage.read(key: 'token');
     notifyListeners();
   }
 

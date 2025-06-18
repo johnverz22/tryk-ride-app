@@ -20,6 +20,7 @@ class VehicleResource extends Resource
 {
     protected static ?string $model = Vehicle::class;
 
+    protected static ?string $navigationGroup = 'Vehicle';
     protected static ?int $navigationSort = 3;
     protected static ?string $navigationIcon = 'heroicon-o-truck';
     protected static ?string $navigationBadgeTooltip = 'Number of vehicles';

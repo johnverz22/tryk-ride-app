@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../widgets/custom_top_bar.dart';
+import '../../../widgets/custom_app_bar.dart';
 
 List<Map<String, dynamic>> mockTrips = [
   {
@@ -239,19 +239,10 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Colors.pink; // Brand color
 
     return Scaffold(
     backgroundColor: Colors.white,
-    appBar: AppBar( // Move this OUT of body and into Scaffold
-      backgroundColor: primaryColor,
-      elevation: 0,
-      toolbarHeight: 75,
-      title: const CustomTopBar(
-        userName: 'John Doe',
-        profileImageUrl: 'https://example.com/profile.jpg',
-      ),
-    ),
+    appBar: const CustomUserAppBar(),
       body: SafeArea(
         child: Column(
           children: [

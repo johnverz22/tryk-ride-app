@@ -1,29 +1,15 @@
 // wallet_screen.dart
 import 'package:flutter/material.dart';
-import '../../../widgets/custom_top_bar.dart';
+import '../../../widgets/custom_app_bar.dart';
 
 class WalletScreen extends StatelessWidget {
   const WalletScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Colors.pink; // Brand color
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: primaryColor,
-        elevation: 0,
-        toolbarHeight: 75,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            CustomTopBar(
-              userName: 'John Doe',
-              profileImageUrl: 'https://example.com/profile.jpg',
-            ),
-          ],
-        ),
-      ),
+      appBar: const CustomUserAppBar(),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

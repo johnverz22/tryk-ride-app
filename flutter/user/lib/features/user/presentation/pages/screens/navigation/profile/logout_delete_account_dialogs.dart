@@ -24,7 +24,7 @@ Future<void> showLogoutDialog(BuildContext context) async {
             onPressed: () async {
               Navigator.of(dialogContext).pop(); // Close the dialog
 
-              await authService.logout();
+              await authService.logout(context);
               await userProvider.logout();
 
               // Use outer `context`, which is still valid

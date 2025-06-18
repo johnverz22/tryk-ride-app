@@ -32,15 +32,15 @@ class UserModel extends UserEntity {
 
       factory UserModel.fromJson({required Map<String, dynamic> json}) {
         return UserModel(
-          id: json[kId]?.toString() ?? '',  // fallback to empty string if null
+          id: json[kId]?.toString() ?? '',
           fullName: json[kFullName] ?? '',
-          email: json[kEmail] ?? '',
-          phoneNumber: json[kPhoneNumber] ?? '',
-          profilePhotoUrl: json[kProfilePhotoUrl] as String?,  // already nullable
-          role: json[kRole] ?? '',
+          email: json[kEmail]?.toString() ?? '',
+          phoneNumber: json[kPhoneNumber] != null ? json[kPhoneNumber].toString() : '',
+          profilePhotoUrl: json[kProfilePhotoUrl] as String?,
+          role: json[kRole]?.toString() ?? '',
           isVerified: json[kIsVerified] ?? false,
           walletBalance: (json[kWalletBalance] as num?)?.toDouble() ?? 0.0,
-          defaultPaymentMethod: json[kDefaultPaymentMethod] as String?,  // already nullable
+          defaultPaymentMethod: json[kDefaultPaymentMethod] as String?,
           createdAt: json[kCreatedAt] != null
               ? DateTime.parse(json[kCreatedAt])
               : DateTime.now(),

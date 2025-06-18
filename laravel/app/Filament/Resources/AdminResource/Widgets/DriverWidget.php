@@ -12,11 +12,11 @@ class DriverWidget extends BaseWidget
     protected function getStats(): array
     {
         $statuses = [
-            'onboarding' => [
-                'label' => 'Onboarding',
-                'icon' => 'heroicon-o-folder-plus',
-                'color' => 'info',
-                'description' => 'Started signup, awaiting submission',
+            'approved' => [
+                'label' => 'Approved',
+                'icon' => 'heroicon-o-check-circle',
+                'color' => 'success',
+                'description' => 'Drivers ready for activation',
             ],
             'pending' => [
                 'label' => 'Pending',
@@ -24,23 +24,23 @@ class DriverWidget extends BaseWidget
                 'color' => 'warning',
                 'description' => 'New signups or reverifications',
             ],
-            'under_review' => [
-                'label' => 'Under Review',
-                'icon' => 'heroicon-o-eye',
-                'color' => 'gray',
-                'description' => 'Documents under manual review',
-            ],
-            'approved' => [
-                'label' => 'Approved',
-                'icon' => 'heroicon-o-check-circle',
-                'color' => 'success',
-                'description' => 'Drivers ready for activation',
-            ],
             'rejected' => [
                 'label' => 'Rejected',
                 'icon' => 'heroicon-o-x-circle',
                 'color' => 'danger',
                 'description' => 'Incomplete or invalid documents',
+            ],
+            'onboarding' => [
+                'label' => 'Onboarding',
+                'icon' => 'heroicon-o-folder-plus',
+                'color' => 'info',
+                'description' => 'Started signup, awaiting submission',
+            ],
+            'under_review' => [
+                'label' => 'Under Review',
+                'icon' => 'heroicon-o-eye',
+                'color' => 'gray',
+                'description' => 'Documents under manual review',
             ],
             'suspended' => [
                 'label' => 'Suspended',

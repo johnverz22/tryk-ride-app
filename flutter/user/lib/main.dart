@@ -19,7 +19,7 @@ class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
   Future<bool> checkLoggedIn(UserProvider userProvider) async {
-    await userProvider.loadToken();
+    await userProvider.loadUserData();
     return userProvider.token != null;
   }
 
@@ -53,11 +53,11 @@ class MainApp extends StatelessWidget {
               secondary: Colors.pinkAccent,
             ),
             textTheme: const TextTheme(
-              bodyLarge: TextStyle(color: Colors.white),
-              bodyMedium: TextStyle(color: Colors.white),
-              titleLarge: TextStyle(color: Colors.white),
-              headlineSmall: TextStyle(color: Colors.white),
-              labelLarge: TextStyle(color: Colors.white),
+              // bodyLarge: TextStyle(color: Colors.white),
+              // bodyMedium: TextStyle(color: Colors.white),
+              // titleLarge: TextStyle(color: Colors.white),
+              // headlineSmall: TextStyle(color: Colors.white),
+              // labelLarge: TextStyle(color: Colors.white),
             ),
           ),
           debugShowCheckedModeBanner: false,

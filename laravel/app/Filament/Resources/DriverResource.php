@@ -26,9 +26,11 @@ class DriverResource extends Resource
 {
     protected static ?string $model = Driver::class;
 
+    protected static ?string $navigationGroup = 'Users';
     protected static ?int $navigationSort = 2;
     protected static ?string $navigationIcon = 'heroicon-o-key';
     protected static ?string $navigationBadgeTooltip = 'Number of drivers';
+    // protected static ?string $navigationParentItem = 'Users';
 
     public static function getNavigationBadge(): ?string
     {
@@ -46,7 +48,9 @@ class DriverResource extends Resource
         return $form
             ->schema([
                 TextInput::make('name')->required(),
-                TextInput::make('email')->email()->required(),
+                TextInput::make('email')
+                    ->email()
+                    ->required(),
                 TextInput::make('phone')->tel(),
                 // TextInput::make('type'),
                 // TextInput::make('brand'),

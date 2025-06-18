@@ -1,13 +1,18 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:provider/provider.dart';
+import 'package:user/features/user/presentation/providers/user_provider.dart';
+
+import '../../features/user/data/models/user_model.dart';
 
 final storage = FlutterSecureStorage();
-const baseUrl = 'http://192.168.109.188:8000/api'; // Replace with your Laravel server IP
+const baseUrl = 'http://192.168.109.188:8000/api';
 
 class AuthService {
   // Register user
-  Future<bool> register(String name, String email, String password) async {
+  Future<bool> register(String name, String email, String password, BuildContext context) async {
     try {
       final res = await http.post(
         Uri.parse('$baseUrl/register'),
@@ -21,8 +26,19 @@ class AuthService {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        await storage.write(key: 'token', value: data['token']);
+        print('[DEBUG] Full API response: $data');
+        print('[DEBUG] User data: ${data['user']}');
+        
+        final user = UserModel.fromJson(json: data['user']);
+        final token = data['token'];
+
+        // Save to secure storage
+        await storage.write(key: 'token', value: token);
         await storage.write(key: 'user', value: jsonEncode(data['user']));
+
+        // ✅ Set in provider
+        Provider.of<UserProvider>(context, listen: false).setUser(user, token);
+
         print('[AuthService] Register success');
         return true;
       } else {
@@ -36,7 +52,7 @@ class AuthService {
   }
 
   // Login user
-  Future<bool> login(String email, String password) async {
+  Future<bool> login(String email, String password, BuildContext context) async {
     try {
       final res = await http.post(
         Uri.parse('$baseUrl/login'),
@@ -49,8 +65,17 @@ class AuthService {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        await storage.write(key: 'token', value: data['token']);
+        final user = UserModel.fromJson(json: data['user']);
+        print('[DEBUG] Raw user JSON: ${data['user']}');
+        final token = data['token'];
+
+        // Save to secure storage
+        await storage.write(key: 'token', value: token);
         await storage.write(key: 'user', value: jsonEncode(data['user']));
+
+        // ✅ Set in provider
+        Provider.of<UserProvider>(context, listen: false).setUser(user, token);
+
         print('[AuthService] Login success');
         return true;
       } else {
@@ -64,7 +89,7 @@ class AuthService {
   }
 
   // Logout user
-  Future<void> logout() async {
+  Future<void> logout(BuildContext context) async {
     try {
       final token = await getToken();
       if (token != null) {
@@ -82,6 +107,7 @@ class AuthService {
 
     await storage.delete(key: 'token');
     await storage.delete(key: 'user');
+    Provider.of<UserProvider>(context, listen: false).logout();
     print('[AuthService] Logged out');
   }
 
@@ -90,7 +116,7 @@ class AuthService {
     return await storage.read(key: 'token');
   }
 
-  // Get stored user info (as a Map)
+  // Get stored user
   Future<Map<String, dynamic>?> getUser() async {
     final userJson = await storage.read(key: 'user');
     if (userJson != null) {
@@ -99,7 +125,6 @@ class AuthService {
     return null;
   }
 
-  // Check if user is authenticated
   Future<bool> isLoggedIn() async {
     final token = await getToken();
     return token != null;

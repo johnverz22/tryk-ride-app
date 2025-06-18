@@ -37,9 +37,9 @@ class _AuthScreenState extends State<AuthScreen> {
     bool success = false;
     try {
       if (isLogin) {
-        success = await _authService.login(email, password);
+        success = await _authService.login(email, password, context);
       } else {
-        success = await _authService.register(name, email, password);
+        success = await _authService.register(name, email, password, context);
       }
     } catch (_) {
       setState(() {
@@ -166,8 +166,12 @@ class _AuthScreenState extends State<AuthScreen> {
                           icon: Icons.email,
                           inputType: TextInputType.emailAddress,
                           onSaved: (val) => email = val!.trim(),
-                          validator: (val) =>
-                              val!.isEmpty ? 'Enter a valid email' : null,
+                          validator: (val) {
+                            if (val == null || val.isEmpty) return 'Enter a valid email';
+                            final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+                            if (!emailRegex.hasMatch(val)) return 'Enter a valid email address';
+                            return null;
+                          }
                         ),
                         const SizedBox(height: 16),
 

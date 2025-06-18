@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -39,7 +40,7 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = $user->createToken('flutter_token')->plainTextToken;
+        $token = $user->createToken('tryk')->plainTextToken;
 
         return response()->json([
             'token' => $token,

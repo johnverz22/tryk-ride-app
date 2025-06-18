@@ -21,6 +21,7 @@ dependencies:
   data_connection_checker_tv: ^0.3.5-nullsafety
   http: ^1.4.0
   flutter_secure_storage: ^9.2.4
+  font_awesome_flutter: ^10.6.0
 
 dev_dependencies:
   flutter_test:

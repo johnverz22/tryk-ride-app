@@ -5,7 +5,14 @@ import 'features/user/presentation/pages/screens/auth/auth_screen.dart';
 import 'features/user/presentation/providers/user_provider.dart';
 
 void main() {
-  runApp(const MainApp(),);
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+      ],
+      child: const MainApp(),
+    ),
+  );
 }
 
 class MainApp extends StatelessWidget {
@@ -20,41 +27,48 @@ class MainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => UserProvider()),
-      ],
-      child: FutureBuilder<bool>(
-        future: checkLoggedIn(userProvider),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const MaterialApp(
-              home: Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              ),
-            );
-          }
-      
-          final loggedIn = snapshot.data ?? false;
-      
-          return MaterialApp(
-            title: 'Flutter Navigation Demo',
-            theme: ThemeData(
-              primaryColor: Colors.pink,
-              appBarTheme: const AppBarTheme(
-                backgroundColor: Colors.pink,
-                foregroundColor: Colors.white,
-                iconTheme: IconThemeData(color: Colors.white),
-              ),
-              colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.pink).copyWith(
-                secondary: Colors.pinkAccent,
-              ),
+    return FutureBuilder<bool>(
+      future: checkLoggedIn(userProvider),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const MaterialApp(
+            home: Scaffold(
+              body: Center(child: CircularProgressIndicator()),
             ),
-            debugShowCheckedModeBanner: false,
-            home: loggedIn ? const MainNavigationScreen() : const AuthScreen(),
           );
-        },
-      ),
+        }
+
+        final loggedIn = snapshot.data ?? false;
+
+        return MaterialApp(
+          title: 'Tryk',
+          theme: ThemeData(
+            primaryColor: Colors.pink,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.pink,
+              foregroundColor: Colors.white,
+              iconTheme: IconThemeData(color: Colors.white),
+            ),
+            colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.pink).copyWith(
+              secondary: Colors.pinkAccent,
+            ),
+            textTheme: const TextTheme(
+              bodyLarge: TextStyle(color: Colors.white),
+              bodyMedium: TextStyle(color: Colors.white),
+              titleLarge: TextStyle(color: Colors.white),
+              headlineSmall: TextStyle(color: Colors.white),
+              labelLarge: TextStyle(color: Colors.white),
+            ),
+          ),
+          debugShowCheckedModeBanner: false,
+          routes: {
+            '/home': (context) => const MainNavigationScreen(),
+            '/auth': (context) => const AuthScreen(),
+            // Add other routes as needed
+          },
+          home: loggedIn ? const MainNavigationScreen() : const AuthScreen(),
+        );
+      },
     );
   }
 }

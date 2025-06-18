@@ -30,24 +30,28 @@ class UserModel extends UserEntity {
           lastLoginAt: lastLoginAt,
         );
 
-  factory UserModel.fromJson({required Map<String, dynamic> json}) {
-    return UserModel(
-      id: json[kId] as String,
-      fullName: json[kFullName] as String,
-      email: json[kEmail] as String,
-      phoneNumber: json[kPhoneNumber] as String,
-      profilePhotoUrl: json[kProfilePhotoUrl] as String?,
-      role: json[kRole] as String,
-      isVerified: json[kIsVerified] as bool,
-      walletBalance: (json[kWalletBalance] as num).toDouble(),
-      defaultPaymentMethod: json[kDefaultPaymentMethod] as String?,
-      createdAt: DateTime.parse(json[kCreatedAt] as String),
-      updatedAt: DateTime.parse(json[kUpdatedAt] as String),
-      lastLoginAt: json[kLastLoginAt] != null
-          ? DateTime.parse(json[kLastLoginAt] as String)
-          : null,
-    );
-  }
+      factory UserModel.fromJson({required Map<String, dynamic> json}) {
+        return UserModel(
+          id: json[kId]?.toString() ?? '',  // fallback to empty string if null
+          fullName: json[kFullName] ?? '',
+          email: json[kEmail] ?? '',
+          phoneNumber: json[kPhoneNumber] ?? '',
+          profilePhotoUrl: json[kProfilePhotoUrl] as String?,  // already nullable
+          role: json[kRole] ?? '',
+          isVerified: json[kIsVerified] ?? false,
+          walletBalance: (json[kWalletBalance] as num?)?.toDouble() ?? 0.0,
+          defaultPaymentMethod: json[kDefaultPaymentMethod] as String?,  // already nullable
+          createdAt: json[kCreatedAt] != null
+              ? DateTime.parse(json[kCreatedAt])
+              : DateTime.now(),
+          updatedAt: json[kUpdatedAt] != null
+              ? DateTime.parse(json[kUpdatedAt])
+              : DateTime.now(),
+          lastLoginAt: json[kLastLoginAt] != null
+              ? DateTime.parse(json[kLastLoginAt])
+              : null,
+        );
+      }
 
   Map<String, dynamic> toJson() {
     return {

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class Driver extends Model
 {
@@ -24,12 +25,17 @@ class Driver extends Model
     protected static function booted()
     {
         static::addGlobalScope('driver', function (Builder $builder) {
-            $builder->where('role', '3'); // Adjust to your role logic
+            $builder->where('role_id', '3');
         });
     }
 
     public function vehicles()
     {
         return $this->hasMany(Vehicle::class, 'user_id');
+    }
+
+    public function profile()
+    {
+        return $this->hasOne(DriverProfile::class, 'user_id');
     }
 }

@@ -13,11 +13,26 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
-
+    protected static ?int $navigationSort = 1;
     protected static ?string $navigationIcon = 'heroicon-o-user-circle';
+    protected static ?string $navigationBadgeTooltip = 'Number of users';
+
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->where('role_id', '!=', 1);
+    }
 
     public static function form(Form $form): Form
     {
@@ -31,10 +46,29 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-                //
+                TextColumn::make('name')
+                    ->label('Full Name')
+                    ->searchable(true),
+                TextColumn::make('email')
+                    ->searchable(true),
+                TextColumn::make('email_verified_at')
+                    ->searchable(true),
+                TextColumn::make('phone')
+                    ->searchable(true),
+                TextColumn::make('phone_verified_at')
+                    ->searchable(true),
             ])
             ->filters([
-                //
+                SelectFilter::make('role_id')
+                    ->label('User Type')
+                    ->options([
+                        2 => 'User',
+                        3 => 'Driver',
+                    ])
+                    ->placeholder('All')
+                    ->searchable()
+                    ->multiple()
+                    ->preload(),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

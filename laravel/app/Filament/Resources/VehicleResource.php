@@ -20,8 +20,15 @@ class VehicleResource extends Resource
 {
     protected static ?string $model = Vehicle::class;
 
+    protected static ?int $navigationSort = 3;
     protected static ?string $navigationIcon = 'heroicon-o-truck';
+    protected static ?string $navigationBadgeTooltip = 'Number of vehicles';
 
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
+    
     public static function form(Form $form): Form
     {
         return $form

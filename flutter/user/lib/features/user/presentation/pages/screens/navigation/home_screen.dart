@@ -1,67 +1,91 @@
 import 'package:flutter/material.dart';
 import '../ride_booking_screen.dart';
-import '../../../widgets/custom_app_bar.dart';
+import '../../../widgets/widgets.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[50],
       appBar: const CustomUserAppBar(),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
-          const Text('Where are you going?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.my_location),
-              title: const Text('Current Location'),
-              subtitle: const Text('123 Main Street, San Francisco'),
-            ),
+          Text(
+            'Where are you going?',
+            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 8),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.location_on),
-              title: const Text('Enter destination'),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text('Saved Places', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Text('See All', style: TextStyle(color: Colors.pink)),
-            ],
+          const SizedBox(height: 20),
+          const LocationCard(
+            icon: Icons.my_location,
+            title: '123 Main Street, San Francisco',
+            subtitle: 'Current Location',
           ),
           const SizedBox(height: 12),
+          const LocationCard(
+            icon: Icons.location_on_outlined,
+            title: '123 Main Street, San Francisco',
+            subtitle: 'Enter destination',
+          ),
+          const SizedBox(height: 30),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Saved Places',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              GestureDetector(
+                onTap: () {},
+                child: Text(
+                  'See All',
+                  style: TextStyle(color: theme.colorScheme.primary),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           Wrap(
             spacing: 12,
             runSpacing: 12,
-            children: [
-              _buildPlaceChip('Home', Icons.home),
-              _buildPlaceChip('Work', Icons.work),
-              _buildPlaceChip('Favorite Cafe', Icons.local_cafe),
-              _buildPlaceChip('Mall', Icons.store),
+            children: const [
+              PlaceChip(label: 'Home', icon: Icons.home),
+              PlaceChip(label: 'Work', icon: Icons.work),
+              PlaceChip(label: 'Favorite Cafe', icon: Icons.local_cafe),
+              PlaceChip(label: 'Mall', icon: Icons.store),
             ],
           ),
-          const SizedBox(height: 24),
-          const Text('Recent Trips', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          ListTile(
-            leading: const Icon(Icons.history),
-            title: const Text('Golden Gate Park'),
-            subtitle: const Text('501 Stanyan St, San Francisco'),
+          const SizedBox(height: 30),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Recent Trips',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              GestureDetector(
+                onTap: () {},
+                child: Text(
+                  'See All',
+                  style: TextStyle(color: theme.colorScheme.primary),
+                ),
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.history),
-            title: const Text('Union Square'),
-            subtitle: const Text('333 Post St, San Francisco'),
+          const SizedBox(height: 16),
+          const RecentTripTile(
+            title: 'Golden Gate Park',
+            subtitle: '501 Stanyan St, San Francisco',
           ),
-          const SizedBox(height: 24),
+          const RecentTripTile(
+            title: 'Union Square',
+            subtitle: '333 Post St, San Francisco',
+          ),
+          const SizedBox(height: 30),
           ElevatedButton(
             onPressed: () {
               Navigator.push(
@@ -70,22 +94,18 @@ class HomeScreen extends StatelessWidget {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
-              minimumSize: const Size.fromHeight(50),
+              backgroundColor: theme.primaryColor,
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 3,
             ),
-            child: const Text('Search Rides', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Search Rides',
+              style: TextStyle(fontSize: 16, color: Colors.white),
+            ),
           ),
         ],
       ),
-    );
-  }
-
-  static Widget _buildPlaceChip(String label, IconData icon) {
-    return Chip(
-      avatar: Icon(icon, size: 20),
-      label: Text(label),
-      backgroundColor: Colors.grey.shade100,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     );
   }
 }

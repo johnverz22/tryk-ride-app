@@ -13,18 +13,24 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->integer('role_id')->nullable();
+            $table->string('name'); // maps to fullName in Dart
+            $table->unsignedBigInteger('role_id')->nullable();
             $table->string('email')->unique();
             $table->string('password');
             $table->string('phone')->unique()->nullable();
             $table->string('profile_picture')->nullable();
+            $table->boolean('is_verified')->default(false); // ✅ Add
+            $table->double('wallet_balance')->default(0);   // ✅ Add
+            $table->string('default_payment_method')->nullable(); // ✅ Add
+            $table->timestamp('last_login_at')->nullable(); // ✅ Add
             $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
+            $table->string('refresh_token', 512)->nullable();
             $table->timestamps();
-            
+
             $table->foreign('role_id')->references('id')->on('roles')->onDelete('cascade');
         });
+
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
             $table->string('email')->primary();

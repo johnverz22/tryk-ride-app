@@ -25,6 +25,12 @@ copy .env.example .env
 php artisan key:generate
 ```
 
+## Generate JWT Secret
+
+```
+php artisan jwt:secret
+```
+
 ## Create Tables by Migration
 
 ```

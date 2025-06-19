@@ -17,10 +17,11 @@ class _AuthScreenState extends State<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
   final AuthService _authService = AuthService();
 
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
   bool isLogin = true;
-  String name = '';
-  String email = '';
-  String password = '';
   bool loading = false;
   String? error;
 
@@ -32,7 +33,9 @@ class _AuthScreenState extends State<AuthScreen> {
       error = null;
     });
 
-    _formKey.currentState!.save();
+    final name = nameController.text.trim();
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
 
     bool success = false;
     try {
@@ -50,7 +53,6 @@ class _AuthScreenState extends State<AuthScreen> {
     }
 
     if (!mounted) return;
-
     setState(() => loading = false);
 
     if (success) {
@@ -77,13 +79,14 @@ class _AuthScreenState extends State<AuthScreen> {
     required String label,
     required IconData icon,
     bool obscure = false,
-    required FormFieldSetter<String> onSaved,
+    required TextEditingController controller,
     required FormFieldValidator<String> validator,
     TextInputType inputType = TextInputType.text,
   }) {
     final theme = Theme.of(context);
 
     return TextFormField(
+      controller: controller,
       decoration: InputDecoration(
         prefixIcon: Icon(icon, color: theme.primaryColor),
         labelText: label,
@@ -101,7 +104,6 @@ class _AuthScreenState extends State<AuthScreen> {
       cursorColor: theme.primaryColor,
       obscureText: obscure,
       keyboardType: inputType,
-      onSaved: onSaved,
       validator: validator,
     );
   }
@@ -113,7 +115,6 @@ class _AuthScreenState extends State<AuthScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Header background
           Container(
             height: 250,
             decoration: BoxDecoration(
@@ -124,7 +125,6 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ),
           ),
-
           Align(
             alignment: Alignment.center,
             child: SingleChildScrollView(
@@ -155,33 +155,33 @@ class _AuthScreenState extends State<AuthScreen> {
                           _buildTextField(
                             label: 'Name',
                             icon: Icons.person,
-                            onSaved: (val) => name = val!.trim(),
+                            controller: nameController,
                             validator: (val) =>
-                                val!.isEmpty ? 'Enter your name' : null,
+                                val == null || val.isEmpty ? 'Enter your name' : null,
                           ),
                         if (!isLogin) const SizedBox(height: 16),
 
                         _buildTextField(
                           label: 'Email',
                           icon: Icons.email,
+                          controller: emailController,
                           inputType: TextInputType.emailAddress,
-                          onSaved: (val) => email = val!.trim(),
                           validator: (val) {
                             if (val == null || val.isEmpty) return 'Enter a valid email';
                             final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
                             if (!emailRegex.hasMatch(val)) return 'Enter a valid email address';
                             return null;
-                          }
+                          },
                         ),
                         const SizedBox(height: 16),
 
                         _buildTextField(
                           label: 'Password',
                           icon: Icons.lock,
+                          controller: passwordController,
                           obscure: true,
-                          onSaved: (val) => password = val!.trim(),
                           validator: (val) =>
-                              val!.length < 6 ? 'Min 6 characters' : null,
+                              val == null || val.length < 6 ? 'Min 6 characters' : null,
                         ),
                         const SizedBox(height: 16),
 
@@ -217,8 +217,13 @@ class _AuthScreenState extends State<AuthScreen> {
                         const SizedBox(height: 12),
 
                         TextButton(
-                          onPressed: () =>
-                              setState(() => isLogin = !isLogin),
+                          onPressed: () {
+                            setState(() {
+                              isLogin = !isLogin;
+                              error = null;
+                              if (isLogin) nameController.clear(); // Optional
+                            });
+                          },
                           child: Text(
                             isLogin
                                 ? 'Don’t have an account? Register'
@@ -237,13 +242,12 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Google Button
                         ElevatedButton.icon(
                           onPressed: () => debugPrint('Google sign in'),
                           icon: const FaIcon(FontAwesomeIcons.google, color: Colors.white),
                           label: const Text('Continue with Google'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFDB4437), // Google red
+                            backgroundColor: const Color(0xFFDB4437),
                             foregroundColor: Colors.white,
                             minimumSize: const Size(double.infinity, 48),
                             shape: RoundedRectangleBorder(
@@ -253,7 +257,6 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Facebook Button
                         ElevatedButton.icon(
                           onPressed: () => debugPrint('Facebook sign in'),
                           icon: const FaIcon(FontAwesomeIcons.facebookF, color: Colors.white),
@@ -269,7 +272,6 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // X (Twitter) Button
                         ElevatedButton.icon(
                           onPressed: () => debugPrint('X sign in'),
                           icon: const FaIcon(FontAwesomeIcons.xTwitter, color: Colors.white),
@@ -293,5 +295,13 @@ class _AuthScreenState extends State<AuthScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
   }
 }

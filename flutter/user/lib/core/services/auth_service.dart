@@ -4,42 +4,38 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:user/features/user/presentation/providers/user_provider.dart';
-
 import '../../features/user/data/models/user_model.dart';
+import '../config/api_config.dart';
 
 final storage = FlutterSecureStorage();
-const baseUrl = 'http://192.168.109.188:8000/api';
+final baseUrl = ApiConfig.baseUrl;
 
 class AuthService {
+  final client = http.Client();
+
   // Register user
   Future<bool> register(String name, String email, String password, BuildContext context) async {
     try {
-      final res = await http.post(
+      final res = await client.post(
         Uri.parse('$baseUrl/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'name': name,
           'email': email,
           'password': password,
+          'role_id': 2,
         }),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        print('[DEBUG] Full API response: $data');
-        print('[DEBUG] User data: ${data['user']}');
-        
         final user = UserModel.fromJson(json: data['user']);
-        final token = data['token'];
+        final token = data['access_token'];
 
-        // Save to secure storage
         await storage.write(key: 'token', value: token);
         await storage.write(key: 'user', value: jsonEncode(data['user']));
 
-        // ✅ Set in provider
         Provider.of<UserProvider>(context, listen: false).setUser(user, token);
-
-        print('[AuthService] Register success');
         return true;
       } else {
         print('[AuthService] Register failed: ${res.body}');
@@ -54,29 +50,25 @@ class AuthService {
   // Login user
   Future<bool> login(String email, String password, BuildContext context) async {
     try {
-      final res = await http.post(
+      final res = await client.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': email,
           'password': password,
+          'role_id': 2,
         }),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
+        final token = data['access_token'];
         final user = UserModel.fromJson(json: data['user']);
-        print('[DEBUG] Raw user JSON: ${data['user']}');
-        final token = data['token'];
 
-        // Save to secure storage
         await storage.write(key: 'token', value: token);
         await storage.write(key: 'user', value: jsonEncode(data['user']));
 
-        // ✅ Set in provider
         Provider.of<UserProvider>(context, listen: false).setUser(user, token);
-
-        print('[AuthService] Login success');
         return true;
       } else {
         print('[AuthService] Login failed: ${res.body}');
@@ -88,12 +80,37 @@ class AuthService {
     }
   }
 
+  // Refresh access token
+  Future<bool> refreshToken(BuildContext context) async {
+    try {
+      final res = await client.post(
+        Uri.parse('$baseUrl/refresh'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final token = data['access_token'];
+
+        await storage.write(key: 'token', value: token);
+        print('[AuthService] Token refreshed');
+        return true;
+      } else {
+        print('[AuthService] Refresh failed: ${res.body}');
+        return false;
+      }
+    } catch (e) {
+      print('[AuthService] Refresh error: $e');
+      return false;
+    }
+  }
+
   // Logout user
   Future<void> logout(BuildContext context) async {
     try {
       final token = await getToken();
       if (token != null) {
-        await http.post(
+        await client.post(
           Uri.parse('$baseUrl/logout'),
           headers: {
             'Authorization': 'Bearer $token',
@@ -111,7 +128,7 @@ class AuthService {
     print('[AuthService] Logged out');
   }
 
-  // Get stored token
+  // Get access token
   Future<String?> getToken() async {
     return await storage.read(key: 'token');
   }
@@ -125,6 +142,7 @@ class AuthService {
     return null;
   }
 
+  // Check if logged in
   Future<bool> isLoggedIn() async {
     final token = await getToken();
     return token != null;

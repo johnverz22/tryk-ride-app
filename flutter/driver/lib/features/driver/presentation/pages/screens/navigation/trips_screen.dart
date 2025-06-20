@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../widgets/widgets.dart'; // Assumes CustomUserAppBar & TripSearchBar are here
+import 'package:provider/provider.dart';
+
+import '../../../widgets/widgets.dart';
+import '../../../providers/driver_provider.dart';
 
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});
@@ -205,11 +208,15 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    final driverProvider = Provider.of<DriverProvider>(context);
     final theme = Theme.of(context);
 
     return Scaffold(
+      appBar: CustomUserAppBar(
+        isOnline: driverProvider.isOnline,
+        onToggleOnline: (val) => driverProvider.setOnlineStatus(val),
+      ),
       backgroundColor: Colors.grey[100],
-      appBar: const CustomUserAppBar(title: "Your Trips"),
       body: Column(
         children: [
           TripSearchBar(

@@ -2,16 +2,22 @@ import 'package:flutter/material.dart';
 import '../../../widgets/widgets.dart';
 import 'earnings/withdraw_screen.dart';
 import 'earnings/earnings_history_screen.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/driver_provider.dart';
 
 class EarningsScreen extends StatelessWidget {
   const EarningsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final driverProvider = Provider.of<DriverProvider>(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: const CustomUserAppBar(title: 'Earnings Overview'),
+      appBar: CustomUserAppBar(
+        isOnline: driverProvider.isOnline,
+        onToggleOnline: (val) => driverProvider.setOnlineStatus(val),
+      ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         children: [

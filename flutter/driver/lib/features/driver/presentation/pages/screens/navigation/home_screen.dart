@@ -1,95 +1,63 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/widgets.dart';
+import 'package:provider/provider.dart';
+import '../../../widgets/widgets.dart'; // Make sure this includes CustomUserAppBar
+import '../../../providers/driver_provider.dart'; // Adjust the import path accordingly
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  bool isOnline = false;
-
-  void toggleAvailability() {
-    setState(() => isOnline = !isOnline);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final driverProvider = Provider.of<DriverProvider>(context);
 
     return Scaffold(
-      appBar: const CustomUserAppBar(), // Top bar: profile, settings
+      appBar: CustomUserAppBar(
+        isOnline: driverProvider.isOnline,
+        onToggleOnline: (val) => driverProvider.setOnlineStatus(val),
+      ),
       body: Stack(
         children: [
-          // 🔁 Placeholder for map (replace with GoogleMap widget)
+          // 🌍 Replace with GoogleMap in production
           Container(
+            width: double.infinity,
             height: double.infinity,
-            color: Colors.grey[300],
-            child: const Center(child: Text("📍 Real-time Map Placeholder")),
-          ),
-
-          // 🔁 Availability toggle (overlay on top of map)
-          Positioned(
-            top: 100,
-            left: 16,
-            right: 16,
-            child: Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              elevation: 4,
-              child: ListTile(
-                leading: Icon(
-                  isOnline ? Icons.toggle_on : Icons.toggle_off,
-                  size: 36,
-                  color: isOnline ? Colors.green : Colors.grey,
-                ),
-                title: Text(
-                  isOnline ? 'You’re Online' : 'You’re Offline',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-                ),
-                trailing: Switch(
-                  value: isOnline,
-                  onChanged: (_) => toggleAvailability(),
-                  activeColor: Colors.green,
-                ),
+            color: Colors.grey[200],
+            child: const Center(
+              child: Text(
+                "📍 Real-time Map Placeholder",
+                style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
             ),
           ),
 
-          // 🔁 Bottom summary (earnings, trips, time online)
+          // 📊 Summary Bottom Card
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black12,
                     blurRadius: 10,
-                    offset: const Offset(0, -2),
+                    offset: const Offset(0, -4),
                   ),
                 ],
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: const [
-                  SummaryTile(label: 'Earnings', value: '\$128.50'),
-                  SummaryTile(label: 'Trips', value: '8'),
-                  SummaryTile(label: 'Online', value: '4h 15m'),
+                  SummaryTile(icon: Icons.attach_money, label: 'Earnings', value: '\$128.50'),
+                  SummaryTile(icon: Icons.directions_car_filled, label: 'Trips', value: '8'),
+                  SummaryTile(icon: Icons.timer_outlined, label: 'Online', value: '4h 15m'),
                 ],
               ),
             ),
           ),
-
-          // 🔁 Incoming ride overlay (optional/conditional)
-          // Can be shown conditionally:
-          // if (incomingRequest) Positioned(...)
-
         ],
       ),
     );
@@ -97,11 +65,13 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class SummaryTile extends StatelessWidget {
+  final IconData icon;
   final String label;
   final String value;
 
   const SummaryTile({
     super.key,
+    required this.icon,
     required this.label,
     required this.value,
   });
@@ -112,11 +82,13 @@ class SummaryTile extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        Icon(icon, size: 26, color: theme.colorScheme.primary),
+        const SizedBox(height: 6),
         Text(
           value,
-          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 2),
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),

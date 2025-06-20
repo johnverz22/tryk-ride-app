@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../widgets/widgets.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/driver_provider.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -7,15 +9,18 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final driverProvider = Provider.of<DriverProvider>(context);
 
     return Scaffold(
-      appBar: const CustomUserAppBar(title: 'Dashboard'),
+      appBar: CustomUserAppBar(
+        isOnline: driverProvider.isOnline,
+        onToggleOnline: (val) => driverProvider.setOnlineStatus(val),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             // 🔹 Today’s Overview
             Text('Today’s Overview', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),

@@ -25,69 +25,59 @@ class ProfileScreen extends StatelessWidget {
     final photoUrl = user?.profilePhotoUrl;
 
     return Scaffold(
-      appBar: AppBar(
-        elevation: 0.5,
-        backgroundColor: theme.colorScheme.surface,
-        title: const Text('Profile', style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildProfileHeader(context, name, email, photoUrl),
-          const SizedBox(height: 32),
+      body: user == null
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildProfileHeader(context, name, email, photoUrl),
+                const SizedBox(height: 32),
 
-          _sectionCard(
-            title: 'Account Settings',
-            items: [
-              _buildNavTile(context, Icons.person_outline, 'Personal Information', const PersonalInfoScreen()),
-              _buildNavTile(context, Icons.notifications_outlined, 'Notifications Preferences', const NotificationsPreferencesScreen()),
-              _buildNavTile(context, Icons.payment_outlined, 'Payment Methods', const PaymentMethodsScreen()),
-              _buildNavTile(context, Icons.lock_outline, 'Privacy Settings', const PrivacySettingsScreen()),
-              _buildNavTile(context, Icons.language, 'Language Settings', const LanguageSettingsScreen()),
-            ],
-          ),
+                _sectionCard(
+                  title: 'Account Settings',
+                  items: [
+                    _buildNavTile(context, Icons.person_outline, 'Personal Information', const PersonalInfoScreen()),
+                    _buildNavTile(context, Icons.notifications_outlined, 'Notifications Preferences', const NotificationsPreferencesScreen()),
+                    _buildNavTile(context, Icons.payment_outlined, 'Payment Methods', const PaymentMethodsScreen()),
+                    _buildNavTile(context, Icons.lock_outline, 'Privacy Settings', const PrivacySettingsScreen()),
+                    _buildNavTile(context, Icons.language, 'Language Settings', const LanguageSettingsScreen()),
+                  ],
+                ),
 
-          const SizedBox(height: 24),
-          _sectionCard(
-            title: 'Trip Preferences',
-            items: [
-              _buildNavTile(context, Icons.star_border, 'Favorite Locations', const FavoriteLocationsScreen(), iconColor: Colors.green),
-              _buildNavTile(context, Icons.people_alt_outlined, 'Preferred Drivers', const PreferredDriversScreen(), iconColor: Colors.green),
-              _buildNavTile(context, Icons.directions_car, 'Vehicle Preferences', const VehiclePreferencesScreen(), iconColor: Colors.green),
-              _buildNavTile(context, Icons.accessibility_new, 'Special Requirements', const SpecialRequirementsScreen(), iconColor: Colors.green),
-            ],
-          ),
+                const SizedBox(height: 24),
+                _sectionCard(
+                  title: 'Trip Preferences',
+                  items: [
+                    _buildNavTile(context, Icons.star_border, 'Favorite Locations', const FavoriteLocationsScreen()),
+                    _buildNavTile(context, Icons.people_alt_outlined, 'Preferred Drivers', const PreferredDriversScreen()),
+                    _buildNavTile(context, Icons.directions_car, 'Vehicle Preferences', const VehiclePreferencesScreen()),
+                    _buildNavTile(context, Icons.accessibility_new, 'Special Requirements', const SpecialRequirementsScreen()),
+                  ],
+                ),
 
-          const SizedBox(height: 24),
-          _sectionCard(
-            title: 'Security',
-            items: [
-              _buildActionButton(
-                context,
-                label: 'Logout',
-                icon: Icons.logout,
-                color: theme.colorScheme.primary,
-                onPressed: () => showLogoutDialog(context),
-              ),
-              const SizedBox(height: 12),
-              _buildActionButton(
-                context,
-                label: 'Delete Account',
-                icon: Icons.delete_forever,
-                color: Colors.red,
-                onPressed: () => showDeleteAccountDialog(context),
-              ),
-            ],
-          ),
-        ],
-      ),
+                const SizedBox(height: 24),
+                _sectionCard(
+                  title: 'Security',
+                  items: [
+                    _buildActionButton(
+                      context,
+                      label: 'Logout',
+                      icon: Icons.logout,
+                      color: theme.colorScheme.primary,
+                      onPressed: () => showLogoutDialog(context),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionButton(
+                      context,
+                      label: 'Delete Account',
+                      icon: Icons.delete_forever,
+                      color: Colors.red,
+                      onPressed: () => showDeleteAccountDialog(context),
+                    ),
+                  ],
+                ),
+              ],
+            ),
     );
   }
 
@@ -102,17 +92,30 @@ class ProfileScreen extends StatelessWidget {
                 : const AssetImage('assets/profile.jpg') as ImageProvider,
           ),
           const SizedBox(height: 12),
-          Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+          Text(
+            name,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 4),
-          Text(email, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+          Text(
+            email,
+            style: const TextStyle(fontSize: 14, color: Colors.grey),
+          ),
           const SizedBox(height: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
               color: Colors.amber.shade100,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Text('Premium Member', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+            child: const Text(
+              'Premium Member',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF9C6E00),
+              ),
+            ),
           ),
         ],
       ),
@@ -149,8 +152,13 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButton(BuildContext context,
-      {required String label, required IconData icon, required Color color, required VoidCallback onPressed}) {
+  Widget _buildActionButton(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(

@@ -33,7 +33,7 @@ class DashboardScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: const [
                     TripStatTile(label: 'Trips', value: '7'),
-                    TripStatTile(label: 'Earnings', value: '\$89.50'),
+                    TripStatTile(label: 'Earnings', value: '₱89.50'),
                     TripStatTile(label: 'Online', value: '4h 32m'),
                   ],
                 ),

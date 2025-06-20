@@ -22,6 +22,7 @@ class User extends Authenticatable implements FilamentUser, JWTSubject
         'phone',
         'profile_picture',
         'refresh_token', // ✅ Add this to store refresh token hash
+        'location',
     ];
 
     protected $hidden = [

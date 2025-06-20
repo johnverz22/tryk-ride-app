@@ -16,10 +16,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _pages = const [
-    HomeScreen(),       // Real-time map + overlays
-    TripsScreen(),      // Trip history screen
-    EarningsScreen(),   // Day/week/month earnings summary
-    DashboardScreen(),  // Profile, settings, documents
+    HomeScreen(),
+    TripsScreen(),
+    EarningsScreen(),
+    DashboardScreen(),
     ProfileScreen(),
   ];
 

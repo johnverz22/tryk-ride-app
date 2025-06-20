@@ -6,7 +6,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use App\Models\DriverStatus;
+use App\Models\DriverProfile;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use Illuminate\Validation\ValidationException;
@@ -19,8 +22,11 @@ class AuthController extends Controller
             'name'     => 'required|string',
             'email'    => 'required|email|unique:users',
             'password' => 'required|min:8',
-            'role_id'  => 'required|in:2,3', // Only user or driver
+            'role_id'  => 'required|in:2,3',
         ])->validate();
+
+        
+        DB::beginTransaction();
 
         $user = User::create([
             'name'     => $validated['name'],
@@ -28,11 +34,23 @@ class AuthController extends Controller
             'password' => Hash::make($validated['password']),
             'role_id'  => $validated['role_id'],
         ]);
+        
+        // If driver, create driver profile with "pending" status
+        if ($user->role_id === 3) {
+            $pendingStatus = DriverStatus::where('name', 'pending')->firstOrFail()->id;
+
+            DriverProfile::create([
+                'user_id' => $user->id,
+                'driver_status_id' => $pendingStatus,
+            ]);
+        }
 
         $accessToken = JWTAuth::fromUser($user);
         $refreshToken = Str::random(64);
         $user->refresh_token = Hash::make($refreshToken);
         $user->save();
+
+        DB::commit();
 
         return response()
             ->json(['access_token' => $accessToken, 'user' => $user])

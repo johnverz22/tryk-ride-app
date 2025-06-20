@@ -43,7 +43,7 @@ class TransactionItem extends StatelessWidget {
         title: Text(title),
         subtitle: Text('$dateFormatted • $subtitle'),
         trailing: Text(
-          '${isPositive ? '+' : '-'}\$${amount.toStringAsFixed(2)}',
+          '${isPositive ? '+' : '-'}\₱${amount.toStringAsFixed(2)}',
           style: TextStyle(
             color: isPositive ? Colors.green : Colors.red,
             fontWeight: FontWeight.bold,

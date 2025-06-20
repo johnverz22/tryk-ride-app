@@ -6,7 +6,7 @@ class EarningsHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormatter = NumberFormat.simpleCurrency();
+    final currencyFormatter = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
 
     final List<Map<String, dynamic>> historyData = [
       {

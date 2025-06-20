@@ -116,7 +116,7 @@ class EarningsScreen extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                   ),
                   Text(
-                    '\$328.75 • Monday',
+                    '₱328.75 • Monday',
                     style: TextStyle(
                       fontWeight: FontWeight.w500,
                       color: Colors.deepPurple,

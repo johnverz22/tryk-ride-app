@@ -10,7 +10,7 @@ class DriverStatus extends Model
     protected $table = 'driver_statuses';
 
     protected $fillable = [
-        'status', // e.g., 'Pending', 'Approved', 'Rejected'
+        'name',
     ];
 
     /**

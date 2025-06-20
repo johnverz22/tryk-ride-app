@@ -16,7 +16,7 @@ class EarningsSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final currencyFormatter = NumberFormat.simpleCurrency();
+    final currencyFormatter = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),

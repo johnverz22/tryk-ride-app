@@ -23,7 +23,7 @@ class AuthService {
           'name': name,
           'email': email,
           'password': password,
-          'role_id': 2, // driver
+          'role_id': 3,
         }),
       );
 

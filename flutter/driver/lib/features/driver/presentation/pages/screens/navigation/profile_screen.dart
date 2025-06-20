@@ -20,15 +20,6 @@ class ProfileScreen extends StatelessWidget {
     final driver = Provider.of<DriverProvider>(context).driver;
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: theme.colorScheme.surface,
-        elevation: 0.5,
-        title: const Text(
-          'Driver Profile',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-      ),
       body: driver == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -89,7 +80,7 @@ class ProfileScreen extends StatelessWidget {
             radius: 44,
             backgroundImage: driver.profilePhotoUrl != null
                 ? NetworkImage(driver.profilePhotoUrl!)
-                : const AssetImage('assets/driver_avatar.jpg') as ImageProvider,
+                : const AssetImage('assets/images/profile.jpg') as ImageProvider,
           ),
           const SizedBox(height: 12),
           Text(

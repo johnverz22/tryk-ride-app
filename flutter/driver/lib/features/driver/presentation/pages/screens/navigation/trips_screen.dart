@@ -178,7 +178,7 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
                       Text(trip['payment'], style: const TextStyle(fontSize: 13)),
                       const Spacer(),
                       Text(
-                        '\$${trip['price'].toStringAsFixed(2)}',
+                        '₱${trip['price'].toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

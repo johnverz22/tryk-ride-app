@@ -39,9 +39,9 @@ class DriverResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['profile.status', 'vehicles']);
+        // return parent::getEloquentQuery()->with(['profile.status', 'vehicles']);
+        return parent::getEloquentQuery()->with(['profile.status']);
     }
-
 
     public static function form(Form $form): Form
     {
@@ -58,13 +58,15 @@ class DriverResource extends Resource
                 // TextInput::make('license_plate'),
                 // TextInput::make('registration_number'),
 
-                Select::make('profile.driver_status_id')
+                Select::make('driver_status_id')
                     ->label('Driver Status')
-                    ->relationship('profile.status', 'label')
                     ->options(DriverStatus::all()->pluck('label', 'id'))
+                    ->afterStateHydrated(function (Forms\Components\Select $component, $state, $record) {
+                        $component->state($record->profile?->driver_status_id);
+                    })
+                    ->required()
                     ->searchable()
-                    ->preload()
-                    ->required(),
+                    ->preload(),
             ]);
     }
 
@@ -126,10 +128,32 @@ class DriverResource extends Resource
                     ->searchable()
                     ->multiple()
                     ->preload()
-    ->selectablePlaceholder(false),
+                    ->selectablePlaceholder(false),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()
+                    ->form([
+                        TextInput::make('name')->required(),
+                        TextInput::make('email')->email()->required(),
+                        TextInput::make('phone')->tel(),
+
+                        Select::make('driver_status_id')
+                            ->label('Driver Status')
+                            ->options(DriverStatus::all()->pluck('label', 'id'))
+                            ->afterStateHydrated(function ($component, $state, $record) {
+                                $component->state($record->profile?->driver_status_id);
+                            })
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                    ])
+                            ->after(function ($record, array $data) {
+                                    if (isset($data['driver_status_id']) && $record->profile) {
+                                        $record->profile->update([
+                                            'driver_status_id' => $data['driver_status_id'],
+                                        ]);
+                                    }
+                                }),
                 Tables\Actions\DeleteAction::make(),
             ])
             ->bulkActions([

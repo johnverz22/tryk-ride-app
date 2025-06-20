@@ -18,5 +18,6 @@ export 'section_title.dart';
 export 'transaction_item.dart';
 export 'analytics_placeholder.dart';
 export 'trip_stat_tile.dart';
+export 'section_header_with_see_all.dart';
 
 // Profile Screen

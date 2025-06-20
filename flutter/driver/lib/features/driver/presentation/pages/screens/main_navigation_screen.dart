@@ -3,6 +3,7 @@ import '../screens/navigation/home_screen.dart';
 import '../screens/navigation/trips_screen.dart';
 import '../screens/navigation/earnings_screen.dart';
 import '../screens/navigation/dashboard_screen.dart';
+import '../screens/navigation/profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -19,6 +20,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     TripsScreen(),      // Trip history screen
     EarningsScreen(),   // Day/week/month earnings summary
     DashboardScreen(),  // Profile, settings, documents
+    ProfileScreen(),
   ];
 
   final List<BottomNavigationBarItem> _navItems = const [
@@ -37,6 +39,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     BottomNavigationBarItem(
       icon: Icon(Icons.dashboard_customize),
       label: 'Dashboard',
+    ),
+    BottomNavigationBarItem(
+      icon: Icon(Icons.person),
+      label: 'Profile',
     ),
   ];
 

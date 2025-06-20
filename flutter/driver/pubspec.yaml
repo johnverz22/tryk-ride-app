@@ -9,7 +9,20 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  dio: ^5.8.0
+  shared_preferences: ^2.5.3
+  provider: ^6.1.5
+  path_provider: ^2.1.5
+  cupertino_icons: ^1.0.8
+  google_maps_flutter: ^2.6.0
+  intl: ^0.18.1
+  dartz: ^0.10.1
   flutter_riverpod: ^2.5.1
+  data_connection_checker_tv: ^0.3.5-nullsafety
+  http: ^1.4.0
+  flutter_secure_storage: ^9.2.4
+  font_awesome_flutter: ^10.6.0
+  dotted_border: ^2.0.0
 
 dev_dependencies:
   flutter_test:

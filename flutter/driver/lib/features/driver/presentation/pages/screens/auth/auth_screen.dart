@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:driver/features/driver/data/models/driver_model.dart';
-import 'package:driver/features/driver/presentation/pages/screens/main_navigation_screen.dart';
+import 'package:driver/features/skeleton/widgets/main_navigation.dart';
 import '../../../../../../core/services/auth_service.dart';
 import '../../../providers/driver_provider.dart';
 
@@ -65,7 +65,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+          MaterialPageRoute(builder: (_) => const MainNavigation()),
         );
       } else {
         setState(() => error = 'Could not load user data.');

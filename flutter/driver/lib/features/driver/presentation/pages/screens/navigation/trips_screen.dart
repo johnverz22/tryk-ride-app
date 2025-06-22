@@ -207,10 +207,7 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: const CustomUserAppBar(title: "Your Trips"),
-      body: Column(
+    return Column(
         children: [
           TripSearchBar(
             onChanged: (value) => setState(() => searchQuery = value),
@@ -234,7 +231,6 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
             ),
           ),
         ],
-      ),
     );
   }
 }

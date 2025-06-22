@@ -6,9 +6,7 @@ class EarningsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: const CustomUserAppBar(),
-      body: ListView(
+    return ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // 🔹 Weekly Earnings Summary
@@ -85,7 +83,6 @@ class EarningsScreen extends StatelessWidget {
 
           const SizedBox(height: 80),
         ],
-      ),
     );
   }
 }

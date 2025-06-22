@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/driver_provider.dart';
+import '../../../../features/driver/presentation/providers/driver_provider.dart';
 import 'custom_top_bar.dart';
 
 class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -13,7 +13,7 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = Provider.of<DriverProvider>(context).driver;
+    // final user = Provider.of<DriverProvider>(context).driver;
 
     return AppBar(
       backgroundColor: Colors.transparent,
@@ -28,17 +28,21 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       elevation: 0,
       toolbarHeight: preferredSize.height,
-      title: user != null
-          ? CustomTopBar(
-              userName: user.fullName,
-              profileImageUrl: user.profilePhotoUrl?.isNotEmpty == true
-                  ? user.profilePhotoUrl!
-                  : '',
-            )
-          : Text(
-              title ?? '',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
+      // title: user != null
+      //     ? CustomTopBar(
+      //         userName: user.fullName,
+      //         profileImageUrl: user.profilePhotoUrl?.isNotEmpty == true
+      //             ? user.profilePhotoUrl!
+      //             : '',
+      //       )
+      //     : Text(
+      //         title ?? '',
+      //         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+      //       ),
+      title: CustomTopBar(
+        userName: title ?? 'User',
+        profileImageUrl: '',
+      ),
     );
   }
 }

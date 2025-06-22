@@ -1,74 +1,62 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'features/driver/presentation/pages/screens/main_navigation_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'features/skeleton/skeleton.dart';
+// import 'features/skeleton/providers/selected_page_provider.dart';
 import 'features/driver/presentation/pages/screens/auth/auth_screen.dart';
 import 'features/driver/presentation/providers/driver_provider.dart';
 
 void main() {
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => DriverProvider()),
-      ],
-      child: const MainApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: MainApp()));
 }
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
-  Future<bool> checkLoggedIn(DriverProvider driverProvider) async {
-    await driverProvider.loadDriverData();
-    return driverProvider.token != null;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final driverProvider = Provider.of<DriverProvider>(context, listen: false);
+    return const Home();
+  }
+}
 
-    return FutureBuilder<bool>(
-      future: checkLoggedIn(driverProvider),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const MaterialApp(
-            home: Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            ),
-          );
-        }
+class Home extends ConsumerWidget {
+  const Home({super.key});
 
-        final loggedIn = snapshot.data ?? false;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final driverState = ref.watch(driverProvider);
 
-        return MaterialApp(
-          title: 'Tryk',
-          theme: ThemeData(
-            primaryColor: Colors.pink,
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Colors.pink,
-              foregroundColor: Colors.white,
-              iconTheme: IconThemeData(color: Colors.white),
-            ),
-            colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.pink).copyWith(
-              secondary: Colors.pinkAccent,
-            ),
-            textTheme: const TextTheme(
-              // bodyLarge: TextStyle(color: Colors.white),
-              // bodyMedium: TextStyle(color: Colors.white),
-              // titleLarge: TextStyle(color: Colors.white),
-              // headlineSmall: TextStyle(color: Colors.white),
-              // labelLarge: TextStyle(color: Colors.white),
-            ),
-          ),
-          debugShowCheckedModeBanner: false,
-          routes: {
-            '/home': (context) => const MainNavigationScreen(),
-            '/auth': (context) => const AuthScreen(),
-            // Add other routes as needed
-          },
-          home: loggedIn ? const MainNavigationScreen() : const AuthScreen(),
-        );
+    // Show loading indicator while driver data is being loaded
+    if (driverState.isLoading) {
+      return const MaterialApp(
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    // final loggedIn = driverState.isAuthenticated;
+
+    return MaterialApp(
+      title: 'Tryk',
+      theme: ThemeData(
+        primaryColor: Colors.pink,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.pink,
+          foregroundColor: Colors.white,
+          iconTheme: IconThemeData(color: Colors.white),
+        ),
+        colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.pink).copyWith(
+          secondary: Colors.pinkAccent,
+        ),
+      ),
+      debugShowCheckedModeBanner: false,
+      routes: {
+        '/home': (context) => const Skeleton(),
+        '/auth': (context) => const AuthScreen(),
+        // Add other routes as needed
       },
+      // home: loggedIn ? const Skeleton() : const AuthScreen(),
+      home: const Skeleton(),
     );
   }
 }

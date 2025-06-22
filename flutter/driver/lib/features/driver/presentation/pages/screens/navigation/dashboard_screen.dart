@@ -6,9 +6,7 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: const CustomUserAppBar(),
-      body: SingleChildScrollView(
+    return SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,7 +88,6 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 40),
           ],
         ),
-      ),
     );
   }
 }

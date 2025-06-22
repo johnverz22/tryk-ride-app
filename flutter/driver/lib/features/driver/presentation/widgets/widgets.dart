@@ -1,5 +1,5 @@
-export 'custom_app_bar.dart';
-export 'custom_bottom_navigation.dart';
+export '../../../skeleton/widgets/custom_app_bar.dart';
+export '../../../skeleton/widgets/bottom_navigation_widget.dart';
 
 // Home Screen
 export 'location_card.dart';

@@ -12,5 +12,3 @@ Data: Internal & external data, Api
     - datasources
     - models
     - repositories
-
-Api Used: https://pokeapi.co/

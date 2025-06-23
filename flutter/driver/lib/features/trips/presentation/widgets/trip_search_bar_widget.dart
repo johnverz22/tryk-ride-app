@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter/material.dart';
+
 class TripSearchBar extends StatelessWidget {
   final ValueChanged<String> onChanged;
-  final VoidCallback onFilterPressed;
 
   const TripSearchBar({
     super.key,
     required this.onChanged,
-    required this.onFilterPressed,
   });
 
   @override
@@ -40,7 +40,9 @@ class TripSearchBar extends StatelessWidget {
             color: theme.primaryColor,
             borderRadius: BorderRadius.circular(12),
             child: InkWell(
-              onTap: onFilterPressed,
+              onTap: () {
+                //TODO: Implement filter functionality
+              },
               borderRadius: BorderRadius.circular(12),
               child: const Padding(
                 padding: EdgeInsets.all(12),

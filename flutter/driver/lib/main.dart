@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'features/skeleton/skeleton.dart';
 // import 'features/skeleton/providers/selected_page_provider.dart';
@@ -24,10 +25,11 @@ class Home extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final driverState = ref.watch(driverProvider);
-
+    debugPaintSizeEnabled = true;
     // Show loading indicator while driver data is being loaded
     if (driverState.isLoading) {
       return const MaterialApp(
+        debugShowCheckedModeBanner: false,
         home: Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),

@@ -1,6 +1,6 @@
+import 'package:driver/features/trips/presentation/widgets/trip_screen_widgets.dart'; // Assumes CustomUserAppBar & TripSearchBar are here
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../widgets/widgets.dart'; // Assumes CustomUserAppBar & TripSearchBar are here
 
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});
@@ -211,9 +211,6 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
         children: [
           TripSearchBar(
             onChanged: (value) => setState(() => searchQuery = value),
-            onFilterPressed: () {
-              // TODO: Add filter modal or sort feature
-            },
           ),
           TabBar(
             controller: _tabController,

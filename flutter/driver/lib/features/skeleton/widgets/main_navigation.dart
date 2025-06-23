@@ -48,6 +48,9 @@ class MainNavigation extends ConsumerWidget {
       selectedIconTheme: IconThemeData(
         color: Theme.of(context).primaryColor, // Selected icon color
       ),
+      showSelectedLabels: false,
+      showUnselectedLabels: true,
+      unselectedItemColor: Colors.black54,
     );
   }
 }

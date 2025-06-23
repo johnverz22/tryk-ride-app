@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../widgets/widgets.dart'; // Make sure this includes CustomUserAppBar
 import '../../../providers/driver_provider.dart'; // Adjust the import path accordingly
 
 class HomeScreen extends ConsumerWidget {

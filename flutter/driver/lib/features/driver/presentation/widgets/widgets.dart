@@ -1,6 +1,4 @@
 export '../../../skeleton/widgets/custom_app_bar.dart';
-export '../../../skeleton/widgets/bottom_navigation_widget.dart';
-
 // Home Screen
 export 'location_card.dart';
 export 'place_chip.dart';

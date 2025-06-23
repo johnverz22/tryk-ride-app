@@ -36,7 +36,7 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
             radius: 22,
             backgroundImage: profilePhoto.isNotEmpty
                 ? NetworkImage(profilePhoto)
-                : const AssetImage('assets/images/default_avatar.png') as ImageProvider,
+                : AssetImage('assets/images/default_avatar.png'),
           ),
           const SizedBox(width: 10),
           Expanded(

@@ -13,18 +13,22 @@ class MainNavigation extends ConsumerWidget {
       BottomNavigationBarItem(
         icon: Icon(Icons.map),
         label: 'Home',      // Real-time map + overlays
+      activeIcon: Icon(Icons.map, size: 35,)
       ),
       BottomNavigationBarItem(
         icon: Icon(Icons.history),
         label: 'Trips',     // Trip history screen
+      activeIcon: Icon(Icons.history, size: 35,)
       ),
       BottomNavigationBarItem(
         icon: Icon(Icons.attach_money),
         label: 'Earnings',  // Day/week/month earnings summary
+      activeIcon: Icon(Icons.attach_money, size: 35,)
       ),
       BottomNavigationBarItem(
         icon: Icon(Icons.dashboard_customize),
         label: 'Dashboard', // Profile, settings, documents
+        activeIcon: Icon(Icons.dashboard_customize, size: 35,)
       ),
     ];
 

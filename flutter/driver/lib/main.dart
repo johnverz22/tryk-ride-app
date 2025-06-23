@@ -25,7 +25,7 @@ class Home extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final driverState = ref.watch(driverProvider);
-    debugPaintSizeEnabled = true;
+    debugPaintSizeEnabled = false;
     // Show loading indicator while driver data is being loaded
     if (driverState.isLoading) {
       return const MaterialApp(

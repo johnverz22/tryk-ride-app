@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class EarningsSummaryCard extends StatelessWidget {
-  final double amount;
-  final String timePeriod; // e.g. "This Week", "June", "Today"
+  const EarningsSummaryCard({super.key});
 
-  const EarningsSummaryCard({
-    super.key,
-    required this.amount,
-    required this.timePeriod,
-  });
+  final double amount = 328.75; // Default amount if not provided
+  final String timePeriod = "This week"; // e.g. "This Week", "June", "Today"
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final currency = NumberFormat.currency(symbol: '\$');
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -26,7 +24,9 @@ class EarningsSummaryCard extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.withOpacity(0.2),
+            color: Colors.purple.withValues(
+              alpha: 0.2,
+            ),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -44,7 +44,7 @@ class EarningsSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '\$${amount.toStringAsFixed(2)}',
+            currency.format(amount),
             style: theme.textTheme.headlineMedium?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.bold,

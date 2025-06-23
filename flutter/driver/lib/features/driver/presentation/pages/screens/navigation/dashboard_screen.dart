@@ -1,5 +1,5 @@
+import 'package:driver/features/earnings/presentation/widgets/earnings_widgets.dart';
 import 'package:flutter/material.dart';
-import '../../../widgets/widgets.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});

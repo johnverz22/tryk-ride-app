@@ -1,5 +1,4 @@
 import 'package:driver/features/driver/presentation/pages/screens/navigation/trips_screen.dart';
-import 'package:driver/features/driver/presentation/pages/screens/trip_screen_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/selected_page_provider.dart';
@@ -15,10 +14,9 @@ class Skeleton extends ConsumerWidget {
   // List of pages to be displayed in the skeleton
   static const List<Widget> pages = [
     HomeScreen(),
-    TripsScreen(),
-    // TripScreenUi(),
-    EarningsScreen(),
-    DashboardScreen(),
+    TripsScreen(),//done
+    EarningsScreen(),//on ogoing
+    DashboardScreen(),//not started
   ];
 
   @override

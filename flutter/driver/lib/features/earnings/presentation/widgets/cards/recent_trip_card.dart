@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-class TransactionItem extends StatelessWidget {
+class RecentTripCard extends StatelessWidget {
   final String title;
   final String subtitle; // e.g., "Wallet • Completed"
   final double amount;
   final DateTime date;
   final VoidCallback? onTap;
 
-  const TransactionItem({
+  const RecentTripCard({
     super.key,
     required this.title,
     required this.subtitle,

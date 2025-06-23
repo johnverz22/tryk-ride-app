@@ -23,17 +23,17 @@ class AuthService {
           'name': name,
           'email': email,
           'password': password,
-          'role_id': 3,
+          'role_id': 3, // Or 3 for drivers
         }),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
+        final token = data['token']; // Sanctum key
         final driver = DriverModel.fromJson(json: data['user']);
-        final token = data['access_token'];
 
         await storage.write(key: 'token', value: token);
-        await storage.write(key: 'driver', value: jsonEncode(data['user']));
+        await storage.write(key: 'user', value: jsonEncode(data['user']));
 
         Provider.of<DriverProvider>(context, listen: false).setDriver(driver, token);
         return true;
@@ -56,17 +56,16 @@ class AuthService {
         body: jsonEncode({
           'email': email,
           'password': password,
-          'role_id': 2,
         }),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        final token = data['access_token'];
+        final token = data['token']; // Sanctum key
         final driver = DriverModel.fromJson(json: data['user']);
 
         await storage.write(key: 'token', value: token);
-        await storage.write(key: 'driver', value: jsonEncode(data['user']));
+        await storage.write(key: 'user', value: jsonEncode(data['user']));
 
         Provider.of<DriverProvider>(context, listen: false).setDriver(driver, token);
         return true;
@@ -76,31 +75,6 @@ class AuthService {
       }
     } catch (e) {
       print('[AuthService] Network error (login): $e');
-      return false;
-    }
-  }
-
-  // Refresh access token
-  Future<bool> refreshToken(BuildContext context) async {
-    try {
-      final res = await client.post(
-        Uri.parse('$baseUrl/refresh'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final token = data['access_token'];
-
-        await storage.write(key: 'token', value: token);
-        print('[AuthService] Token refreshed');
-        return true;
-      } else {
-        print('[AuthService] Refresh failed: ${res.body}');
-        return false;
-      }
-    } catch (e) {
-      print('[AuthService] Refresh error: $e');
       return false;
     }
   }
@@ -123,7 +97,7 @@ class AuthService {
     }
 
     await storage.delete(key: 'token');
-    await storage.delete(key: 'driver');
+    await storage.delete(key: 'user');
     Provider.of<DriverProvider>(context, listen: false).logout();
     print('[AuthService] Logged out');
   }
@@ -135,7 +109,7 @@ class AuthService {
 
   // Get stored driver
   Future<Map<String, dynamic>?> getDriver() async {
-    final driverJson = await storage.read(key: 'driver');
+    final driverJson = await storage.read(key: 'user');
     if (driverJson != null) {
       return jsonDecode(driverJson);
     }

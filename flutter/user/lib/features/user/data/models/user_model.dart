@@ -6,9 +6,9 @@ class UserModel extends UserEntity {
 
   const UserModel({
     required String id,
-    required String fullName,
+    required String name,
     required String email,
-    required String phoneNumber,
+    required String phone,
     String? profilePhotoUrl,
     required String role,
     required bool isVerified,
@@ -20,9 +20,9 @@ class UserModel extends UserEntity {
     this.location,
   }) : super(
           id: id,
-          fullName: fullName,
+          name: name,
           email: email,
-          phoneNumber: phoneNumber,
+          phone: phone,
           profilePhotoUrl: profilePhotoUrl,
           role: role,
           isVerified: isVerified,
@@ -36,9 +36,9 @@ class UserModel extends UserEntity {
   factory UserModel.fromJson({required Map<String, dynamic> json}) {
     return UserModel(
       id: json[kId]?.toString() ?? '',
-      fullName: json[kFullName] ?? '',
+      name: json[kName] ?? '',
       email: json[kEmail]?.toString() ?? '',
-      phoneNumber: json[kPhoneNumber]?.toString() ?? '',
+      phone: json[kPhone]?.toString() ?? '',
       profilePhotoUrl: json[kProfilePhotoUrl] as String?,
       role: json[kRole]?.toString() ?? '',
       isVerified: json[kIsVerified] ?? false,
@@ -60,9 +60,9 @@ class UserModel extends UserEntity {
   Map<String, dynamic> toJson() {
     return {
       kId: id,
-      kFullName: fullName,
+      kName: name,
       kEmail: email,
-      kPhoneNumber: phoneNumber,
+      kPhone: phone,
       kProfilePhotoUrl: profilePhotoUrl,
       kRole: role,
       kIsVerified: isVerified,
@@ -77,9 +77,9 @@ class UserModel extends UserEntity {
 
   UserModel copyWith({
     String? id,
-    String? fullName,
+    String? name,
     String? email,
-    String? phoneNumber,
+    String? phone,
     String? profilePhotoUrl,
     String? role,
     bool? isVerified,
@@ -92,9 +92,9 @@ class UserModel extends UserEntity {
   }) {
     return UserModel(
       id: id ?? this.id,
-      fullName: fullName ?? this.fullName,
+      name: name ?? this.name,
       email: email ?? this.email,
-      phoneNumber: phoneNumber ?? this.phoneNumber,
+      phone: phone ?? this.phone,
       profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
       role: role ?? this.role,
       isVerified: isVerified ?? this.isVerified,

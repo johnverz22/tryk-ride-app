@@ -1,8 +1,8 @@
 class UserEntity {
   final String id;
-  final String fullName;
+  final String name;
   final String email;
-  final String phoneNumber;
+  final String phone;
   final String? profilePhotoUrl;
   final String role; // 'rider' or 'driver'
   final bool isVerified;
@@ -14,9 +14,9 @@ class UserEntity {
 
   const UserEntity({
     required this.id,
-    required this.fullName,
+    required this.name,
     required this.email,
-    required this.phoneNumber,
+    required this.phone,
     this.profilePhotoUrl,
     required this.role,
     required this.isVerified,

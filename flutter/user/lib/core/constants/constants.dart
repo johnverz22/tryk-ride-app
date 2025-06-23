@@ -1,9 +1,9 @@
 String kTemplate = 'template';
 
 const String kId = 'id';
-const String kFullName = 'name';
+const String kName = 'name';
 const String kEmail = 'email';
-const String kPhoneNumber = 'phone';
+const String kPhone = 'phone';
 const String kProfilePhotoUrl = 'profile_picture';
 const String kRole = 'role_id';
 const String kIsVerified = 'is_verified';

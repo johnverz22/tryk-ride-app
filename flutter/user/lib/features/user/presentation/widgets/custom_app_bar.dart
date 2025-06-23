@@ -28,10 +28,11 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
       toolbarHeight: preferredSize.height,
       title: user != null
           ? CustomTopBar(
-              userName: user.fullName,
-              profileImageUrl: (user.profilePhotoUrl ?? '').isNotEmpty
-                ? user.profilePhotoUrl!
-                : 'assets/images/default_avatar.png',
+              userName: user.name,
+              profileImageUrl: 'assets/images/profile.jpg',
+              // (user.profilePhotoUrl ?? '').isNotEmpty
+              //   ? user.profilePhotoUrl!
+              //   : 'assets/images/profile.jpg',
             )
           : const SizedBox.shrink(),
     );

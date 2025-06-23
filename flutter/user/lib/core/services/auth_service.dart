@@ -23,14 +23,14 @@ class AuthService {
           'name': name,
           'email': email,
           'password': password,
-          'role_id': 2,
+          'role_id': 2, // Or 3 for drivers
         }),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
+        final token = data['token']; // Sanctum key
         final user = UserModel.fromJson(json: data['user']);
-        final token = data['access_token'];
 
         await storage.write(key: 'token', value: token);
         await storage.write(key: 'user', value: jsonEncode(data['user']));
@@ -56,13 +56,12 @@ class AuthService {
         body: jsonEncode({
           'email': email,
           'password': password,
-          'role_id': 2,
         }),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        final token = data['access_token'];
+        final token = data['token']; // Sanctum key
         final user = UserModel.fromJson(json: data['user']);
 
         await storage.write(key: 'token', value: token);
@@ -76,31 +75,6 @@ class AuthService {
       }
     } catch (e) {
       print('[AuthService] Network error (login): $e');
-      return false;
-    }
-  }
-
-  // Refresh access token
-  Future<bool> refreshToken(BuildContext context) async {
-    try {
-      final res = await client.post(
-        Uri.parse('$baseUrl/refresh'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final token = data['access_token'];
-
-        await storage.write(key: 'token', value: token);
-        print('[AuthService] Token refreshed');
-        return true;
-      } else {
-        print('[AuthService] Refresh failed: ${res.body}');
-        return false;
-      }
-    } catch (e) {
-      print('[AuthService] Refresh error: $e');
       return false;
     }
   }

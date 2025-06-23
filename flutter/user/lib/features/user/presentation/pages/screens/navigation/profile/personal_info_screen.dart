@@ -23,9 +23,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     super.didChangeDependencies();
     final user = Provider.of<UserProvider>(context).user;
     if (user != null) {
-      _nameController.text = user.fullName;
+      _nameController.text = user.name;
       _emailController.text = user.email;
-      _phoneController.text = user.phoneNumber;
+      _phoneController.text = user.phone;
       _dobController.text = user.lastLoginAt?.toIso8601String().split("T").first ?? "1990-01-01";
       _locationController.text = user.location ?? "";
     }
@@ -48,9 +48,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // _buildEditableField("Full Name", _nameController),
+            _buildEditableField("Full Name", _nameController),
             _buildEditableField("Email Address", _emailController),
-            // _buildEditableField("Phone Number", _phoneController),
+            _buildEditableField("Phone Number", _phoneController),
             // _buildEditableField("Date of Birth", _dobController),
             // _buildEditableField("Location", _locationController),
             const SizedBox(height: 100),
@@ -67,9 +67,9 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
               onPressed: () async {
                 if (_formKey.currentState!.validate() && user != null) {
                   final updatedUser = user.copyWith(
-                    // fullName: _nameController.text.trim(),
+                    name: _nameController.text.trim(),
                     email: _emailController.text.trim(),
-                    // phoneNumber: _phoneController.text.trim(),
+                    phone: _phoneController.text.trim(),
                     // location: _locationController.text.trim(),
                     updatedAt: DateTime.now(),
                   );

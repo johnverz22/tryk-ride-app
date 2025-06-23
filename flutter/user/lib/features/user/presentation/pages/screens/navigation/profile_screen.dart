@@ -20,7 +20,7 @@ class ProfileScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final user = Provider.of<UserProvider>(context).user;
 
-    final name = user?.fullName ?? 'Guest';
+    final name = user?.name ?? 'Guest';
     final email = user?.email ?? '';
     final photoUrl = user?.profilePhotoUrl;
 
@@ -89,7 +89,7 @@ class ProfileScreen extends StatelessWidget {
             radius: 44,
             backgroundImage: photoUrl != null && photoUrl.isNotEmpty
                 ? NetworkImage(photoUrl)
-                : const AssetImage('assets/profile.jpg') as ImageProvider,
+                : const AssetImage('assets/images/profile.jpg') as ImageProvider,
           ),
           const SizedBox(height: 12),
           Text(

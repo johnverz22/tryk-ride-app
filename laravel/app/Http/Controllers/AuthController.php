@@ -5,14 +5,13 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use App\Models\User;
 use App\Models\DriverStatus;
 use App\Models\DriverProfile;
-use Tymon\JWTAuth\Facades\JWTAuth;
-use Tymon\JWTAuth\Exceptions\JWTException;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -25,7 +24,6 @@ class AuthController extends Controller
             'role_id'  => 'required|in:2,3',
         ])->validate();
 
-        
         DB::beginTransaction();
 
         $user = User::create([
@@ -34,10 +32,9 @@ class AuthController extends Controller
             'password' => Hash::make($validated['password']),
             'role_id'  => $validated['role_id'],
         ]);
-        
-        // If driver, create driver profile with "pending" status
+
         if ($user->role_id === 3) {
-            $pendingStatus = DriverStatus::where('name', 'pending')->firstOrFail()->id;
+            $pendingStatus = DriverStatus::where('name', 'onboarding')->firstOrFail()->id;
 
             DriverProfile::create([
                 'user_id' => $user->id,
@@ -45,116 +42,115 @@ class AuthController extends Controller
             ]);
         }
 
-        $accessToken = JWTAuth::fromUser($user);
+        DB::commit();
+
+        $accessToken = $user->createToken('flutter')->plainTextToken;
         $refreshToken = Str::random(64);
         $user->refresh_token = Hash::make($refreshToken);
         $user->save();
 
-        DB::commit();
-
-        return response()
-            ->json(['access_token' => $accessToken, 'user' => $user])
-            ->cookie(
-                'refresh_token',
-                $refreshToken,
-                60 * 24 * 7,
-                '/',
-                config('session.domain'),
-                true,
-                true,
-                false,
-                'Strict'
-            );
+        return response()->json([
+            'token' => $accessToken,
+            'user'  => $user,
+        ])->cookie(
+            'refresh_token',
+            $refreshToken,
+            60 * 24 * 7, // 7 days
+            '/',
+            config('session.domain'),
+            true,  // Secure
+            true,  // HttpOnly
+            false, // Raw
+            'Strict'
+        );
     }
 
     public function login(Request $request)
     {
-        $data = Validator::make($request->all(), [
-            'email'    => 'required|email',
-            'password' => 'required',
-            'role_id'  => 'required|in:2,3',
-        ])->validate();
+        $credentials = $request->only('email', 'password');
 
-        $user = User::where('email', $data['email'])->first();
-
-        if (
-            !$user ||
-            !Hash::check($data['password'], $user->password) ||
-            $user->role_id !== (int)$data['role_id']
-        ) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect or unauthorized.'],
-            ]);
+        if (!Auth::attempt($credentials)) {
+            return response()->json(['error' => 'Unauthorized'], 401);
         }
 
-        $accessToken = JWTAuth::fromUser($user);
+        $user = Auth::user();
+
+        // Revoke previous tokens
+        $user->tokens()->delete();
+
+        $accessToken = $user->createToken('flutter')->plainTextToken;
         $refreshToken = Str::random(64);
         $user->refresh_token = Hash::make($refreshToken);
         $user->save();
 
-        return response()
-            ->json(['access_token' => $accessToken, 'user' => $user])
-            ->cookie(
-                'refresh_token',
-                $refreshToken,
-                60 * 24 * 7,
-                '/',
-                config('session.domain'),
-                true,
-                true,
-                false,
-                'Strict'
-            );
+        return response()->json([
+            'token' => $accessToken,
+            'user'  => $user,
+        ])->cookie(
+            'refresh_token',
+            $refreshToken,
+            60 * 24 * 7,
+            '/',
+            config('session.domain'),
+            true,
+            true,
+            false,
+            'Strict'
+        );
     }
 
     public function refresh(Request $request)
     {
         $refreshToken = $request->cookie('refresh_token');
+
         if (!$refreshToken) {
             return response()->json(['message' => 'Refresh token missing'], 401);
         }
 
-        $user = User::whereNotNull('refresh_token')->get()->first(function ($u) use ($refreshToken) {
-            return Hash::check($refreshToken, $u->refresh_token);
+        $user = User::whereNotNull('refresh_token')->get()->first(function ($user) use ($refreshToken) {
+            return Hash::check($refreshToken, $user->refresh_token);
         });
 
         if (!$user) {
             return response()->json(['message' => 'Invalid refresh token'], 401);
         }
 
-        $accessToken = JWTAuth::fromUser($user);
+        // Revoke old tokens and generate new ones
+        $user->tokens()->delete();
+
+        $newAccessToken = $user->createToken('flutter')->plainTextToken;
         $newRefreshToken = Str::random(64);
         $user->refresh_token = Hash::make($newRefreshToken);
         $user->save();
 
-        return response()
-            ->json(['access_token' => $accessToken])
-            ->cookie(
-                'refresh_token',
-                $newRefreshToken,
-                60 * 24 * 7,
-                '/',
-                config('session.domain'),
-                true,
-                true,
-                false,
-                'Strict'
-            );
+        return response()->json([
+            'token' => $newAccessToken,
+        ])->cookie(
+            'refresh_token',
+            $newRefreshToken,
+            60 * 24 * 7,
+            '/',
+            config('session.domain'),
+            true,
+            true,
+            false,
+            'Strict'
+        );
     }
 
     public function logout(Request $request)
     {
-        try {
-            $user = JWTAuth::parseToken()->authenticate();
-            $user->refresh_token = null;
-            $user->save();
-            JWTAuth::invalidate(JWTAuth::getToken());
-        } catch (JWTException) {
-            return response()->json(['message' => 'Token invalid or expired'], 400);
-        }
+        $user = $request->user();
 
-        return response()
-            ->json(['message' => 'Logged out'])
-            ->withoutCookie('refresh_token');
+        // Revoke the current access token (requires Laravel Sanctum 3+)
+        $request->user()->tokens()->delete();
+
+        // Clear refresh token from DB
+        $user->refresh_token = null;
+        $user->save();
+
+        return response()->json([
+            'message' => 'Logged out',
+        ])->withoutCookie('refresh_token');
     }
 }

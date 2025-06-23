@@ -4,8 +4,8 @@ import '../../business/entities/driver_entity.dart';
 class DriverModel extends DriverEntity {
   const DriverModel({
     required String id,
-    required String fullName,
-    required String phoneNumber,
+    required String name,
+    required String phone,
     required String email,
     String? profilePhotoUrl,
     required String licenseNumber,
@@ -22,8 +22,8 @@ class DriverModel extends DriverEntity {
     required DateTime updatedAt,
   }) : super(
           id: id,
-          fullName: fullName,
-          phoneNumber: phoneNumber,
+          name: name,
+          phone: phone,
           email: email,
           profilePhotoUrl: profilePhotoUrl,
           licenseNumber: licenseNumber,
@@ -43,8 +43,8 @@ class DriverModel extends DriverEntity {
   factory DriverModel.fromJson({required Map<String, dynamic> json}) {
     return DriverModel(
       id: json[kDriverId]?.toString() ?? '',
-      fullName: json[kDriverFullName] ?? '',
-      phoneNumber: json[kDriverPhoneNumber]?.toString() ?? '',
+      name: json[kDriverFullName] ?? '',
+      phone: json[kDriverPhoneNumber]?.toString() ?? '',
       email: json[kDriverEmail]?.toString() ?? '',
       profilePhotoUrl: json[kDriverProfilePhotoUrl] as String?,
       licenseNumber: json[kDriverLicenseNumber]?.toString() ?? '',
@@ -69,8 +69,8 @@ class DriverModel extends DriverEntity {
   Map<String, dynamic> toJson() {
     return {
       kDriverId: id,
-      kDriverFullName: fullName,
-      kDriverPhoneNumber: phoneNumber,
+      kDriverFullName: name,
+      kDriverPhoneNumber: phone,
       kDriverEmail: email,
       kDriverProfilePhotoUrl: profilePhotoUrl,
       kDriverLicenseNumber: licenseNumber,
@@ -86,5 +86,41 @@ class DriverModel extends DriverEntity {
       kDriverCreatedAt: createdAt.toIso8601String(),
       kDriverUpdatedAt: updatedAt.toIso8601String(),
     };
+  }
+
+  DriverModel copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? phone,
+    String? profilePhotoUrl,
+    String? role,
+    bool? isVerified,
+    double? walletBalance,
+    String? defaultPaymentMethod,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? lastLoginAt,
+    String? location,
+  }) {
+    return DriverModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
+      licenseNumber: licenseNumber ?? this.licenseNumber,
+      vehicleModel: vehicleModel ?? this.vehicleModel,
+      vehiclePlate: vehiclePlate ?? this.vehiclePlate,
+      vehicleColor: vehicleColor ?? this.vehicleColor,
+      isOnline: isOnline ?? this.isOnline,
+      isVerified: isVerified ?? this.isVerified,
+      currentLatitude: currentLatitude ?? this.currentLatitude,
+      currentLongitude: currentLongitude ?? this.currentLongitude,
+      rating: rating ?? this.rating,
+      totalTrips: totalTrips ?? this.totalTrips,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
   }
 }

@@ -15,6 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('driver_status_id')->constrained('driver_statuses')->onDelete('restrict');
+            $table->string('id_document_path')->nullable();
+            $table->string('license_document_path')->nullable();
             $table->timestamps();
         });
     }

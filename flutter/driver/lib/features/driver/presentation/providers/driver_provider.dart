@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../data/models/driver_model.dart';
+import 'package:http/http.dart' as http;
+import '../../../../core/config/api_config.dart';
 
 class DriverProvider with ChangeNotifier {
   DriverModel? _driver;
@@ -79,5 +81,87 @@ class DriverProvider with ChangeNotifier {
     await _storage.delete(key: 'driver');
     await _storage.delete(key: 'isOnline');
     notifyListeners();
+  }
+
+  Future<bool> refreshToken() async {
+      try {
+        final response = await http.post(
+          Uri.parse('${ApiConfig.baseUrl}/auth/refresh'),
+          headers: {
+            'Accept': 'application/json',
+          },
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final newToken = data['token'];
+
+          if (newToken != null) {
+            await setToken(newToken);
+            return true;
+          }
+        }
+      } catch (e) {
+        debugPrint('Token refresh failed: $e');
+      }
+
+      return false;
+    }
+
+    Future<http.Response> authenticatedRequest(
+      String url,
+      String method, {
+      Map<String, String>? headers,
+      dynamic body,
+    }) async {
+      headers ??= {};
+      final token = await _storage.read(key: 'token');
+      if (token != null) headers['Authorization'] = 'Bearer $token';
+
+      http.Response response;
+      final uri = Uri.parse(url);
+
+      try {
+        if (method == 'PUT') {
+          response = await http.put(uri, headers: headers, body: body);
+        } else {
+          throw UnimplementedError('Method not supported');
+        }
+
+        // If token expired, try refresh
+        if (response.statusCode == 401) {
+          final refreshed = await refreshToken();
+
+          if (refreshed) {
+            final newToken = await _storage.read(key: 'token');
+            if (newToken != null) headers['Authorization'] = 'Bearer $newToken';
+            response = await http.put(uri, headers: headers, body: body); // retry
+          }
+        }
+
+        return response;
+      } catch (e) {
+        rethrow;
+      }
+    }
+
+  Future<void> updateDriver(DriverModel updatedDriver) async {
+    if (_token == null) return;
+
+    final baseUrl = ApiConfig.baseUrl;
+    final response = await authenticatedRequest(
+      '$baseUrl/driver/update',
+      'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(updatedDriver.toJson()),
+    );
+
+    if (response.statusCode == 200) {
+      _driver = updatedDriver;
+      await _storage.write(key: 'user', value: jsonEncode(updatedDriver.toJson()));
+      notifyListeners();
+    } else {
+      debugPrint('Failed to update driver: ${response.body}');
+    }
   }
 }

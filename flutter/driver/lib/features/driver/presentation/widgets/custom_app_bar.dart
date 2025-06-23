@@ -21,7 +21,7 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final driver = Provider.of<DriverProvider>(context, listen: false).driver;
-    final userName = driver?.fullName ?? 'Driver';
+    final userName = driver?.name ?? 'Driver';
     final profilePhoto = driver?.profilePhotoUrl ?? '';
     final currentDate = DateFormat.yMMMMEEEEd().format(DateTime.now());
 

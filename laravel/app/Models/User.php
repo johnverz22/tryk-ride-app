@@ -5,12 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens; // Optional if you're still using Sanctum elsewhere
+use Laravel\Sanctum\HasApiTokens;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
-use Tymon\JWTAuth\Contracts\JWTSubject;
+// use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable implements FilamentUser, JWTSubject
+class User extends Authenticatable implements FilamentUser
+// , JWTSubject
 {
     use HasApiTokens, HasFactory, Notifiable;
 
@@ -60,4 +61,10 @@ class User extends Authenticatable implements FilamentUser, JWTSubject
 
         return true;
     }
+    
+    public function profile()
+    {
+        return $this->hasOne(DriverProfile::class, 'user_id');
+    }
+
 }

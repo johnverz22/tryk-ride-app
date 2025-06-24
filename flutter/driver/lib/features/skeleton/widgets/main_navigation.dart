@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/selected_page_provider.dart';
+import '../providers/bottom_nav_provider.dart';
 
 class MainNavigation extends ConsumerWidget {
 
@@ -33,13 +33,13 @@ class MainNavigation extends ConsumerWidget {
     ];
 
     // Get the current selected page from Riverpod
-    final selectedIndex = ref.watch(selectedPageProvider);
+    final selectedIndex = ref.watch(bottomNavSelectionProvider);
 
     // Use the reusable NavigationContainer widget
     return BottomNavigationBar(
       currentIndex: selectedIndex,
       onTap: (index) {
-        ref.read(selectedPageProvider.notifier).state = index; // 👈 Update selected index
+        ref.read(bottomNavSelectionProvider.notifier).state = index; // 👈 Update selected index
       },
       items: navigationItems,
       unselectedIconTheme: IconThemeData(

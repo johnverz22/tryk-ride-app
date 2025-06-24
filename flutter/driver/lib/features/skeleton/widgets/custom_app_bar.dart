@@ -1,23 +1,27 @@
+import 'package:driver/features/skeleton/providers/app_bar_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // for formatting date
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
+class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
+  const CustomUserAppBar({super.key});
+
+  // Switch icon states based on the switch state
+  static const WidgetStateProperty<Icon> thumbIcon = WidgetStateProperty<Icon>.fromMap(
+    <WidgetStatesConstraint, Icon>{
+      WidgetState.selected: Icon(Icons.check),
+      WidgetState.any: Icon(Icons.close),
+    },
+  );
+
   @override
   Size get preferredSize => const Size.fromHeight(75);
 
   @override
-  Widget build(BuildContext context) {
-    // final driver = Provider.of<DriverProvider>(context, listen: false).driver;
-    final driver = null;
-    final userName = driver?.fullName ?? 'Driver';
-    final profilePhoto = driver?.profilePhotoUrl ?? '';
-    final currentDate = DateFormat.yMMMMEEEEd().format(DateTime.now());
-
-    // replace with statemanager
-    bool isOnline = true;
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Use the switchProvider to get the current state of the switch
+    final isSwitched = ref.watch(switchProvider);
 
     return AppBar(
-      backgroundColor: Colors.transparent,
       elevation: 0,
       flexibleSpace: Container(
         decoration: const BoxDecoration(
@@ -29,66 +33,31 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       toolbarHeight: preferredSize.height,
-      titleSpacing: 16,
-      title: Row(
-        children: [
-          CircleAvatar(
+      leading: IconButton(
+        icon: CircleAvatar(
             radius: 22,
-            backgroundImage: profilePhoto.isNotEmpty
-                ? NetworkImage(profilePhoto)
-                : AssetImage('assets/images/default_avatar.png'),
+            backgroundImage: AssetImage('assets/images/default_avatar.png'),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Hi, $userName 👋',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Text(
-                  currentDate,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.white70,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.white),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 12),
-          Row(
-            children: [
-              Icon(
-                isOnline ? Icons.circle : Icons.circle_outlined,
-                size: 14,
-                color: isOnline ? Colors.greenAccent : Colors.grey[400],
-              ),
-              const SizedBox(width: 6),
-              //todo: make a custom switch widget
-              Switch(
-                value: true,
-                onChanged: null,
-                activeColor: Colors.greenAccent,
-                inactiveThumbColor: Colors.grey,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ],
-          ),
-        ],
+        onPressed: () {
+          Scaffold.of(context).openDrawer();
+        },
       ),
+      title: Container(
+        alignment: Alignment.center,
+        child: Text("B A N A N A"),
+        ),
+      actions: [
+        Switch(
+          thumbIcon: thumbIcon,
+          value: isSwitched,
+          onChanged: (value) {
+            ref.read(switchProvider.notifier).state = value;
+          },
+          activeColor: Colors.greenAccent,
+          inactiveThumbColor: Colors.grey,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+      ],
     );
   }
 }

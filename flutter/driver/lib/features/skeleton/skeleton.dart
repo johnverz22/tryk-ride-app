@@ -1,7 +1,8 @@
 import 'package:driver/features/driver/presentation/pages/screens/navigation/trips_screen.dart';
+import 'package:driver/features/skeleton/widgets/profile_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'providers/selected_page_provider.dart';
+import 'providers/bottom_nav_provider.dart';
 import '../driver/presentation/pages/screens/navigation/dashboard_screen.dart';
 import '../driver/presentation/pages/screens/navigation/earnings_screen.dart';
 import '../driver/presentation/pages/screens/navigation/home_screen.dart';
@@ -22,10 +23,11 @@ class Skeleton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Use Riverpod to watch the selected page
-    final selectedIndex = ref.watch(selectedPageProvider);
+    final selectedIndex = ref.watch(bottomNavSelectionProvider);
     
     return Scaffold(
       appBar: CustomUserAppBar(),
+      drawer: const ProfileDrawer(),
       body: pages[selectedIndex],
       bottomNavigationBar: const MainNavigation(),
     );

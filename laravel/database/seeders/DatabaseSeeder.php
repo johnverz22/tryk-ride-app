@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
         // ]);
 
         $this->call([
+            RideStatusSeeder::class,
             RoleSeeder::class,
             DriverStatusesTableSeeder::class,
         ]);

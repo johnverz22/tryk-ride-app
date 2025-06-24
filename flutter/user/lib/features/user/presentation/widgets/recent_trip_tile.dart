@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 class RecentTripTile extends StatelessWidget {
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   const RecentTripTile({
     super.key,
     required this.title,
     required this.subtitle,
+    this.onTap,
   });
 
   @override
@@ -17,6 +19,7 @@ class RecentTripTile extends StatelessWidget {
       child: ListTile(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         tileColor: Colors.white,
+        onTap: onTap,
         leading: const Icon(Icons.history, color: Colors.grey),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
         subtitle: Text(subtitle, style: const TextStyle(color: Colors.black54)),

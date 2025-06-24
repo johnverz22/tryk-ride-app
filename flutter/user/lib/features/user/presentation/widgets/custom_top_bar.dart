@@ -15,6 +15,11 @@ class CustomTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = DateFormat.yMMMMd().format(DateTime.now());
 
+    final bool isNetwork = profileImageUrl.startsWith('http');
+    final ImageProvider imageProvider = isNetwork
+        ? NetworkImage(profileImageUrl)
+        : AssetImage(profileImageUrl);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -23,23 +28,28 @@ class CustomTopBar extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundImage: NetworkImage(profileImageUrl),
+              backgroundImage: imageProvider,
+              backgroundColor: Colors.white24,
             ),
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Hi, $userName 👋',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.white,
-                    )),
-                Text(date,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.white70,
-                    )),
+                Text(
+                  'Hi, $userName 👋',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  date,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white70,
+                  ),
+                ),
               ],
             ),
           ],

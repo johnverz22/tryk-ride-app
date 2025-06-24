@@ -195,9 +195,9 @@ class _DriverIdVerificationScreenState
         height: 60, 
         fit: BoxFit.cover,
       );
-    } else if (remoteUrl != null && isImage) {
+    } else if (remoteUrl != null && isImage) {        
         previewWidget = Image.network(
-          'http://192.168.108.88:8000/storage/driver_documents/5/id.jpg',
+          remoteUrl!,
           width: 60,
           height: 60,
           fit: BoxFit.cover,
@@ -211,10 +211,10 @@ class _DriverIdVerificationScreenState
               ),
             );
           },
-          // errorBuilder: (context, error, stackTrace) {
-          //   debugPrint('Failed to load image preview: $remoteUrl');
-          //   return const Icon(Icons.broken_image, size: 40, color: Colors.grey);
-          // },
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('Failed to load image preview: $remoteUrl');
+            return const Icon(Icons.broken_image, size: 40, color: Colors.grey);
+          },
         );
       } else if (isPdf) {
       previewWidget = const Icon(Icons.picture_as_pdf, size: 40, color: Colors.red);

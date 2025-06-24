@@ -43,6 +43,21 @@ class DriverController extends Controller
         ]);
     }
 
+    public function serveImage($userId, $filename)
+    {
+        $path = storage_path("app/public/driver_documents/{$userId}/{$filename}");
+
+        if (!file_exists($path)) {
+            abort(404, 'Image not found');
+        }
+
+        return response()->make(file_get_contents($path), 200, [
+            'Content-Type' => mime_content_type($path),
+            'Content-Length' => filesize($path),
+            'Cache-Control' => 'no-cache',
+        ]);
+    }
+
     public function getDocuments(Request $request)
     {
         $user = Auth::user();
@@ -55,8 +70,12 @@ class DriverController extends Controller
         }
 
         return response()->json([
-            'id_document_url' => $profile->id_document_path ? url(Storage::url($profile->id_document_path)) : null,
-            'license_document_url' => $profile->license_document_path ? url(Storage::url($profile->license_document_path)) : null,
+            'id_document_url' => $profile->id_document_path 
+                ? url("/driver-image/{$user->id}/" . basename($profile->id_document_path)) 
+                : null,
+            'license_document_url' => $profile->license_document_path 
+                ? url("/driver-image/{$user->id}/" . basename($profile->license_document_path)) 
+                : null,
             'submitted' => $profile->driver_status_id === 2,
         ]);
     }

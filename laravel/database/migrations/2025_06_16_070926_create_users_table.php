@@ -19,10 +19,10 @@ return new class extends Migration
             $table->string('password');
             $table->string('phone')->unique()->nullable();
             $table->string('profile_picture')->nullable();
-            $table->boolean('is_verified')->default(false); // ✅ Add
-            $table->double('wallet_balance')->default(0);   // ✅ Add
-            $table->string('default_payment_method')->nullable(); // ✅ Add
-            $table->timestamp('last_login_at')->nullable(); // ✅ Add
+            $table->boolean('is_verified')->default(false);
+            $table->double('wallet_balance')->default(0);
+            $table->string('default_payment_method')->nullable();
+            $table->timestamp('last_login_at')->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->string('refresh_token', 512)->nullable();

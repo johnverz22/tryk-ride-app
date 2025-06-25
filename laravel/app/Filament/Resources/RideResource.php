@@ -21,6 +21,11 @@ class RideResource extends Resource
     protected static ?int $navigationSort = 3;
     protected static ?string $navigationIcon = 'heroicon-o-map-pin';
     protected static ?string $navigationBadgeTooltip = 'Number of rides';
+    
+    public static function getNavigationBadge(): ?string
+        {
+            return static::getModel()::count();
+        }
 
     public static function form(Form $form): Form
     {
@@ -35,9 +40,29 @@ class RideResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('user.name')->label('Rider'),
+                Tables\Columns\IconColumn::make('status.name')
+                    ->label('Status')
+                    ->icon(fn (string $state): string => match ($state) {
+                        'Requested' => 'heroicon-o-clock',
+                        'Accepted' => 'heroicon-o-check-badge',
+                        'Driver En Route' => 'heroicon-o-truck',
+                        'Passenger Picked Up' => 'heroicon-o-user-group',
+                        'Completed' => 'heroicon-o-check-circle',
+                        'Cancelled' => 'heroicon-o-x-circle',
+                        default => 'heroicon-o-question-mark-circle',
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'Requested' => 'gray',
+                        'Accepted' => 'success',
+                        'Driver En Route' => 'info',
+                        'Passenger Picked Up' => 'info',
+                        'Completed' => 'success',
+                        'Cancelled' => 'danger',
+                    }),
                 Tables\Columns\TextColumn::make('pickup_address')->limit(30),
                 Tables\Columns\TextColumn::make('dropoff_address')->limit(30),
                 Tables\Columns\TextColumn::make('requested_at')->dateTime(),
+                Tables\Columns\TextColumn::make('accepted_at')->dateTime(),
                 Tables\Columns\TextColumn::make('picked_up_at')->dateTime(),
                 Tables\Columns\TextColumn::make('completed_at')->dateTime(),
                 Tables\Columns\TextColumn::make('canceled_at')->dateTime(),
@@ -47,7 +72,9 @@ class RideResource extends Resource
                     ->trueIcon('heroicon-o-check-badge'),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('ride_status_id')
+                    ->label('Ride Status')
+                    ->relationship('status', 'name'),
             ])
             ->actions([
                 // Tables\Actions\EditAction::make(),
@@ -57,7 +84,8 @@ class RideResource extends Resource
                 // Tables\Actions\BulkActionGroup::make([
                 //     Tables\Actions\DeleteBulkAction::make(),
                 // ]),
-            ]);
+            ])
+            ->poll('30s');
     }
 
     public static function getPages(): array

@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('driver_status_id')->constrained('driver_statuses')->onDelete('restrict');
             $table->string('id_document_path')->nullable();
             $table->string('license_document_path')->nullable();
+            $table->boolean('verified')->default(false);
             $table->timestamps();
         });
     }

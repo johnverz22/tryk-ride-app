@@ -197,7 +197,7 @@ class _DriverIdVerificationScreenState
       );
     } else if (remoteUrl != null && isImage) {        
         previewWidget = Image.network(
-          remoteUrl!,
+          remoteUrl,
           width: 60,
           height: 60,
           fit: BoxFit.cover,

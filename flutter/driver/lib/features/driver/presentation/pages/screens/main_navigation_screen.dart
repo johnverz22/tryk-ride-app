@@ -24,26 +24,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   ];
 
   final List<BottomNavigationBarItem> _navItems = const [
-    BottomNavigationBarItem(
-      icon: Icon(Icons.map),
-      label: 'Home',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.history),
-      label: 'Trips',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.attach_money),
-      label: 'Earnings',
-    ),
+    BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Home'),
+    BottomNavigationBarItem(icon: Icon(Icons.history), label: 'Trips'),
+    BottomNavigationBarItem(icon: Icon(Icons.attach_money), label: 'Earnings'),
     BottomNavigationBarItem(
       icon: Icon(Icons.dashboard_customize),
       label: 'Dashboard',
     ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.person),
-      label: 'Profile',
-    ),
+    BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
   ];
 
   void _onTap(int index) {

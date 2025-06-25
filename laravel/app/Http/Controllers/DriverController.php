@@ -8,6 +8,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Ride;
 
 class DriverController extends Controller
 {
@@ -149,5 +150,41 @@ class DriverController extends Controller
             'message' => 'Verification submitted successfully. Status set to pending.',
             'status' => 'pending',
         ]);
+    }
+
+    public function requestedRides(Request $request)
+    {
+        $user = $request->user();
+
+        // Ensure user has a driver profile and is verified
+        $driverProfile = $user->profile;
+        if (!$driverProfile || !$driverProfile->verified) {
+            return response()->json([
+                'message' => 'Access denied. Only verified drivers can view ride requests.'
+            ], 403);
+        }
+    
+        $rides = Ride::with('user')
+            ->whereHas('status', function ($query) {
+                $query->where('name', 'Requested');
+            })
+            ->whereNull('driver_id')
+            ->latest()
+            ->get([
+                'id',
+                'pickup_address',
+                'pickup_latitude',
+                'pickup_longitude',
+                'dropoff_address',
+                'dropoff_latitude',
+                'dropoff_longitude',
+                'requested_at',
+                'ride_status_id',
+                'fare_amount',
+                'distance_km',
+                'duration_minutes',
+            ]);
+
+        return response()->json($rides);
     }
 }

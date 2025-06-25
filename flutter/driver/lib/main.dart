@@ -7,9 +7,7 @@ import 'features/driver/presentation/providers/driver_provider.dart';
 void main() {
   runApp(
     MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => DriverProvider()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => DriverProvider())],
       child: const MainApp(),
     ),
   );
@@ -32,9 +30,7 @@ class MainApp extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const MaterialApp(
-            home: Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            ),
+            home: Scaffold(body: Center(child: CircularProgressIndicator())),
           );
         }
 
@@ -49,9 +45,9 @@ class MainApp extends StatelessWidget {
               foregroundColor: Colors.white,
               iconTheme: IconThemeData(color: Colors.white),
             ),
-            colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.pink).copyWith(
-              secondary: Colors.pinkAccent,
-            ),
+            colorScheme: ColorScheme.fromSwatch(
+              primarySwatch: Colors.pink,
+            ).copyWith(secondary: Colors.pinkAccent),
             textTheme: const TextTheme(
               // bodyLarge: TextStyle(color: Colors.white),
               // bodyMedium: TextStyle(color: Colors.white),

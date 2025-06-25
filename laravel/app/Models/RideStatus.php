@@ -12,7 +12,7 @@ class RideStatus extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'status',
+        'name',
     ];
 
     /**

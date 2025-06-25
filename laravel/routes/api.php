@@ -14,15 +14,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [Controllers\AuthController::class, 'logout']);
     
     Route::put('/user/update', [Controllers\UserController::class, 'update']);
-
     Route::put('/driver/update', [Controllers\UserController::class, 'update']);
     Route::get('/driver/documents', [Controllers\DriverController::class, 'getDocuments']);
     Route::post('/driver/upload-document', [Controllers\DriverController::class, 'uploadDocument']);
     Route::post('/driver/submit-verification', [Controllers\DriverController::class, 'submitVerification']);
+    Route::get('/driver/requested-rides', [Controllers\DriverController::class, 'requestedRides']);
     
     Route::get('/user/saved-locations', [Controllers\SavedLocationController::class, 'index']);
     Route::post('/user/saved-locations', [Controllers\SavedLocationController::class, 'store']);
     Route::put('/user/saved-locations/{id}', [Controllers\SavedLocationController::class, 'update']);
 
-    Route::post('/rides', [Controllers\RideController::class, 'store']);
+    Route::post('/rides/request', [Controllers\RideController::class, 'store']);
+    Route::post('/rides/cancel', [Controllers\RideController::class, 'cancel']);
+    Route::post('/rides/{id}/accept', [Controllers\RideController::class, 'accept']);
+    Route::get('/rides/{id}', [Controllers\RideController::class, 'show']);
 });

@@ -1,4 +1,5 @@
 import 'package:driver/features/driver/presentation/pages/screens/navigation/trips_screen.dart';
+import 'package:driver/features/skeleton/widgets/dummy.dart';
 import 'package:driver/features/skeleton/widgets/profile_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +18,6 @@ class Skeleton extends ConsumerWidget {
     HomeScreen(),
     TripsScreen(),//done
     EarningsScreen(),//on ogoing
-    DashboardScreen(),//not started
   ];
 
   @override
@@ -26,6 +26,7 @@ class Skeleton extends ConsumerWidget {
     final selectedIndex = ref.watch(bottomNavSelectionProvider);
     
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: CustomUserAppBar(),
       drawer: const ProfileDrawer(),
       body: pages[selectedIndex],

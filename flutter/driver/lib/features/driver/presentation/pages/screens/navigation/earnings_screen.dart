@@ -22,10 +22,6 @@ class EarningsScreen extends StatelessWidget {
           const PaymentTripHistoryWidget(),
           const SizedBox(height: 32),
 
-          // 🔹 Driver Bonuses & Promotions
-          const BonusesPromotionsSection(),
-          const SizedBox(height: 40),
-
           // 🔹 Placeholder for future payout insights
           const UpcomingPayoutSection(),
         ],

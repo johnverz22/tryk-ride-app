@@ -14,7 +14,7 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
   );
 
   @override
-  Size get preferredSize => const Size.fromHeight(75);
+  Size get preferredSize => const Size.fromHeight(80);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -23,39 +23,64 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
     return AppBar(
       elevation: 0,
-      flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.pinkAccent, Colors.deepPurple],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-      ),
+      backgroundColor: Colors.transparent,
       toolbarHeight: preferredSize.height,
+      leadingWidth: 70,
       leading: IconButton(
-        icon: CircleAvatar(
-            radius: 22,
-            backgroundImage: AssetImage('assets/images/default_avatar.png'),
+        icon: Container(
+          decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white,
+            width: 1,
+            ),
           ),
+          child: CircleAvatar(
+              radius: 28,
+              backgroundImage: AssetImage('assets/images/profile_picture.jpg'),
+            ),
+        ),
         onPressed: () {
           Scaffold.of(context).openDrawer();
         },
       ),
       title: Container(
+        height: 56,
         alignment: Alignment.center,
-        child: Text("B A N A N A"),
-        ),
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.black, // Background color
+            foregroundColor: Colors.white,  // Text (and icon) color
+            side: BorderSide(color: Colors.white, width: 2),
+            minimumSize: Size(100, 48),
+            padding: EdgeInsets.symmetric(horizontal: 16),
+          ),
+          onPressed: () {}, 
+          child: Text("\$345.00", 
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        )
+      ),
       actions: [
-        Switch(
-          thumbIcon: thumbIcon,
-          value: isSwitched,
-          onChanged: (value) {
-            ref.read(switchProvider.notifier).state = value;
-          },
-          activeColor: Colors.greenAccent,
-          inactiveThumbColor: Colors.grey,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        Padding(
+          padding: const EdgeInsets.only(right: 12), // Adjust as needed
+          child: Transform.scale(
+            scale: 1.2, // Scale up the switch (default is 1.0)
+            child: Switch(
+              thumbIcon: thumbIcon,
+              value: isSwitched,
+              onChanged: (value) {
+                ref.read(switchProvider.notifier).state = value;
+              },
+              activeColor: Colors.greenAccent[700],
+              inactiveTrackColor: Colors.grey.shade800,
+              inactiveThumbColor: Colors.black,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
         ),
       ],
     );

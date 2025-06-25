@@ -27,6 +27,7 @@ dependencies:
   path: ^1.9.0
   mime: ^1.0.4
   url_launcher: ^6.2.5
+  flutter_rating: ^2.0.2
 
 dev_dependencies:
   flutter_test:

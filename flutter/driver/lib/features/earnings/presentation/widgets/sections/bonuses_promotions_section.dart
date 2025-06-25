@@ -7,20 +7,26 @@ class BonusesPromotionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        SectionTitle('Bonuses & Promotions'),
-        SizedBox(height: 12),
-        PromotionCard(
-          title: '🔥 Weekly Bonus Challenge',
-          subtitle: 'Complete 30 trips to earn \$50 extra',
-        ),
-        PromotionCard(
-          title: 'Peak Hour Boost',
-          subtitle: 'Earn +20% during 5PM–8PM daily',
-        ),
-      ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Bonuses & Promotions'),
+        backgroundColor: Colors.pink,
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          SectionTitle('Bonuses & Promotions'),
+          SizedBox(height: 12),
+          PromotionCard(
+            title: '🔥 Weekly Bonus Challenge',
+            subtitle: 'Complete 30 trips to earn \$50 extra',
+          ),
+          PromotionCard(
+            title: 'Peak Hour Boost',
+            subtitle: 'Earn +20% during 5PM–8PM daily',
+          ),
+        ],
+      ),
     );
   }
 }

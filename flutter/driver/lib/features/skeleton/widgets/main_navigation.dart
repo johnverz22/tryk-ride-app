@@ -25,11 +25,6 @@ class MainNavigation extends ConsumerWidget {
         label: 'Earnings',  // Day/week/month earnings summary
       activeIcon: Icon(Icons.attach_money, size: 35,)
       ),
-      BottomNavigationBarItem(
-        icon: Icon(Icons.dashboard_customize),
-        label: 'Dashboard', // Profile, settings, documents
-        activeIcon: Icon(Icons.dashboard_customize, size: 35,)
-      ),
     ];
 
     // Get the current selected page from Riverpod

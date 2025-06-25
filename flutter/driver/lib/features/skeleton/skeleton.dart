@@ -1,10 +1,8 @@
 import 'package:driver/features/driver/presentation/pages/screens/navigation/trips_screen.dart';
-import 'package:driver/features/skeleton/widgets/dummy.dart';
 import 'package:driver/features/skeleton/widgets/profile_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'providers/bottom_nav_provider.dart';
-import '../driver/presentation/pages/screens/navigation/dashboard_screen.dart';
 import '../driver/presentation/pages/screens/navigation/earnings_screen.dart';
 import '../driver/presentation/pages/screens/navigation/home_screen.dart';
 import '../skeleton/widgets/custom_app_bar.dart';

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Ride;
+use App\Services\DriverMatchingService;
 
 class DriverController extends Controller
 {
@@ -158,9 +159,13 @@ class DriverController extends Controller
 
         // Ensure user has a driver profile and is verified
         $driverProfile = $user->profile;
-        if (!$driverProfile || !$driverProfile->verified) {
+        if (
+            !$driverProfile ||
+            !$driverProfile->relationLoaded('status') && !$driverProfile->load('status') ||
+            $driverProfile->status->name !== 'approved'
+        ) {
             return response()->json([
-                'message' => 'Access denied. Only verified drivers can view ride requests.'
+                'message' => 'Access denied. Only approved drivers can view ride requests.'
             ], 403);
         }
     
@@ -186,5 +191,68 @@ class DriverController extends Controller
             ]);
 
         return response()->json($rides);
+    }
+    
+    public function updateLocation(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $validated = $request->validate([
+            'latitude'  => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+        ]);
+
+        $profile = $user->profile;
+
+        if (!$profile) {
+            return response()->json(['message' => 'Driver profile not found.'], 404);
+        }
+
+        $profile->current_latitude = $validated['latitude'];
+        $profile->current_longitude = $validated['longitude'];
+        $profile->save();
+
+        return response()->json([
+            'message' => 'Location updated successfully',
+            'latitude' => $profile->current_latitude,
+            'longitude' => $profile->current_longitude,
+        ]);
+    }
+
+    public function requestRide(Request $request, DriverMatchingService $matcher)
+    {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $validated = $request->validate([
+            'pickup_latitude'  => 'required|numeric|between:-90,90',
+            'pickup_longitude' => 'required|numeric|between:-180,180',
+            'dropoff_latitude' => 'required|numeric|between:-90,90',
+            'dropoff_longitude'=> 'required|numeric|between:-180,180',
+            'pickup_address'   => 'required|string|max:255',
+            'dropoff_address'  => 'required|string|max:255',
+        ]);
+
+        // Find nearby drivers
+        $drivers = $matcher->findNearbyDrivers(
+            $validated['pickup_latitude'],
+            $validated['pickup_longitude']
+        );
+
+        if ($drivers->isEmpty()) {
+            return response()->json(['message' => 'No drivers available nearby'], 404);
+        }
+        
+        return response()->json([
+            'message' => 'Nearby drivers found',
+            'drivers' => $drivers->pluck('id'),
+        ]);
     }
 }

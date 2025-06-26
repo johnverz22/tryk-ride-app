@@ -1,14 +1,12 @@
-// ride_booking_screen.dart
-
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
-import '../screens/navigation/home/location_picker_screen.dart';
-import '../../../../../core/services/auth_service.dart';
-import '../../../../../core/config/api_config.dart';
+import '../../../../../../../core/services/auth_service.dart';
+import '../../../../../../../core/config/api_config.dart';
+import '../../../../widgets/widgets.dart';
 
 class RideBookingScreen extends StatefulWidget {
   const RideBookingScreen({super.key});
@@ -32,6 +30,7 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
   final double _averageSpeedKmh = 40;
   final double _baseFare = 2.5;
   final double _perKmRate = 1.2;
+  double _searchRadiusKm = 5.0;
 
   final MapController _mapController = MapController();
 
@@ -66,7 +65,7 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
     final token = await AuthService().getToken();
     if (token == null || _rideId == null) return;
 
-    _statusCheckTimer = Timer.periodic(Duration(seconds: 5), (timer) async {
+    _statusCheckTimer = Timer.periodic(Duration(seconds: 10), (timer) async {
       if (!mounted) {
         timer.cancel();
         return;
@@ -95,9 +94,7 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
             Navigator.of(context, rootNavigator: true).pop();
             _isBottomSheetOpen = false;
 
-            await Future.delayed(
-              Duration(milliseconds: 200),
-            ); // smooth transition
+            await Future.delayed(Duration(milliseconds: 200));
           }
 
           if (mounted) {
@@ -113,113 +110,118 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
                 final profilePicture = driver['profile_picture'];
                 final vehicle = driver['vehicle'] ?? 'Toyota Vios';
                 final driverName = driver['name'];
-
-                return Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.emoji_transportation,
-                        size: 48,
-                        color: Colors.green,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Driver Confirmed!',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black87,
+                return Builder(
+                  builder: (bottomSheetContext) => Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.emoji_transportation,
+                          size: 48,
+                          color: Colors.green,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '$driverName is on the way to pick you up.',
-                        style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 36,
-                            backgroundImage:
-                                profilePicture != null &&
-                                    profilePicture.isNotEmpty
-                                ? NetworkImage(profilePicture)
-                                : null,
-                            backgroundColor: Colors.grey[300],
-                            child:
-                                profilePicture == null || profilePicture.isEmpty
-                                ? Icon(
-                                    Icons.person,
-                                    size: 36,
-                                    color: Colors.white,
-                                  )
-                                : null,
+                        const SizedBox(height: 16),
+                        Text(
+                          'Driver Confirmed!',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  driverName,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.star,
-                                      color: Colors.amber,
-                                      size: 16,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '$driverName is on the way to pick you up!',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[700],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 36,
+                              backgroundImage:
+                                  profilePicture != null &&
+                                      profilePicture.isNotEmpty
+                                  ? NetworkImage(profilePicture)
+                                  : null,
+                              backgroundColor: Colors.grey[300],
+                              child:
+                                  profilePicture == null ||
+                                      profilePicture.isEmpty
+                                  ? Icon(
+                                      Icons.person,
+                                      size: 36,
+                                      color: Colors.white,
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    driverName,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text('4.8'),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Vehicle: $vehicle',
-                                  style: TextStyle(color: Colors.grey[600]),
-                                ),
-                              ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.star,
+                                        color: Colors.amber,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text('4.8'),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Vehicle: $vehicle',
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          icon: Icon(Icons.verified),
-                          label: Text('Great, thanks!'),
-                          onPressed: () {
-                            if (!mounted) return;
-                            Navigator.of(context).pop();
-                          },
-
-                          style: ElevatedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            backgroundColor: Colors.green[600],
-                            foregroundColor: Colors.white,
-                            textStyle: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            icon: Icon(Icons.verified),
+                            label: Text('Great, thanks!'),
+                            onPressed: () {
+                              Navigator.of(
+                                bottomSheetContext,
+                              ).pop(); // ✅ Correct context
+                            },
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              backgroundColor: Colors.green[600],
+                              foregroundColor: Colors.white,
+                              textStyle: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               },
@@ -411,6 +413,7 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
           'fare_amount': fare,
           'ride_status_id': requestedStatusId,
           'payment_method': _selectedPaymentMethod,
+          'search_radius_km': _searchRadiusKm.round(),
         }),
       );
 
@@ -470,7 +473,7 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            _buildLocationInputCard(
+            LocationInputCard(
               label: 'Pickup Location',
               icon: Icons.my_location,
               controller: _fromController,
@@ -481,17 +484,29 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
                   _fromController.text = address;
                 });
               },
+              onClear: () {
+                setState(() {
+                  _fromController.clear();
+                  _fromLocation = null;
+                });
+              },
             ),
             const SizedBox(height: 16),
-            _buildLocationInputCard(
+            LocationInputCard(
               label: 'Destination',
               icon: Icons.location_on,
               controller: _toController,
               onLocationPicked: (loc) async {
                 final address = await _reverseGeocode(loc);
                 setState(() {
-                  _toLocation = loc;
+                  _toLocation = loc as LatLng?;
                   _toController.text = address;
+                });
+              },
+              onClear: () {
+                setState(() {
+                  _toController.clear();
+                  _toLocation = null;
                 });
               },
             ),
@@ -588,12 +603,32 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              _buildRouteInfoCard(
+              RouteInfoCard(
                 cost: _getEstimatedCost(totalDistance),
                 distance: totalDistance,
                 duration: _getEstimatedTime(totalDistance),
               ),
             ],
+            const SizedBox(height: 20),
+            Text(
+              'Driver Search Radius (km)',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Slider(
+              value: _searchRadiusKm,
+              min: 5,
+              max: 100,
+              divisions: 19,
+              label: _searchRadiusKm.toStringAsFixed(0),
+              onChanged: (value) {
+                setState(() {
+                  _searchRadiusKm = value;
+                });
+              },
+            ),
             const SizedBox(height: 30),
             SizedBox(
               width: double.infinity,
@@ -632,116 +667,6 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildLocationInputCard({
-    required String label,
-    required IconData icon,
-    required TextEditingController controller,
-    required Function(LatLng) onLocationPicked,
-  }) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: TextField(
-          controller: controller,
-          readOnly: true,
-          onTap: () async {
-            final LatLng? picked = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const LocationPickerScreen()),
-            );
-            if (picked != null) {
-              onLocationPicked(picked);
-            }
-          },
-          decoration: InputDecoration(
-            labelText: label,
-            prefixIcon: Icon(icon, color: Theme.of(context).primaryColor),
-            suffixIcon: controller.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      setState(() {
-                        controller.clear();
-                        if (label == 'Pickup Location') _fromLocation = null;
-                        if (label == 'Destination') _toLocation = null;
-                      });
-                    },
-                  )
-                : null,
-            border: InputBorder.none,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRouteInfoCard({
-    required double distance,
-    required String duration,
-    required String cost,
-  }) {
-    final theme = Theme.of(context);
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(top: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Trip Summary',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildInfoTile(
-                  icon: Icons.route,
-                  label: '${distance.toStringAsFixed(2)} km',
-                  color: Colors.blueAccent,
-                ),
-                _buildInfoTile(
-                  icon: Icons.schedule,
-                  label: duration,
-                  color: Colors.deepOrange,
-                ),
-                _buildInfoTile(
-                  icon: Icons.attach_money,
-                  label: cost,
-                  color: Colors.green,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoTile({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-      ],
     );
   }
 

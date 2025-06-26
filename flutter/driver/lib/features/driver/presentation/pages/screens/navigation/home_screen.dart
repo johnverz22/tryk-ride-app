@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+
 import '../../../widgets/widgets.dart';
 import '../../../providers/driver_provider.dart';
 import '../../../../data/models/ride_request_model.dart';
@@ -15,19 +17,88 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   RideRequest? _selectedRide;
+  int? _fadingOutRideId;
+  Timer? _autoAcceptTimer;
+  int _remainingSeconds = 30;
+  bool _showRideList = false;
+
   Color getDistanceColor(double? distanceKm) {
     if (distanceKm == null) return Colors.grey;
-    if (distanceKm < 5) return Colors.green; // short
-    if (distanceKm < 10) return Colors.yellow; // moderate
-    if (distanceKm < 15) return Colors.orange; // long
-    return Colors.red; // very long
+    if (distanceKm < 5) return Colors.green;
+    if (distanceKm < 10) return Colors.yellow;
+    if (distanceKm < 15) return Colors.orange;
+    return Colors.red;
   }
 
-  int? _fadingOutRideId;
+  void _startAutoAcceptTimer(RideRequest ride) {
+    _autoAcceptTimer?.cancel();
+    _remainingSeconds = 30;
+
+    // Hide ride list when a ride is selected
+    setState(() {
+      _showRideList = false;
+    });
+
+    _autoAcceptTimer = Timer.periodic(Duration(seconds: 1), (timer) async {
+      if (!mounted) return;
+
+      setState(() {
+        _remainingSeconds--;
+      });
+
+      if (_remainingSeconds <= 0) {
+        _autoAcceptTimer?.cancel();
+        final success = await Provider.of<DriverProvider>(
+          context,
+          listen: false,
+        ).acceptRequest(ride);
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              success ? 'Ride auto-accepted.' : 'Ride no longer available.',
+            ),
+            backgroundColor: success ? Colors.green : Colors.red,
+          ),
+        );
+
+        setState(() {
+          _selectedRide = null;
+        });
+      }
+    });
+  }
+
+  void _cancelAutoAcceptTimer() {
+    _autoAcceptTimer?.cancel();
+  }
+
+  @override
+  void dispose() {
+    _autoAcceptTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final driverProvider = Provider.of<DriverProvider>(context);
+
+    final nearestRide = driverProvider.requestedRides.isNotEmpty
+        ? driverProvider.requestedRides.reduce(
+            (a, b) =>
+                (a.distanceInKm ?? double.infinity) <
+                    (b.distanceInKm ?? double.infinity)
+                ? a
+                : b,
+          )
+        : null;
+
+    if (nearestRide != null && _selectedRide?.id != nearestRide.id) {
+      _selectedRide = nearestRide;
+      _startAutoAcceptTimer(nearestRide);
+    }
 
     return Scaffold(
       appBar: CustomUserAppBar(
@@ -36,6 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
           await driverProvider.setOnlineStatus(val);
           setState(() {
             _selectedRide = null;
+            _showRideList = false;
           });
         },
       ),
@@ -59,18 +131,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       point: LatLng(ride.pickupLatitude, ride.pickupLongitude),
                       width: 40,
                       height: 40,
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() => _selectedRide = ride);
-                        },
-                        child: AnimatedOpacity(
-                          opacity: _fadingOutRideId == ride.id ? 0.0 : 1.0,
-                          duration: const Duration(milliseconds: 300),
-                          child: Icon(
-                            Icons.location_pin,
-                            color: getDistanceColor(ride.distanceInKm),
-                            size: 40,
-                          ),
+                      child: AnimatedOpacity(
+                        opacity: _fadingOutRideId == ride.id ? 0.0 : 1.0,
+                        duration: const Duration(milliseconds: 300),
+                        child: Icon(
+                          Icons.location_pin,
+                          color: getDistanceColor(ride.distanceInKm),
+                          size: 40,
                         ),
                       ),
                     );
@@ -79,12 +146,100 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
 
+          // Show Ride Requests Button
+          Positioned(
+            bottom: 24,
+            left: 24,
+            right: 24,
+            child: ElevatedButton.icon(
+              icon: Icon(
+                _showRideList ? Icons.arrow_drop_down : Icons.arrow_drop_up,
+              ),
+              label: Text(
+                _showRideList ? 'Hide Ride Requests' : 'Show Ride Requests',
+              ),
+              onPressed: _selectedRide == null
+                  ? () {
+                      setState(() {
+                        _showRideList = !_showRideList;
+                      });
+                    }
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+
+          // Ride Request List
+          if (_showRideList)
+            Positioned(
+              bottom: 90,
+              left: 24,
+              right: 24,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 6,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: driverProvider.requestedRides.map((ride) {
+                    final isSelected = _selectedRide?.id == ride.id;
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        vertical: 4,
+                        horizontal: 8,
+                      ),
+                      leading: Icon(
+                        Icons.location_pin,
+                        color: getDistanceColor(ride.distanceInKm),
+                      ),
+                      title: Text(
+                        '${ride.pickupAddress} → ${ride.dropoffAddress}',
+                      ),
+                      subtitle: Text(
+                        '₱${ride.fareAmount?.toStringAsFixed(2) ?? '--'} • ${ride.distanceInKm?.toStringAsFixed(1) ?? '--'} km',
+                      ),
+                      trailing: isSelected
+                          ? Icon(Icons.check_circle, color: Colors.green)
+                          : null,
+                      onTap: () {
+                        setState(() {
+                          _selectedRide = ride;
+                          _showRideList = false;
+                        });
+                        _startAutoAcceptTimer(ride);
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+
+          // Auto-Accept Dialog
           if (_selectedRide != null)
             Positioned.fill(
               child: GestureDetector(
-                onTap: () => setState(() => _selectedRide = null),
+                onTap: () {
+                  _cancelAutoAcceptTimer();
+                  setState(() => _selectedRide = null);
+                },
                 child: Container(
-                  color: Colors.black.withValues(alpha: 0.5),
+                  color: Colors.black.withOpacity(0.5),
                   child: Center(
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -107,8 +262,44 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 20),
-
-                          // Ride Details
+                          Center(
+                            child: Column(
+                              children: [
+                                const SizedBox(height: 10),
+                                Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 70,
+                                      height: 70,
+                                      child: CircularProgressIndicator(
+                                        value: _remainingSeconds / 30,
+                                        strokeWidth: 6,
+                                        backgroundColor: Colors.grey[300],
+                                        color: Colors.green,
+                                      ),
+                                    ),
+                                    Text(
+                                      '$_remainingSeconds',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Auto-accepting in $_remainingSeconds sec',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                            ),
+                          ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Column(
@@ -134,60 +325,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(height: 16),
                                 const Divider(),
                                 const SizedBox(height: 16),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      "💰 Fare",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    Text(
-                                      "₱${_selectedRide!.fareAmount?.toStringAsFixed(2) ?? 'N/A'}",
-                                    ),
-                                  ],
+                                _buildRideInfoRow(
+                                  "💰 Fare",
+                                  "₱${_selectedRide!.fareAmount?.toStringAsFixed(2) ?? 'N/A'}",
                                 ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      "🛣️ Distance",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    Text(
-                                      "${_selectedRide!.distanceInKm?.toStringAsFixed(2) ?? 'N/A'} km",
-                                    ),
-                                  ],
+                                _buildRideInfoRow(
+                                  "🛣️ Distance",
+                                  "${_selectedRide!.distanceInKm?.toStringAsFixed(2) ?? 'N/A'} km",
                                 ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      "⏱️ Est. Time",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    Text(
-                                      "${_selectedRide!.durationInMinutes?.toStringAsFixed(0) ?? 'N/A'} min",
-                                    ),
-                                  ],
+                                _buildRideInfoRow(
+                                  "⏱️ Est. Time",
+                                  "${_selectedRide!.durationInMinutes?.toStringAsFixed(0) ?? 'N/A'} min",
                                 ),
                               ],
                             ),
                           ),
-
                           const SizedBox(height: 24),
-
-                          // Action Buttons
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: Row(
@@ -199,20 +352,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                         () => _fadingOutRideId =
                                             _selectedRide!.id,
                                       );
-
                                       await Future.delayed(
                                         const Duration(milliseconds: 300),
                                       );
-
                                       driverProvider.rejectSpecificRide(
                                         _selectedRide!,
                                       );
+                                      _cancelAutoAcceptTimer();
                                       setState(() {
                                         _selectedRide = null;
                                         _fadingOutRideId = null;
                                       });
                                     },
-
                                     icon: const Icon(Icons.close),
                                     label: const Text("Decline"),
                                     style: ElevatedButton.styleFrom(
@@ -233,57 +384,34 @@ class _HomeScreenState extends State<HomeScreen> {
                                     onPressed: () async {
                                       final success = await driverProvider
                                           .acceptRequest(_selectedRide!);
-
+                                      _cancelAutoAcceptTimer();
                                       if (!mounted) return;
-
-                                      if (success) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Ride accepted successfully.',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            backgroundColor: Colors.green[600],
-                                            duration: Duration(seconds: 3),
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            success
+                                                ? 'Ride accepted successfully.'
+                                                : 'Unable to accept the ride.',
                                           ),
-                                        );
-                                      } else {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Unable to accept the ride. It may no longer be available.',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                            backgroundColor: Colors.red[600],
-                                            duration: Duration(seconds: 4),
-                                          ),
-                                        );
-                                      }
-
+                                          backgroundColor: success
+                                              ? Colors.green
+                                              : Colors.red,
+                                        ),
+                                      );
                                       setState(() => _selectedRide = null);
                                     },
                                     icon: const Icon(Icons.check),
                                     label: const Text("Accept"),
                                     style: ElevatedButton.styleFrom(
-                                      padding: EdgeInsets.symmetric(
+                                      backgroundColor: Colors.green[600],
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
                                         vertical: 14,
                                       ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      backgroundColor: Colors.green[600],
-                                      foregroundColor: Colors.white,
-                                      textStyle: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ),
@@ -298,86 +426,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: const [
-                  SummaryTile(
-                    icon: Icons.attach_money,
-                    label: 'Earnings',
-                    value: '₱128.50',
-                  ),
-                  SummaryTile(
-                    icon: Icons.directions_car_filled,
-                    label: 'Trips',
-                    value: '8',
-                  ),
-                  SummaryTile(
-                    icon: Icons.timer_outlined,
-                    label: 'Online',
-                    value: '4h 15m',
-                  ),
-                ],
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
-}
 
-class SummaryTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const SummaryTile({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 26, color: theme.colorScheme.primary),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-        ),
-      ],
+  Widget _buildRideInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+          Text(value),
+        ],
+      ),
     );
   }
 }

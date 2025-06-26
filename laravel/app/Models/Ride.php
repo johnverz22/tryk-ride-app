@@ -34,6 +34,7 @@ class Ride extends Model
         'fare_amount',
         'payment_method',
         'is_paid',
+        'search_radius_km', 
 
         'rider_rating',
         'rider_review',

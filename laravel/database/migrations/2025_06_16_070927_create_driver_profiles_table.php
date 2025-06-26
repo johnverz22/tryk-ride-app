@@ -17,8 +17,11 @@ return new class extends Migration
             $table->foreignId('driver_status_id')->constrained('driver_statuses')->onDelete('restrict');
             $table->string('id_document_path')->nullable();
             $table->string('license_document_path')->nullable();
-            $table->boolean('verified')->default(false);
+            $table->decimal('current_latitude', 11, 8)->nullable();
+            $table->decimal('current_longitude', 11, 8)->nullable();
             $table->timestamps();
+
+            $table->index(['current_latitude', 'current_longitude'], 'driver_location_index');
         });
     }
 

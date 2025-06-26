@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/user_provider.dart';
+import '../../providers/user_provider.dart';
 import 'custom_top_bar.dart';
 
 class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {

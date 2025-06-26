@@ -1,22 +1,22 @@
-export 'custom_app_bar.dart';
+export 'appbar/custom_app_bar.dart';
 
 // Home Screen
-export 'location_card.dart';
-export 'place_chip.dart';
-export 'recent_trip_tile.dart';
+export 'home_screen/location_card.dart';
+export 'home_screen/place_chip.dart';
+export 'home_screen/recent_trip_tile.dart';
 
 // Trips Screen
-export 'trip_card.dart';
-export 'empty_trip_placeholder.dart';
-export 'search_bar.dart';
+export 'trips_screen/trip_card.dart';
+export 'trips_screen/empty_trip_placeholder.dart';
+export 'trips_screen/search_bar.dart';
 
 // Wallet Screen
-export 'wallet_balance_card.dart';
-export 'payment_methods_list.dart';
-export 'promotion_card.dart';
-export 'section_title.dart';
-export 'transaction_history.dart';
-export 'analytics_placeholder.dart';
+export 'wallet_screen/wallet_balance_card.dart';
+export 'wallet_screen/payment_methods_list.dart';
+export 'wallet_screen/promotion_card.dart';
+export 'wallet_screen/section_title.dart';
+export 'wallet_screen/transaction_history.dart';
+export 'wallet_screen/analytics_placeholder.dart';
 
 // Profile Screen
 

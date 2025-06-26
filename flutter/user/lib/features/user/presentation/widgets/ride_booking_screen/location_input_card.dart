@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../../pages/screens/navigation/home/location_picker_screen.dart'; // Update the path as needed
+import 'package:latlong2/latlong.dart';
+import '../../pages/screens/navigation/home/location_picker_screen.dart';
 
 class LocationInputCard extends StatelessWidget {
   final String label;
@@ -29,7 +29,7 @@ class LocationInputCard extends StatelessWidget {
           controller: controller,
           readOnly: true,
           onTap: () async {
-            final LatLng? picked = await Navigator.push(
+            final picked = await Navigator.push<LatLng>(
               context,
               MaterialPageRoute(builder: (_) => const LocationPickerScreen()),
             );

@@ -43,7 +43,9 @@ class TransactionItem extends StatelessWidget {
           child: const Icon(Icons.directions_car, color: Colors.green),
         ),
         title: const Text('Trip to Golden Gate Park'),
-        subtitle: Text(DateFormat('MMMM dd, yyyy – \$12.50').format(DateTime(2025, 6, 17))),
+        subtitle: Text(
+          DateFormat('MMMM dd, yyyy – \$12.50').format(DateTime(2025, 6, 17)),
+        ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () {},
       ),

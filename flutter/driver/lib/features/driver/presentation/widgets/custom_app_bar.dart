@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart'; // for formatting date
+import 'package:intl/intl.dart';
 import '../providers/driver_provider.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../../../../core/config/api_config.dart';
 
 class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onNotificationTap;
@@ -17,6 +20,34 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(75);
+
+  Future<void> handleToggleOnline(bool value, BuildContext context) async {
+    final driverProvider = Provider.of<DriverProvider>(context, listen: false);
+
+    if (value) {
+      const double latitude = 16.6155; // Example hardcoded location: Manila
+      const double longitude = 120.3170;
+
+      driverProvider.setOnlineStatus(true);
+
+      try {
+        await http.post(
+          Uri.parse('${ApiConfig.baseUrl}/driver/update-location'),
+          headers: {
+            'Authorization': 'Bearer ${driverProvider.token}',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'latitude': latitude, 'longitude': longitude}),
+        );
+      } catch (e) {
+        debugPrint('Failed to update location: $e');
+      }
+    } else {
+      driverProvider.setOnlineStatus(false);
+    }
+
+    onToggleOnline(value);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +76,8 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
             radius: 22,
             backgroundImage: profilePhoto.isNotEmpty
                 ? NetworkImage(profilePhoto)
-                : const AssetImage('assets/images/default_avatar.png') as ImageProvider,
+                : const AssetImage('assets/images/default_avatar.png')
+                      as ImageProvider,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -88,7 +120,7 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
               const SizedBox(width: 6),
               Switch(
                 value: isOnline,
-                onChanged: onToggleOnline,
+                onChanged: (value) => handleToggleOnline(value, context),
                 activeColor: Colors.greenAccent,
                 inactiveThumbColor: Colors.grey,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

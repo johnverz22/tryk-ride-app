@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../../../widgets/widgets.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../widgets/widgets.dart'; // TripCard, TripSearchBar, EmptyTripPlaceholder
+import '../../../../../../core/config/api_config.dart'; // ApiConfig.baseUrl
 
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});
@@ -8,67 +12,80 @@ class TripsScreen extends StatefulWidget {
   State<TripsScreen> createState() => _TripsScreenState();
 }
 
-class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin {
+class _TripsScreenState extends State<TripsScreen>
+    with TickerProviderStateMixin {
   late TabController _tabController;
   String searchQuery = '';
   bool isLoading = false;
+  List<Map<String, dynamic>> allTrips = [];
 
-  final List<String> tripCategories = ['Upcoming', 'Completed', 'Canceled'];
-
-  final List<Map<String, dynamic>> mockTrips = [
-    {
-      'id': '1',
-      'datetime': DateTime.now().subtract(const Duration(days: 1)),
-      'pickup': 'Airport Terminal 1',
-      'dropoff': 'Downtown Hotel',
-      'price': 23.5,
-      'payment': 'Credit Card',
-      'driver': 'John Smith',
-      'rating': 4.5,
-      'status': 'Completed'
-    },
-    {
-      'id': '2',
-      'datetime': DateTime.now().add(const Duration(hours: 5)),
-      'pickup': 'City Center',
-      'dropoff': 'Museum District',
-      'price': 12.0,
-      'payment': 'Wallet',
-      'driver': 'Alice Brown',
-      'rating': 4.8,
-      'status': 'Upcoming'
-    },
-    {
-      'id': '3',
-      'datetime': DateTime.now().subtract(const Duration(days: 3)),
-      'pickup': 'Stadium',
-      'dropoff': 'Suburb 5',
-      'price': 15.0,
-      'payment': 'Cash',
-      'driver': 'Mark Lee',
-      'rating': 4.1,
-      'status': 'Canceled'
-    },
-  ];
+  final storage = FlutterSecureStorage();
+  final List<String> tripCategories = ['Accepted', 'Completed', 'Cancelled'];
 
   @override
   void initState() {
-    _tabController = TabController(length: tripCategories.length, vsync: this);
     super.initState();
+    _tabController = TabController(length: tripCategories.length, vsync: this);
+    _loadTrips();
+  }
+
+  Future<String?> _getUserToken() async {
+    return await storage.read(key: 'token');
+  }
+
+  Future<void> _loadTrips() async {
+    setState(() => isLoading = true);
+    final token = await _getUserToken();
+    if (token != null) {
+      final trips = await fetchUserTrips(token);
+      setState(() {
+        allTrips = trips;
+        isLoading = false;
+      });
+    } else {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchUserTrips(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/user/trips'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      } else {
+        print('Failed to fetch trips: ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print('Error fetching trips: $e');
+      return [];
+    }
   }
 
   Future<void> _refreshTrips() async {
-    setState(() => isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() => isLoading = false);
+    await _loadTrips();
   }
 
   Widget _buildTripList(String category) {
-    List<Map<String, dynamic>> trips = mockTrips
+    List<Map<String, dynamic>> trips = allTrips
         .where((trip) => trip['status'] == category)
-        .where((trip) =>
-            trip['pickup'].toLowerCase().contains(searchQuery.toLowerCase()) ||
-            trip['dropoff'].toLowerCase().contains(searchQuery.toLowerCase()))
+        .where(
+          (trip) =>
+              trip['pickup_address'].toLowerCase().contains(
+                searchQuery.toLowerCase(),
+              ) ||
+              trip['dropoff_address'].toLowerCase().contains(
+                searchQuery.toLowerCase(),
+              ),
+        )
         .toList();
 
     if (trips.isEmpty) {
@@ -83,17 +100,13 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
     return RefreshIndicator(
       onRefresh: _refreshTrips,
       child: ListView.builder(
-        physics: const BouncingScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(),
         itemCount: trips.length,
         itemBuilder: (context, index) {
           return TripCard(
             trip: trips[index],
-            onViewDetails: () {
-              // TODO: Navigate to trip details
-            },
-            onRebook: () {
-              // TODO: Implement rebook functionality
-            },
+            onViewDetails: () {},
+            onRebook: () {},
           );
         },
       ),
@@ -120,16 +133,26 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
               controller: _tabController,
               labelColor: theme.primaryColor,
               unselectedLabelColor: Colors.grey,
-              labelStyle: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-              indicatorColor: theme.primaryColor,
-              tabs: tripCategories.map((category) => Tab(text: category)).toList(),
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: tripCategories.map((category) => _buildTripList(category)).toList(),
+              labelStyle: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
+              indicatorColor: theme.primaryColor,
+              tabs: tripCategories
+                  .map((category) => Tab(text: category))
+                  .toList(),
             ),
+            isLoading
+                ? const Expanded(
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: tripCategories
+                          .map((category) => _buildTripList(category))
+                          .toList(),
+                    ),
+                  ),
           ],
         ),
       ),

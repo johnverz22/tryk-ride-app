@@ -14,7 +14,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [Controllers\AuthController::class, 'logout']);
     
     Route::put('/user/update', [Controllers\UserController::class, 'update']);
+    Route::get('/user/trips', [Controllers\UserController::class, 'userTrips']);
     Route::put('/driver/update', [Controllers\UserController::class, 'update']);
+    Route::post('/driver/update-location', [Controllers\DriverController::class, 'updateLocation']);
     Route::get('/driver/documents', [Controllers\DriverController::class, 'getDocuments']);
     Route::post('/driver/upload-document', [Controllers\DriverController::class, 'uploadDocument']);
     Route::post('/driver/submit-verification', [Controllers\DriverController::class, 'submitVerification']);

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import '../ride_booking_screen.dart';
+import 'home/ride_booking_screen.dart';
 import '../../../widgets/widgets.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -71,7 +71,9 @@ class _HomeScreenState extends State<HomeScreen> {
           // Suggestions
           Text(
             'Suggestions for You',
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -90,7 +92,9 @@ class _HomeScreenState extends State<HomeScreen> {
           // Recent Trips
           Text(
             'Recent Trips',
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 12),
           ..._recentTrips.map(
@@ -115,7 +119,9 @@ class _HomeScreenState extends State<HomeScreen> {
           style: ElevatedButton.styleFrom(
             backgroundColor: theme.primaryColor,
             minimumSize: const Size.fromHeight(52),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             elevation: 3,
           ),
           child: const Text(

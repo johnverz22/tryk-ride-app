@@ -8,9 +8,12 @@ use App\Events\RideRequested;
 use App\Enums\RideStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Services\DriverMatchingService;
+use Illuminate\Support\Facades\Log;
 
 class RideController extends Controller
 {
+
     public function store(Request $request)
     {
         $request->validate([
@@ -26,14 +29,48 @@ class RideController extends Controller
             'fare_amount' => 'required|numeric',
             'ride_status_id' => 'required|exists:ride_statuses,id',
             'payment_method' => 'nullable|string',
+            'search_radius_km' => 'nullable|integer|min:1|max:100',
         ]);
 
+        $pickupLat = $request->pickup_latitude;
+        $pickupLng = $request->pickup_longitude;
+        $maxUserRadius = (int) $request->input('search_radius_km', 10);
+        $initialRadius = 5;
+        $matchingRadiusUsed = $initialRadius;
+
+        $matcher = app(DriverMatchingService::class);
+
+        // Step 1: Try initial 5km search
+        $drivers = $matcher->findNearbyDrivers($pickupLat, $pickupLng, $initialRadius);
+        Log::info('Primary radius search', ['radius_km' => $initialRadius, 'drivers_found' => $drivers->pluck('id')]);
+
+        // Step 2: Expand search up to user-defined radius
+        if ($drivers->isEmpty()) {
+            for ($radius = $initialRadius + 1; $radius <= $maxUserRadius; $radius++) {
+                $drivers = $matcher->findNearbyDrivers($pickupLat, $pickupLng, $radius);
+                Log::info('Fallback radius search', ['radius_km' => $radius, 'drivers_found' => $drivers->pluck('id')]);
+
+                if ($drivers->isNotEmpty()) {
+                    $matchingRadiusUsed = $radius;
+                    break;
+                }
+            }
+        }
+
+        // Step 3: Abort if still no drivers found
+        if ($drivers->isEmpty()) {
+            return response()->json([
+                'message' => "No drivers available within {$maxUserRadius} km. Ride not created."
+            ], 202);
+        }
+
+        // Step 4: Create the ride
         $ride = Ride::create([
             'user_id' => $request->user()->id,
             'ride_status_id' => $request->ride_status_id,
             'pickup_address' => $request->pickup_address,
-            'pickup_latitude' => $request->pickup_latitude,
-            'pickup_longitude' => $request->pickup_longitude,
+            'pickup_latitude' => $pickupLat,
+            'pickup_longitude' => $pickupLng,
             'dropoff_address' => $request->dropoff_address,
             'dropoff_latitude' => $request->dropoff_latitude,
             'dropoff_longitude' => $request->dropoff_longitude,
@@ -42,16 +79,20 @@ class RideController extends Controller
             'duration_minutes' => $request->duration_minutes,
             'fare_amount' => $request->fare_amount,
             'payment_method' => $request->payment_method,
+            'search_radius_km' => $matchingRadiusUsed,
         ]);
 
-        // // ✅ Fire the event
-        // event(new RideRequested($ride));
+        foreach ($drivers as $driver) {
+            event(new \App\Events\RideRequested($ride, $driver));
+        }
 
         return response()->json([
-            'message' => 'Ride created successfully',
+            'message' => 'Ride created and drivers notified.',
             'ride' => $ride,
+            'notified_drivers' => $drivers->pluck('id'),
         ], 201);
     }
+
 
     public function cancel(Request $request)
     {
@@ -72,15 +113,15 @@ class RideController extends Controller
 
     public function accept($id)
     {
-        $driver = Auth::user(); // assuming driver is authenticated
+        $driver = Auth::user();
 
         // Only update the ride if it's still pending (ride_status_id = 1)
         $updated = DB::table('rides')
             ->where('id', $id)
-            ->where('ride_status_id', 1) // 1 = Requested
+            ->where('ride_status_id', 1)
             ->update([
                 'driver_id' => $driver->id,
-                'ride_status_id' => 2, // 2 = Accepted
+                'ride_status_id' => 2,
                 'accepted_at' => now(),
             ]);
 
@@ -93,6 +134,10 @@ class RideController extends Controller
 
     public function show($id)
     {
+        if (!is_numeric($id)) {
+            return response()->json(['error' => 'Invalid ride ID'], 400);
+        }
+
         $ride = Ride::with(['driver', 'user', 'status'])->findOrFail($id);
         return response()->json(['ride' => $ride]);
     }

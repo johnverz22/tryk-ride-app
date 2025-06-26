@@ -122,52 +122,35 @@ class DriverProvider with ChangeNotifier {
   // Ride request actions
   Future<bool> acceptRequest(RideRequest ride) async {
     try {
-      print('🔍 Fetching ride status for ride ID: ${ride.id}');
-
-      // Step 1: Fetch ride details
-      final statusResponse = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/rides/${ride.id}'),
-        headers: {'Authorization': 'Bearer $_token'},
+      final rideStatusUrl = Uri.parse('${ApiConfig.baseUrl}/rides/${ride.id}');
+      final acceptRideUrl = Uri.parse(
+        '${ApiConfig.baseUrl}/rides/${ride.id}/accept',
       );
 
-      print('📥 Status response code: ${statusResponse.statusCode}');
-      if (statusResponse.statusCode != 200) {
-        print('❌ Failed to fetch ride status');
-        return false;
-      }
+      final headers = {
+        'Authorization': 'Bearer $_token',
+        'Content-Type': 'application/json',
+      };
 
-      final rideData = json.decode(statusResponse.body);
-      final status = rideData['ride']['status']?['name'] ?? '';
-      print('✅ Current ride status: $status');
+      // Step 1: Check current ride status
+      final statusRes = await http.get(rideStatusUrl, headers: headers);
+      if (statusRes.statusCode != 200) return false;
 
-      // Step 2: Check if status is still "Requested"
-      if (status != 'Requested') {
-        print('⚠️ Ride already taken or not available');
-        return false;
-      }
+      final status =
+          json.decode(statusRes.body)['ride']?['status']?['name'] ?? '';
+      if (status != 'Requested') return false;
 
-      // Step 3: Attempt to accept the ride
-      print('🟢 Sending accept request for ride ID: ${ride.id}');
-      final acceptResponse = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/rides/${ride.id}/accept'),
-        headers: {
-          'Authorization': 'Bearer $_token',
-          'Content-Type': 'application/json',
-        },
-      );
+      // Step 2: Try accepting the ride
+      final acceptRes = await http.post(acceptRideUrl, headers: headers);
+      if (acceptRes.statusCode != 200) return false;
 
-      print('📥 Accept response code: ${acceptResponse.statusCode}');
-      if (acceptResponse.statusCode == 200) {
-        print('✅ Ride accepted successfully');
-        requestedRides.removeWhere((r) => r.id == ride.id);
-        notifyListeners();
-        return true;
-      } else {
-        print('❌ Failed to accept ride');
-        return false;
-      }
+      // Step 3: Update local state
+      requestedRides.removeWhere((r) => r.id == ride.id);
+      notifyListeners();
+
+      return true;
     } catch (e) {
-      print('💥 Exception occurred while accepting ride: $e');
+      // Optionally log the error here
       return false;
     }
   }

@@ -35,6 +35,7 @@ return new class extends Migration
             $table->double('duration_minutes')->nullable();
             $table->double('fare_amount')->nullable();
             $table->string('payment_method')->nullable();
+            $table->unsignedInteger('search_radius_km')->default(10);
             $table->boolean('is_paid')->default(false);
 
             $table->tinyInteger('rider_rating')->nullable();

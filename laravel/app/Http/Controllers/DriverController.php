@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Ride;
 use App\Services\DriverMatchingService;
+use Illuminate\Support\Facades\DB;
 
 class DriverController extends Controller
 {
@@ -157,7 +158,6 @@ class DriverController extends Controller
     {
         $user = $request->user();
 
-        // Ensure user has a driver profile and is verified
         $driverProfile = $user->profile;
         if (
             !$driverProfile ||
@@ -168,12 +168,22 @@ class DriverController extends Controller
                 'message' => 'Access denied. Only approved drivers can view ride requests.'
             ], 403);
         }
-    
+
+        // Fetch ride IDs this driver has rejected
+        $rejectedRideIds = DB::table('ride_rejections')
+            ->where('driver_id', $user->id)
+            ->pluck('ride_id');
+
         $rides = Ride::with('user')
             ->whereHas('status', function ($query) {
                 $query->where('name', 'Requested');
             })
+            ->where(function ($query) use ($user) {
+                $query->where('assigned_driver_id', $user->id)
+                    ->orWhereNull('assigned_driver_id');
+            })
             ->whereNull('driver_id')
+            // ->whereNotIn('id', $rejectedRideIds)
             ->latest()
             ->get([
                 'id',
@@ -204,6 +214,7 @@ class DriverController extends Controller
         $validated = $request->validate([
             'latitude'  => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
+            'is_online' => 'sometimes|boolean',
         ]);
 
         $profile = $user->profile;
@@ -214,12 +225,14 @@ class DriverController extends Controller
 
         $profile->current_latitude = $validated['latitude'];
         $profile->current_longitude = $validated['longitude'];
+        $profile->is_online =  $validated['is_online'];
         $profile->save();
 
         return response()->json([
             'message' => 'Location updated successfully',
             'latitude' => $profile->current_latitude,
             'longitude' => $profile->current_longitude,
+            'is_online' => $profile->is_online,
         ]);
     }
 
@@ -254,5 +267,20 @@ class DriverController extends Controller
             'message' => 'Nearby drivers found',
             'drivers' => $drivers->pluck('id'),
         ]);
+    }
+
+    public function goOffline(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user || !$user->profile) {
+            return response()->json(['message' => 'Driver profile not found.'], 404);
+        }
+
+        $profile = $user->profile;
+        $profile->is_online = false;
+        $profile->save();
+
+        return response()->json(['message' => 'Driver is now offline.']);
     }
 }

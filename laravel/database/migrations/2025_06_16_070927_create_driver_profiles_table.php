@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('license_document_path')->nullable();
             $table->decimal('current_latitude', 11, 8)->nullable();
             $table->decimal('current_longitude', 11, 8)->nullable();
+            $table->boolean('is_online')->default(false);
             $table->timestamps();
 
             $table->index(['current_latitude', 'current_longitude'], 'driver_location_index');

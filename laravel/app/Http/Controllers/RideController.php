@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Services\DriverMatchingService;
 use Illuminate\Support\Facades\Log;
+use App\Models\RideRejection; 
 
 class RideController extends Controller
 {
@@ -35,7 +36,7 @@ class RideController extends Controller
         $pickupLat = $request->pickup_latitude;
         $pickupLng = $request->pickup_longitude;
         $maxUserRadius = (int) $request->input('search_radius_km', 10);
-        $initialRadius = 5;
+        $initialRadius = 1;
         $matchingRadiusUsed = $initialRadius;
 
         $matcher = app(DriverMatchingService::class);
@@ -82,9 +83,13 @@ class RideController extends Controller
             'search_radius_km' => $matchingRadiusUsed,
         ]);
 
-        foreach ($drivers as $driver) {
-            event(new \App\Events\RideRequested($ride, $driver));
-        }
+        $assignedDriver = $drivers->first();
+
+        $ride->assigned_driver_id = $assignedDriver->id;
+        $ride->save();
+
+        // Notify assigned driver only
+        event(new \App\Events\RideRequested($ride, $assignedDriver));
 
         return response()->json([
             'message' => 'Ride created and drivers notified.',
@@ -130,6 +135,35 @@ class RideController extends Controller
         } else {
             return response()->json(['message' => 'Ride has already been taken.'], 409);
         }
+    }
+
+    public function reject(Ride $ride)
+    {
+        $user = Auth::user();
+
+        if (!$user || !$user->profile || $user->profile->status->name !== 'approved') {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if ($ride->assigned_driver_id !== $user->id) {
+            return response()->json(['message' => 'You are not assigned to this ride.'], 403);
+        }
+
+        if ($ride->ride_status_id !== RideStatus::REQUESTED) {
+            return response()->json(['message' => 'Ride is not in a rejectable state.'], 409);
+        }
+
+        // Unassign driver
+        $ride->assigned_driver_id = null;
+        $ride->save();
+
+        // Record the rejection
+        RideRejection::firstOrCreate([
+            'ride_id' => $ride->id,
+            'driver_id' => $user->id,
+        ]);
+
+        return response()->json(['message' => 'You rejected the ride. It is now visible to nearby drivers again.'], 200);
     }
 
     public function show($id)

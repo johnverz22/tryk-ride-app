@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -104,7 +104,7 @@ class DriverProvider with ChangeNotifier {
   void _startPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      fetchRequestedRides();
+      if (_isOnline && _token != null) fetchRequestedRides();
     });
   }
 
@@ -155,11 +155,37 @@ class DriverProvider with ChangeNotifier {
     }
   }
 
-  void rejectSpecificRide(RideRequest ride) {
+  Future<void> rejectRide(RideRequest ride) async {
+    if (_token == null) return;
+
+    final response = await http.patch(
+      Uri.parse('${ApiConfig.baseUrl}/rides/${ride.id}/reject'),
+      headers: {
+        'Authorization': 'Bearer $_token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      // Update local state only
+      _rejectedRideIds.add(ride.id);
+      _requestedRides.removeWhere((r) => r.id == ride.id);
+      _hasIncomingRequest = _requestedRides.isNotEmpty;
+      notifyListeners();
+      debugPrint('Ride rejected successfully.');
+    } else {
+      debugPrint('Failed to reject ride: ${response.statusCode}');
+      debugPrint('Response body: ${response.body}');
+    }
+  }
+
+  Future<void> rejectSpecificRide(RideRequest ride) async {
     _rejectedRideIds.add(ride.id);
     _requestedRides.removeWhere((r) => r.id == ride.id);
     _hasIncomingRequest = _requestedRides.isNotEmpty;
     notifyListeners();
+
+    await fetchRequestedRides(); // Re-pull ride list after rejection
   }
 
   // Fetch ride requests via HTTP (every 5 seconds)
@@ -177,14 +203,19 @@ class DriverProvider with ChangeNotifier {
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      _requestedRides = (data as List)
+      final newRides = (data as List)
           .map((e) => RideRequest.fromJson(e))
           .where((ride) => !_rejectedRideIds.contains(ride.id))
           .toList();
+
+      // Always update the ride list, even if unchanged
+      _requestedRides = newRides;
       _hasIncomingRequest = _requestedRides.isNotEmpty;
       notifyListeners();
     } else {
-      debugPrint('Failed to fetch rides: ${response.body}');
+      debugPrint(
+        'Failed to fetch rides: ${response.statusCode} → ${response.body}',
+      );
     }
   }
 
@@ -226,10 +257,17 @@ class DriverProvider with ChangeNotifier {
     final uri = Uri.parse(url);
 
     try {
-      if (method == 'PUT') {
-        response = await http.put(uri, headers: headers, body: body);
-      } else {
-        throw UnimplementedError('Method not supported');
+      switch (method.toUpperCase()) {
+        case 'PUT':
+          response = await http.put(uri, headers: headers, body: body);
+        case 'POST':
+          response = await http.post(uri, headers: headers, body: body);
+        case 'GET':
+          response = await http.get(uri, headers: headers);
+        case 'DELETE':
+          response = await http.delete(uri, headers: headers);
+        default:
+          throw UnimplementedError('Method $method not supported');
       }
 
       if (response.statusCode == 401) {

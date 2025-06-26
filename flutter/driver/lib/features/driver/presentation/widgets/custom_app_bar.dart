@@ -37,15 +37,30 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
             'Authorization': 'Bearer ${driverProvider.token}',
             'Content-Type': 'application/json',
           },
-          body: jsonEncode({'latitude': latitude, 'longitude': longitude}),
+          body: jsonEncode({
+            'latitude': latitude,
+            'longitude': longitude,
+            'is_online': driverProvider.isOnline,
+          }),
         );
       } catch (e) {
         debugPrint('Failed to update location: $e');
       }
     } else {
       driverProvider.setOnlineStatus(false);
-    }
 
+      try {
+        await http.post(
+          Uri.parse('${ApiConfig.baseUrl}/driver/go-offline'),
+          headers: {
+            'Authorization': 'Bearer ${driverProvider.token}',
+            'Content-Type': 'application/json',
+          },
+        );
+      } catch (e) {
+        debugPrint('Failed to go offline: $e');
+      }
+    }
     onToggleOnline(value);
   }
 

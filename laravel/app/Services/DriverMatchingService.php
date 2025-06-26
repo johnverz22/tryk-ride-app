@@ -17,17 +17,17 @@ class DriverMatchingService
             sin(radians(current_latitude))
         ))";
 
-        $drivers = User::whereHas('profile.status', function ($query) {
-                    $query->where('name', 'approved');
-                })
-                ->whereHas('profile', function ($query) use ($haversine, $latitude, $longitude, $radiusInKm) {
-                    $query->whereRaw("$haversine < ?", [$latitude, $longitude, $latitude, $radiusInKm])
-                        ->orderByRaw("$haversine ASC", [$latitude, $longitude, $latitude]);
-                })
-                ->with('profile.status')
-                ->get();
+        $drivers = User::whereHas('profile', function ($query) use ($haversine, $latitude, $longitude, $radiusInKm) {
+                $query->where('is_online', true)
+                    ->whereRaw("$haversine < ?", [$latitude, $longitude, $latitude, $radiusInKm])
+                    ->orderByRaw("$haversine ASC", [$latitude, $longitude, $latitude]);
+            })
+            ->whereHas('profile.status', function ($query) {
+                $query->where('name', 'approved');
+            })
+            ->with('profile.status')
+            ->get();
 
-        // 📋 Log here
         Log::info('Matching drivers found', [
             'radius_km' => $radiusInKm,
             'lat' => $latitude,

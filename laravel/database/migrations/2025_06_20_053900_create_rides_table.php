@@ -16,7 +16,8 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->foreignId('driver_id')->nullable()->constrained('users')->onDelete('set null');
             $table->foreignId('ride_status_id')->constrained()->onDelete('restrict');
-            
+            $table->foreignId('assigned_driver_id')->nullable()->constrained('users')->onDelete('set null');
+
             $table->string('pickup_address');
             $table->double('pickup_latitude');
             $table->double('pickup_longitude');

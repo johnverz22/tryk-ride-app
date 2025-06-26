@@ -34,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _autoAcceptTimer?.cancel();
     _remainingSeconds = 30;
 
-    // Hide ride list when a ride is selected
     setState(() {
       _showRideList = false;
     });
@@ -66,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         setState(() {
           _selectedRide = null;
+          _showRideList = !success;
         });
       }
     });
@@ -95,20 +95,25 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         : null;
 
-    if (nearestRide != null && _selectedRide?.id != nearestRide.id) {
-      _selectedRide = nearestRide;
-      _startAutoAcceptTimer(nearestRide);
+    if (nearestRide != null &&
+        (_selectedRide == null || _selectedRide!.id != nearestRide.id)) {
+      if (_autoAcceptTimer?.isActive != true) {
+        _selectedRide = nearestRide;
+        _startAutoAcceptTimer(nearestRide);
+      }
     }
 
     return Scaffold(
       appBar: CustomUserAppBar(
         isOnline: driverProvider.isOnline,
         onToggleOnline: (val) async {
-          await driverProvider.setOnlineStatus(val);
-          setState(() {
-            _selectedRide = null;
-            _showRideList = false;
-          });
+          if (!val) {
+            _cancelAutoAcceptTimer();
+            setState(() {
+              _selectedRide = null;
+              _showRideList = false;
+            });
+          }
         },
       ),
       body: Stack(
@@ -353,15 +358,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                             _selectedRide!.id,
                                       );
                                       await Future.delayed(
-                                        const Duration(milliseconds: 300),
+                                        Duration(milliseconds: 300),
                                       );
-                                      driverProvider.rejectSpecificRide(
+                                      await driverProvider.rejectSpecificRide(
                                         _selectedRide!,
                                       );
                                       _cancelAutoAcceptTimer();
                                       setState(() {
                                         _selectedRide = null;
                                         _fadingOutRideId = null;
+                                        _showRideList = true;
                                       });
                                     },
                                     icon: const Icon(Icons.close),

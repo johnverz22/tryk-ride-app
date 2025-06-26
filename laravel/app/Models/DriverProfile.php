@@ -13,6 +13,7 @@ class DriverProfile extends Model
         'driver_status_id',
         'id_document_path',
         'license_document_path',
+        'is_online',
     ];
 
     public function user(): BelongsTo

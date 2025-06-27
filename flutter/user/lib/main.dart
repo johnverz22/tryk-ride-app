@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'features/user/presentation/pages/screens/main_navigation_screen.dart';
 import 'features/user/presentation/pages/screens/auth/auth_screen.dart';
 import 'features/user/presentation/providers/user_provider.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
+
   runApp(
     MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => UserProvider()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => UserProvider())],
       child: const MainApp(),
     ),
   );
@@ -32,9 +34,7 @@ class MainApp extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const MaterialApp(
-            home: Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            ),
+            home: Scaffold(body: Center(child: CircularProgressIndicator())),
           );
         }
 
@@ -49,9 +49,9 @@ class MainApp extends StatelessWidget {
               foregroundColor: Colors.white,
               iconTheme: IconThemeData(color: Colors.white),
             ),
-            colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.pink).copyWith(
-              secondary: Colors.pinkAccent,
-            ),
+            colorScheme: ColorScheme.fromSwatch(
+              primarySwatch: Colors.pink,
+            ).copyWith(secondary: Colors.pinkAccent),
             textTheme: const TextTheme(
               // bodyLarge: TextStyle(color: Colors.white),
               // bodyMedium: TextStyle(color: Colors.white),

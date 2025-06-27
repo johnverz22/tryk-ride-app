@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../../../widgets/widgets.dart'; // TripCard, TripSearchBar, EmptyTripPlaceholder
-import '../../../../../../core/config/api_config.dart'; // ApiConfig.baseUrl
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../../widgets/widgets.dart';
 
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});
@@ -18,6 +18,7 @@ class _TripsScreenState extends State<TripsScreen>
   String searchQuery = '';
   bool isLoading = false;
   List<Map<String, dynamic>> allTrips = [];
+  String? baseUrl = dotenv.env['BASE_URL'];
 
   final storage = FlutterSecureStorage();
   final List<String> tripCategories = ['Accepted', 'Completed', 'Cancelled'];
@@ -50,7 +51,7 @@ class _TripsScreenState extends State<TripsScreen>
   Future<List<Map<String, dynamic>>> fetchUserTrips(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/user/trips'),
+        Uri.parse('$baseUrl/user/trips'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',

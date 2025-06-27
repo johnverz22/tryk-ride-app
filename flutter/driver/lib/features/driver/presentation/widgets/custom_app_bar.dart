@@ -25,7 +25,7 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
     final driverProvider = Provider.of<DriverProvider>(context, listen: false);
 
     if (value) {
-      const double latitude = 16.6155; // Example hardcoded location: Manila
+      const double latitude = 16.6155;
       const double longitude = 120.3170;
 
       driverProvider.setOnlineStatus(true);
@@ -127,14 +127,17 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
           const SizedBox(width: 12),
           Row(
             children: [
-              Icon(
-                isOnline ? Icons.circle : Icons.circle_outlined,
-                size: 14,
-                color: isOnline ? Colors.greenAccent : Colors.grey[400],
-              ),
               const SizedBox(width: 6),
               Switch(
                 value: isOnline,
+                thumbIcon: WidgetStateProperty.resolveWith<Icon?>((
+                  Set<WidgetState> states,
+                ) {
+                  if (states.contains(WidgetState.selected)) {
+                    return const Icon(Icons.check); // Online icon
+                  }
+                  return const Icon(Icons.close); // Offline icon
+                }),
                 onChanged: (value) => handleToggleOnline(value, context),
                 activeColor: Colors.greenAccent,
                 inactiveThumbColor: Colors.grey,

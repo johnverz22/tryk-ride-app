@@ -5,16 +5,22 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:user/features/user/presentation/providers/user_provider.dart';
 import '../../features/user/data/models/user_model.dart';
-import '../config/api_config.dart';
+
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 final storage = FlutterSecureStorage();
-final baseUrl = ApiConfig.baseUrl;
+final baseUrl = dotenv.env['BASE_URL'];
 
 class AuthService {
   final client = http.Client();
 
   // Register user
-  Future<bool> register(String name, String email, String password, BuildContext context) async {
+  Future<bool> register(
+    String name,
+    String email,
+    String password,
+    BuildContext context,
+  ) async {
     try {
       final res = await client.post(
         Uri.parse('$baseUrl/register'),
@@ -48,15 +54,16 @@ class AuthService {
   }
 
   // Login user
-  Future<bool> login(String email, String password, BuildContext context) async {
+  Future<bool> login(
+    String email,
+    String password,
+    BuildContext context,
+  ) async {
     try {
       final res = await client.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
+        body: jsonEncode({'email': email, 'password': password}),
       );
 
       if (res.statusCode == 200) {

@@ -1,20 +1,58 @@
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-class RoutePreviewMap extends StatelessWidget {
+class RoutePreviewMap extends StatefulWidget {
   final LatLng from;
   final LatLng to;
-  final MapController mapController;
   final double totalDistance;
 
   const RoutePreviewMap({
     super.key,
     required this.from,
     required this.to,
-    required this.mapController,
     required this.totalDistance,
   });
+
+  @override
+  State<RoutePreviewMap> createState() => _RoutePreviewMapState();
+}
+
+class _RoutePreviewMapState extends State<RoutePreviewMap> {
+  // Removed unused _mapController
+
+  Set<Marker> get _markers => {
+    Marker(
+      markerId: const MarkerId('from'),
+      position: widget.from,
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+    ),
+    Marker(
+      markerId: const MarkerId('to'),
+      position: widget.to,
+      icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+    ),
+  };
+
+  Set<Polyline> get _polylines => {
+    Polyline(
+      polylineId: const PolylineId('route'),
+      points: [widget.from, widget.to],
+      color: Theme.of(context).primaryColor,
+      width: 5,
+    ),
+  };
+
+  CameraPosition get _initialCameraPosition => CameraPosition(
+    target: LatLng(
+      (widget.from.latitude + widget.to.latitude) / 2,
+      (widget.from.longitude + widget.to.longitude) / 2,
+    ),
+    zoom: widget.totalDistance <= 2
+        ? 15
+        : widget.totalDistance <= 5
+        ? 13
+        : 11,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -22,58 +60,16 @@ class RoutePreviewMap extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: SizedBox(
         height: 220,
-        child: FlutterMap(
-          mapController: mapController,
-          options: MapOptions(
-            initialCenter: LatLng(
-              (from.latitude + to.latitude) / 2,
-              (from.longitude + to.longitude) / 2,
-            ),
-            initialZoom: (totalDistance <= 2)
-                ? 15
-                : (totalDistance <= 5)
-                ? 13
-                : 11,
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.example.app',
-            ),
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: from,
-                  width: 40,
-                  height: 40,
-                  child: const Icon(
-                    Icons.location_pin,
-                    color: Colors.green,
-                    size: 36,
-                  ),
-                ),
-                Marker(
-                  point: to,
-                  width: 40,
-                  height: 40,
-                  child: const Icon(
-                    Icons.location_pin,
-                    color: Colors.red,
-                    size: 36,
-                  ),
-                ),
-              ],
-            ),
-            PolylineLayer(
-              polylines: [
-                Polyline(
-                  points: [from, to],
-                  strokeWidth: 4.0,
-                  color: Theme.of(context).primaryColor,
-                ),
-              ],
-            ),
-          ],
+        child: GoogleMap(
+          initialCameraPosition: _initialCameraPosition,
+          markers: _markers,
+          polylines: _polylines,
+          onMapCreated: (controller) {
+            // Map controller is available if needed in the future
+          },
+          zoomControlsEnabled: false,
+          myLocationButtonEnabled: false,
+          compassEnabled: false,
         ),
       ),
     );

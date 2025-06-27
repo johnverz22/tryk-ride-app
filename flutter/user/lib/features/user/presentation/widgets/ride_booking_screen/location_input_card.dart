@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
 import '../../pages/screens/navigation/home/location_picker_screen.dart';
 
 class LocationInputCard extends StatelessWidget {
   final String label;
   final IconData icon;
   final TextEditingController controller;
-  final Future<void> Function(LatLng) onLocationPicked;
+  final Future<void> Function(Map<String, dynamic>) onLocationPicked;
   final VoidCallback onClear;
 
   const LocationInputCard({
@@ -29,7 +28,7 @@ class LocationInputCard extends StatelessWidget {
           controller: controller,
           readOnly: true,
           onTap: () async {
-            final picked = await Navigator.push<LatLng>(
+            final picked = await Navigator.push<Map<String, dynamic>>(
               context,
               MaterialPageRoute(builder: (_) => const LocationPickerScreen()),
             );

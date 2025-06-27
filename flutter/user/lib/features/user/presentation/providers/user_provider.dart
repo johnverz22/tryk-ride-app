@@ -1,13 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../../data/models/user_model.dart';
 import 'package:http/http.dart' as http;
-import '../../../../core/config/api_config.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../../data/models/user_model.dart';
 
 class UserProvider with ChangeNotifier {
   UserModel? _user;
   String? _token;
+  String? baseUrl = dotenv.env['BASE_URL'];
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
@@ -62,10 +63,8 @@ class UserProvider with ChangeNotifier {
   Future<bool> refreshToken() async {
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/auth/refresh'),
-        headers: {
-          'Accept': 'application/json',
-        },
+        Uri.parse('$baseUrl/auth/refresh'),
+        headers: {'Accept': 'application/json'},
       );
 
       if (response.statusCode == 200) {
@@ -124,7 +123,6 @@ class UserProvider with ChangeNotifier {
   Future<void> updateUser(UserModel updatedUser) async {
     if (_token == null) return;
 
-    final baseUrl = ApiConfig.baseUrl;
     final response = await authenticatedRequest(
       '$baseUrl/user/update',
       'PUT',
@@ -134,7 +132,10 @@ class UserProvider with ChangeNotifier {
 
     if (response.statusCode == 200) {
       _user = updatedUser;
-      await _storage.write(key: 'user', value: jsonEncode(updatedUser.toJson()));
+      await _storage.write(
+        key: 'user',
+        value: jsonEncode(updatedUser.toJson()),
+      );
       notifyListeners();
     } else {
       debugPrint('Failed to update user: ${response.body}');

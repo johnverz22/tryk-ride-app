@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:user/core/config/api_config.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class RideService {
   final storage = FlutterSecureStorage();
   final client = http.Client();
-  final baseUrl = ApiConfig.baseUrl;
+  final baseUrl = dotenv.env['BASE_URL'];
 
   Future<bool> requestRide({
     required String pickupAddress,

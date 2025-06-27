@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../config/api_config.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class TripService {
   static Future<List<Map<String, dynamic>>> fetchUserTrips(String token) async {
+    final baseUrl = dotenv.env['BASE_URL'];
     final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}/user/trips'),
+      Uri.parse('$baseUrl/user/trips'),
       headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
     );
 

@@ -3,20 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../../../../../../../core/config/api_config.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'map_picker_screen.dart';
 
 class FavoriteLocationsScreen extends StatefulWidget {
   const FavoriteLocationsScreen({super.key});
 
   @override
-  State<FavoriteLocationsScreen> createState() => _FavoriteLocationsScreenState();
+  State<FavoriteLocationsScreen> createState() =>
+      _FavoriteLocationsScreenState();
 }
 
 class _FavoriteLocationsScreenState extends State<FavoriteLocationsScreen> {
   final storage = const FlutterSecureStorage();
   List<dynamic> locations = [];
   bool isLoading = true;
+  String? baseUrl = dotenv.env['BASE_URL'];
 
   @override
   void initState() {
@@ -36,7 +38,7 @@ class _FavoriteLocationsScreenState extends State<FavoriteLocationsScreen> {
       }
 
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/user/saved-locations'),
+        Uri.parse('$baseUrl/user/saved-locations'),
         headers: {'Authorization': 'Bearer $token'},
       );
 
@@ -47,13 +49,15 @@ class _FavoriteLocationsScreenState extends State<FavoriteLocationsScreen> {
         });
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load locations. (${response.statusCode})')),
+          SnackBar(
+            content: Text('Failed to load locations. (${response.statusCode})'),
+          ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       setState(() => isLoading = false);
     }
@@ -61,8 +65,12 @@ class _FavoriteLocationsScreenState extends State<FavoriteLocationsScreen> {
 
   Future<void> editLocation(Map<String, dynamic> loc) async {
     final nameController = TextEditingController(text: loc['location_name']);
-    final latController = TextEditingController(text: loc['latitude'].toString());
-    final lngController = TextEditingController(text: loc['longitude'].toString());
+    final latController = TextEditingController(
+      text: loc['latitude'].toString(),
+    );
+    final lngController = TextEditingController(
+      text: loc['longitude'].toString(),
+    );
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -80,20 +88,30 @@ class _FavoriteLocationsScreenState extends State<FavoriteLocationsScreen> {
               TextField(
                 controller: latController,
                 decoration: const InputDecoration(labelText: 'Latitude'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: lngController,
                 decoration: const InputDecoration(labelText: 'Longitude'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
@@ -101,7 +119,7 @@ class _FavoriteLocationsScreenState extends State<FavoriteLocationsScreen> {
     if (confirmed == true) {
       final token = await storage.read(key: 'token');
       final response = await http.put(
-        Uri.parse('${ApiConfig.baseUrl}/user/saved-locations/${loc['id']}'),
+        Uri.parse('$baseUrl/user/saved-locations/${loc['id']}'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -115,9 +133,9 @@ class _FavoriteLocationsScreenState extends State<FavoriteLocationsScreen> {
 
       if (response.statusCode == 200) {
         fetchLocations();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location updated')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Location updated')));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to update (${response.statusCode})')),
@@ -152,13 +170,17 @@ class _FavoriteLocationsScreenState extends State<FavoriteLocationsScreen> {
               TextField(
                 controller: latController,
                 decoration: const InputDecoration(labelText: 'Latitude'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: lngController,
                 decoration: const InputDecoration(labelText: 'Longitude'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
               const SizedBox(height: 16),
               OutlinedButton.icon(
@@ -178,8 +200,14 @@ class _FavoriteLocationsScreenState extends State<FavoriteLocationsScreen> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
@@ -190,7 +218,7 @@ class _FavoriteLocationsScreenState extends State<FavoriteLocationsScreen> {
         lngController.text.isNotEmpty) {
       final token = await storage.read(key: 'token');
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/user/saved-locations'),
+        Uri.parse('$baseUrl/user/saved-locations'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -208,9 +236,9 @@ class _FavoriteLocationsScreenState extends State<FavoriteLocationsScreen> {
           const SnackBar(content: Text('Location added successfully')),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to add location')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to add location')));
       }
     }
   }
@@ -223,74 +251,90 @@ class _FavoriteLocationsScreenState extends State<FavoriteLocationsScreen> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : locations.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.place_outlined, size: 72, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No saved locations yet.',
-                        style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: addNewLocation,
-                        icon: const Icon(Icons.add_location_alt),
-                        label: const Text('Add Location'),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.place_outlined,
+                    size: 72,
+                    color: Colors.grey,
                   ),
-                )
-              : Column(
-                  children: [
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: locations.length,
-                        itemBuilder: (_, index) {
-                          final loc = locations[index];
-                          return Card(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 3,
-                            margin: const EdgeInsets.only(bottom: 16),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(16),
-                              leading: const Icon(Icons.location_pin, size: 32, color: Colors.redAccent),
-                              title: Text(
-                                loc['location_name'],
-                                style: theme.textTheme.titleMedium,
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  'Lat: ${loc['latitude']}, Lng: ${loc['longitude']}',
-                                  style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                                ),
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.grey),
-                                onPressed: () => editLocation(loc),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No saved locations yet.',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: addNewLocation,
+                    icon: const Icon(Icons.add_location_alt),
+                    label: const Text('Add Location'),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: locations.length,
+                    itemBuilder: (_, index) {
+                      final loc = locations[index];
+                      return Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 3,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(16),
+                          leading: const Icon(
+                            Icons.location_pin,
+                            size: 32,
+                            color: Colors.redAccent,
+                          ),
+                          title: Text(
+                            loc['location_name'],
+                            style: theme.textTheme.titleMedium,
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Lat: ${loc['latitude']}, Lng: ${loc['longitude']}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
                               ),
                             ),
-                          );
-                        },
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: ElevatedButton.icon(
-                        onPressed: addNewLocation,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add New Location'),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(50),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.grey),
+                            onPressed: () => editLocation(loc),
+                          ),
                         ),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ElevatedButton.icon(
+                    onPressed: addNewLocation,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add New Location'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                  ],
+                  ),
                 ),
+              ],
+            ),
     );
   }
 }

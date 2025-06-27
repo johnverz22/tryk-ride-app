@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 
 class MapScreen extends StatefulWidget {
@@ -12,6 +11,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   LatLng? currentLocation;
+  GoogleMapController? mapController;
 
   @override
   void initState() {
@@ -21,9 +21,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _getCurrentLocation() async {
     LocationPermission permission = await Geolocator.requestPermission();
-    if (permission == LocationPermission.deniedForever) {
-      return;
-    }
+    if (permission == LocationPermission.deniedForever) return;
 
     Position position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
@@ -40,31 +38,26 @@ class _MapScreenState extends State<MapScreen> {
       appBar: AppBar(title: const Text('Map View')),
       body: currentLocation == null
           ? const Center(child: CircularProgressIndicator())
-          : FlutterMap(
-              options: MapOptions(
-                center: currentLocation,
+          : GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: currentLocation!,
                 zoom: 15.0,
               ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  subdomains: const ['a', 'b', 'c'],
+              myLocationEnabled: true,
+              myLocationButtonEnabled: true,
+              markers: {
+                Marker(
+                  markerId: const MarkerId('current_location'),
+                  position: currentLocation!,
+                  icon: BitmapDescriptor.defaultMarkerWithHue(
+                    BitmapDescriptor.hueAzure,
+                  ),
+                  infoWindow: const InfoWindow(title: 'You are here'),
                 ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: currentLocation!,
-                      width: 40,
-                      height: 40,
-                      child: const Icon(
-                        Icons.my_location,
-                        color: Colors.blue,
-                        size: 36,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              },
+              onMapCreated: (GoogleMapController controller) {
+                mapController = controller;
+              },
             ),
     );
   }

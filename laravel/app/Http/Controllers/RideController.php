@@ -61,7 +61,7 @@ class RideController extends Controller
         // Step 3: Abort if still no drivers found
         if ($drivers->isEmpty()) {
             return response()->json([
-                'message' => "No drivers available within {$maxUserRadius} km. Ride not created."
+                'message' => "No drivers available within {$maxUserRadius} km."
             ], 202);
         }
 

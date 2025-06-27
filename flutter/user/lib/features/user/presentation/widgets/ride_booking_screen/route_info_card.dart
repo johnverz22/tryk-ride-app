@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'info_tile.dart';
 
 class RouteInfoCard extends StatelessWidget {
-  final double distance;
-  final String duration;
-  final String cost;
+  final double distanceInMeters; // More accurate than km
+  final String duration; // e.g., "25"
+  final String cost; // e.g., "18.50"
 
   const RouteInfoCard({
     super.key,
-    required this.distance,
+    required this.distanceInMeters,
     required this.duration,
     required this.cost,
   });
@@ -16,38 +16,43 @@ class RouteInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+
+    final distanceInKm = distanceInMeters / 1000;
+
     return Card(
-      elevation: 2,
+      elevation: 3,
       margin: const EdgeInsets.only(top: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Trip Summary',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 InfoTile(
                   icon: Icons.route,
-                  label: '${distance.toStringAsFixed(2)} km',
+                  label: '${distanceInKm.toStringAsFixed(1)} km',
                   color: Colors.blueAccent,
                 ),
                 InfoTile(
                   icon: Icons.schedule,
-                  label: duration,
+                  label:
+                      '${double.tryParse(duration)?.toStringAsFixed(0) ?? duration} min',
                   color: Colors.deepOrange,
                 ),
                 InfoTile(
                   icon: Icons.attach_money,
-                  label: cost,
+                  label: '₱$cost',
                   color: Colors.green,
                 ),
               ],

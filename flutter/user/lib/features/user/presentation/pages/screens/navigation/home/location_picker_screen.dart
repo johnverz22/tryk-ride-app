@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 
 class LocationPickerScreen extends StatefulWidget {
   const LocationPickerScreen({super.key});
@@ -11,19 +14,17 @@ class LocationPickerScreen extends StatefulWidget {
 
 class _LocationPickerScreenState extends State<LocationPickerScreen> {
   LatLng? _selectedPoint;
-  final MapController _mapController = MapController();
+  GoogleMapController? _mapController;
+  String? googleMapsApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
+
+  final TextEditingController _searchController = TextEditingController();
+  List<dynamic> _searchResults = [];
+  bool _isSearching = false;
+  String? _selectedDescription;
 
   final List<Map<String, dynamic>> _favoriteLocations = [
-    {
-      'name': 'Home',
-      'latLng': LatLng(16.6155, 120.3170),
-      'icon': Icons.home,
-    },
-    {
-      'name': 'Work',
-      'latLng': LatLng(16.6140, 120.3200),
-      'icon': Icons.work,
-    },
+    {'name': 'Home', 'latLng': LatLng(16.6155, 120.3170), 'icon': Icons.home},
+    {'name': 'Work', 'latLng': LatLng(16.6140, 120.3200), 'icon': Icons.work},
     {
       'name': 'Coffee Shop',
       'latLng': LatLng(16.6185, 120.3145),
@@ -41,11 +42,12 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     },
   ];
 
-  void _selectFavoriteLocation(LatLng latLng) {
+  void _selectFavoriteLocation(LatLng latLng, {String? description}) {
     setState(() {
       _selectedPoint = latLng;
+      _selectedDescription = description;
     });
-    _mapController.move(latLng, 15);
+    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(latLng, 15));
   }
 
   void _showMoreLocationsBottomSheet(List<Map<String, dynamic>> locations) {
@@ -59,7 +61,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           padding: const EdgeInsets.all(16),
           children: locations.map((place) {
             return ListTile(
-              leading: Icon(place['icon'], color: Theme.of(context).primaryColor),
+              leading: Icon(
+                place['icon'],
+                color: Theme.of(context).primaryColor,
+              ),
               title: Text(place['name']),
               onTap: () {
                 Navigator.pop(context);
@@ -72,10 +77,87 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     );
   }
 
+  Future<void> _goToMyLocation() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location services are disabled.')),
+      );
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permission denied.')),
+        );
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Location permissions are permanently denied.'),
+        ),
+      );
+      return;
+    }
+
+    final position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+    final currentLatLng = LatLng(position.latitude, position.longitude);
+
+    setState(() => _selectedPoint = currentLatLng);
+    _mapController?.animateCamera(
+      CameraUpdate.newLatLngZoom(currentLatLng, 15),
+    );
+  }
+
+  Future<void> _searchPlaces(String query) async {
+    if (query.isEmpty) return;
+    final url =
+        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$query&key=$googleMapsApiKey&components=country:ph';
+
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      setState(() => _searchResults = data['predictions']);
+    } else {
+      setState(() => _searchResults = []);
+    }
+  }
+
+  Future<void> _selectPlace(String placeId, String description) async {
+    final url =
+        'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=$googleMapsApiKey';
+
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final location = data['result']['geometry']['location'];
+      final latLng = LatLng(location['lat'], location['lng']);
+
+      setState(() {
+        _selectedPoint = latLng;
+        _selectedDescription = description;
+        _searchResults = [];
+        _searchController.clear();
+        _isSearching = false;
+      });
+
+      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(latLng, 15));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     final topFavorites = _favoriteLocations.take(2).toList();
     final moreFavorites = _favoriteLocations.skip(2).toList();
 
@@ -84,47 +166,107 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         title: const Text('Select Location'),
         backgroundColor: theme.primaryColor,
         foregroundColor: Colors.white,
-        elevation: 0,
       ),
       body: Stack(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: LatLng(16.6167, 120.3167),
-              initialZoom: 13,
-              onTap: (tapPosition, point) {
-                setState(() {
-                  _selectedPoint = point;
-                });
-              },
+          GoogleMap(
+            initialCameraPosition: const CameraPosition(
+              target: LatLng(16.6167, 120.3167),
+              zoom: 13,
             ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.user',
-              ),
-              if (_selectedPoint != null)
-                MarkerLayer(
-                  markers: [
+            onMapCreated: (controller) => _mapController = controller,
+            onTap: (point) => setState(() => _selectedPoint = point),
+            markers: _selectedPoint != null
+                ? {
                     Marker(
-                      point: _selectedPoint!,
-                      width: 40,
-                      height: 40,
-                      child: Icon(
-                        Icons.location_on,
-                        color: theme.primaryColor,
-                        size: 40,
+                      markerId: const MarkerId('selected'),
+                      position: _selectedPoint!,
+                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                        BitmapDescriptor.hueRed,
                       ),
                     ),
-                  ],
-                ),
-            ],
+                  }
+                : <Marker>{},
+            zoomControlsEnabled: false,
+            myLocationButtonEnabled: false,
           ),
 
-          // Favorite chips (hybrid: top 2 + expandable "More")
+          // Search bar and results
           Positioned(
             top: 16,
+            left: 16,
+            right: 16,
+            child: Column(
+              children: [
+                Material(
+                  elevation: 6,
+                  borderRadius: BorderRadius.circular(12),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() => _isSearching = true);
+                      _searchPlaces(value);
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search location...',
+                      prefixIcon: Icon(Icons.search),
+                      suffixIcon: _isSearching
+                          ? IconButton(
+                              icon: Icon(Icons.clear),
+                              onPressed: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _searchResults = [];
+                                  _isSearching = false;
+                                });
+                              },
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_searchResults.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black12, blurRadius: 4),
+                      ],
+                    ),
+                    constraints: BoxConstraints(maxHeight: 200),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _searchResults.length,
+                      itemBuilder: (context, index) {
+                        final place = _searchResults[index];
+                        return ListTile(
+                          title: Text(place['description']),
+                          onTap: () => _selectPlace(
+                            place['place_id'],
+                            place['description'],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // Favorite chips
+          Positioned(
+            top: 96,
             left: 0,
             right: 0,
             child: SizedBox(
@@ -133,26 +275,32 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 children: [
-                  ...topFavorites.map((place) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ActionChip(
-                          avatar: Icon(place['icon'], size: 20),
-                          label: Text(place['name']),
-                          onPressed: () => _selectFavoriteLocation(place['latLng']),
-                          backgroundColor: Colors.white,
-                          shape: StadiumBorder(
-                            side: BorderSide(color: theme.primaryColor),
-                          ),
-                          labelStyle: TextStyle(color: theme.primaryColor),
+                  ...topFavorites.map(
+                    (place) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ActionChip(
+                        avatar: Icon(place['icon'], size: 20),
+                        label: Text(place['name']),
+                        onPressed: () => _selectFavoriteLocation(
+                          place['latLng'],
+                          description: place['name'],
                         ),
-                      )),
+                        backgroundColor: Colors.white,
+                        shape: StadiumBorder(
+                          side: BorderSide(color: theme.primaryColor),
+                        ),
+                        labelStyle: TextStyle(color: theme.primaryColor),
+                      ),
+                    ),
+                  ),
                   if (moreFavorites.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ActionChip(
                         avatar: const Icon(Icons.expand_more),
                         label: const Text('More'),
-                        onPressed: () => _showMoreLocationsBottomSheet(moreFavorites),
+                        onPressed: () =>
+                            _showMoreLocationsBottomSheet(moreFavorites),
                         backgroundColor: Colors.white,
                         shape: StadiumBorder(
                           side: BorderSide(color: theme.primaryColor),
@@ -165,10 +313,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             ),
           ),
 
-          // Coordinate info
+          // Coordinates card
           if (_selectedPoint != null)
             Positioned(
-              top: 72,
+              top: 152,
               left: 16,
               right: 16,
               child: Card(
@@ -188,15 +336,29 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                 ),
               ),
             ),
+
+          // My Location button
+          Positioned(
+            bottom: 90,
+            right: 16,
+            child: FloatingActionButton(
+              heroTag: 'myLocationBtn',
+              mini: true,
+              backgroundColor: Colors.white,
+              onPressed: _goToMyLocation,
+              child: Icon(Icons.my_location, color: theme.primaryColor),
+            ),
+          ),
         ],
       ),
-
-      // Confirm button
       floatingActionButton: _selectedPoint != null
           ? FloatingActionButton.extended(
-              onPressed: () {
-                Navigator.pop(context, _selectedPoint);
-              },
+              onPressed: () => Navigator.pop(context, {
+                'latLng': _selectedPoint,
+                'description':
+                    _selectedDescription ??
+                    'Lat: ${_selectedPoint!.latitude.toStringAsFixed(5)}, Lng: ${_selectedPoint!.longitude.toStringAsFixed(5)}',
+              }),
               backgroundColor: theme.primaryColor,
               icon: const Icon(Icons.check),
               label: const Text('Confirm'),

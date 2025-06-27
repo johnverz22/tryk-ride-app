@@ -183,7 +183,7 @@ class DriverController extends Controller
                     ->orWhereNull('assigned_driver_id');
             })
             ->whereNull('driver_id')
-            // ->whereNotIn('id', $rejectedRideIds)
+            ->whereNotIn('id', $rejectedRideIds)
             ->latest()
             ->get([
                 'id',
@@ -200,6 +200,12 @@ class DriverController extends Controller
                 'duration_minutes',
             ]);
 
+        Log::info('Driver requested rides', [
+            'driver_id' => $user->id,
+            'ride_ids' => $rides->pluck('id'),
+            'count' => $rides->count(),
+        ]);
+        
         return response()->json($rides);
     }
     
@@ -239,6 +245,12 @@ class DriverController extends Controller
     public function requestRide(Request $request, DriverMatchingService $matcher)
     {
         $user = Auth::user();
+
+        // log the user
+        Log::info('Ride request initiated', [
+            'user_id' => $user ? $user->id : null,
+            'request_data' => $request->all(),
+        ]);
 
         if (!$user) {
             return response()->json(['message' => 'Unauthenticated'], 401);

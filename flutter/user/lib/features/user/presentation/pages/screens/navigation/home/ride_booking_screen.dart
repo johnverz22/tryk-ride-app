@@ -1,11 +1,12 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
-import 'package:latlong2/latlong.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../../../../../core/services/auth_service.dart';
-import '../../../../../../../core/config/api_config.dart';
 import '../../../../widgets/widgets.dart';
 
 class RideBookingScreen extends StatefulWidget {
@@ -18,46 +19,65 @@ class RideBookingScreen extends StatefulWidget {
 class _RideBookingScreenState extends State<RideBookingScreen> {
   final TextEditingController _fromController = TextEditingController();
   final TextEditingController _toController = TextEditingController();
-
+  String? baseUrl = dotenv.env['BASE_URL'];
+  String? googleMapsApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
   LatLng? _fromLocation;
   LatLng? _toLocation;
-  int? _rideId;
-  Timer? _statusCheckTimer;
-
-  static const int requestedStatusId = 1;
-
-  final Distance _distance = const Distance();
-  final double _averageSpeedKmh = 40;
-  final double _baseFare = 2.5;
-  final double _perKmRate = 1.2;
-  double _searchRadiusKm = 5.0;
-
-  final MapController _mapController = MapController();
-
   String _selectedPaymentMethod = 'Cash';
+  double _searchRadiusKm = 10;
   bool _isLoading = false;
   bool _rideCancelled = false;
   bool _isBottomSheetOpen = false;
+  Timer? _statusCheckTimer;
 
-  String _getEstimatedTime(double km) =>
-      '${(km / _averageSpeedKmh * 60).toStringAsFixed(0)} min';
+  double? _routeDistanceMeters;
+  int? _routeDurationSeconds;
+  final double _baseFare = 5.0;
+  final double _perKmRate = 2.0;
+  final double _averageSpeedKmh = 40.0;
+  int? _rideId;
+  static const int requestedStatusId = 1;
 
-  String _getEstimatedCost(double km) =>
-      '\$${(_baseFare + _perKmRate * km).toStringAsFixed(2)}';
+  @override
+  void initState() {
+    super.initState();
+    _ensureLocationPermission();
+  }
 
-  Future<String> _reverseGeocode(LatLng location) async {
+  Future<void> _ensureLocationPermission() async {
+    final status = await Permission.locationWhenInUse.request();
+    if (!status.isGranted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permission is required.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _fetchRouteInfo() async {
+    if (_fromLocation == null ||
+        _toLocation == null ||
+        googleMapsApiKey == null)
+      return;
+
     final url =
-        'https://nominatim.openstreetmap.org/reverse?lat=${location.latitude}&lon=${location.longitude}&format=json';
-    final response = await http.get(
-      Uri.parse(url),
-      headers: {'User-Agent': 'Flutter App'},
-    );
+        'https://maps.googleapis.com/maps/api/directions/json?origin=${_fromLocation!.latitude},${_fromLocation!.longitude}&destination=${_toLocation!.latitude},${_toLocation!.longitude}&key=$googleMapsApiKey';
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['display_name'] ?? 'Unknown Location';
-    } else {
-      return 'Lat: ${location.latitude}, Lng: ${location.longitude}';
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'OK' && data['routes'].isNotEmpty) {
+          final leg = data['routes'][0]['legs'][0];
+          setState(() {
+            _routeDistanceMeters = (leg['distance']['value'] as num).toDouble();
+            _routeDurationSeconds = (leg['duration']['value'] as num).toInt();
+          });
+        }
+      }
+    } catch (e) {
+      // Optionally handle error
     }
   }
 
@@ -71,316 +91,184 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
         return;
       }
 
-      final uri = Uri.parse('${ApiConfig.baseUrl}/rides/$_rideId');
+      try {
+        final uri = Uri.parse('$baseUrl/rides/$_rideId');
+        final response = await http.get(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+        );
 
-      final response = await http.get(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-      );
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final ride = data['ride'];
+          final statusId = ride['ride_status_id'];
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final ride = data['ride'];
-        final statusId = ride['ride_status_id'];
+          if (statusId == 2 && ride['driver'] != null) {
+            if (_isBottomSheetOpen && mounted) {
+              Navigator.of(context, rootNavigator: true).pop();
+              _isBottomSheetOpen = false;
+              await Future.delayed(const Duration(milliseconds: 200));
+            }
 
-        if (statusId == 2 && ride['driver'] != null) {
-          timer.cancel();
-          _statusCheckTimer = null;
+            if (mounted) {
+              final driver = ride['driver'];
+              final profilePicture = driver['profile_picture'];
+              final vehicle = driver['vehicle'] ?? 'Toyota Vios';
+              final driverName = driver['name'];
 
-          if (_isBottomSheetOpen && mounted) {
-            Navigator.of(context, rootNavigator: true).pop();
-            _isBottomSheetOpen = false;
-
-            await Future.delayed(Duration(milliseconds: 200));
-          }
-
-          if (mounted) {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              backgroundColor: Colors.white,
-              builder: (_) {
-                final driver = ride['driver'];
-                final profilePicture = driver['profile_picture'];
-                final vehicle = driver['vehicle'] ?? 'Toyota Vios';
-                final driverName = driver['name'];
-                return Builder(
-                  builder: (bottomSheetContext) => Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.emoji_transportation,
-                          size: 48,
-                          color: Colors.green,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Driver Confirmed!',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '$driverName is on the way to pick you up!',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[700],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 36,
-                              backgroundImage:
-                                  profilePicture != null &&
-                                      profilePicture.isNotEmpty
-                                  ? NetworkImage(profilePicture)
-                                  : null,
-                              backgroundColor: Colors.grey[300],
-                              child:
-                                  profilePicture == null ||
-                                      profilePicture.isEmpty
-                                  ? Icon(
-                                      Icons.person,
-                                      size: 36,
-                                      color: Colors.white,
-                                    )
-                                  : null,
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    driverName,
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.star,
-                                        color: Colors.amber,
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text('4.8'),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Vehicle: $vehicle',
-                                    style: TextStyle(color: Colors.grey[600]),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            icon: Icon(Icons.verified),
-                            label: Text('Great, thanks!'),
-                            onPressed: () {
-                              Navigator.of(
-                                bottomSheetContext,
-                              ).pop(); // ✅ Correct context
-                            },
-                            style: ElevatedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              backgroundColor: Colors.green[600],
-                              foregroundColor: Colors.white,
-                              textStyle: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          }
-        }
-      }
-    });
-  }
-
-  Future<void> _showSearchingBottomSheet() async {
-    _isBottomSheetOpen = true;
-    setState(() => _rideCancelled = false);
-    final controller = DraggableScrollableController();
-    String statusText = 'Looking for a nearby driver...';
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      enableDrag: false,
-      isDismissible: false,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext modalContext) {
-        return StatefulBuilder(
-          builder:
-              (
-                BuildContext sheetContext,
-                void Function(VoidCallback) setSheetState,
-              ) {
-                Future.delayed(const Duration(seconds: 5), () {
-                  if (mounted && !_rideCancelled) {
-                    setSheetState(() {
-                      statusText = 'Matching you with the best driver...';
-                    });
-                  }
-                });
-
-                return DraggableScrollableSheet(
-                  controller: controller,
-                  initialChildSize: 0.3,
-                  minChildSize: 0.3,
-                  maxChildSize: 0.5,
-                  builder: (BuildContext context, ScrollController scrollController) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 20,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(24),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 12,
-                            offset: const Offset(0, -3),
-                          ),
-                        ],
-                      ),
-                      child: ListView(
-                        controller: scrollController,
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                backgroundColor: Colors.white,
+                builder: (_) {
+                  return Builder(
+                    builder: (bottomSheetContext) => Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Center(child: CircularProgressIndicator()),
-                          const SizedBox(height: 20),
-                          Center(
-                            child: Text(
-                              statusText,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          const Icon(
+                            Icons.emoji_transportation,
+                            size: 48,
+                            color: Colors.green,
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Driver Confirmed!',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          const Center(
-                            child: Text(
-                              'Hang tight! A driver will be assigned shortly.',
-                              style: TextStyle(fontSize: 14),
-                              textAlign: TextAlign.center,
+                          Text(
+                            '$driverName is on the way to pick you up!',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[700],
                             ),
+                            textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 24),
-                          Center(
-                            child: TextButton.icon(
-                              onPressed: () async {
-                                setSheetState(
-                                  () => statusText = 'Cancelling ride...',
-                                );
-
-                                setState(() => _rideCancelled = true);
-
-                                final token = await AuthService().getToken();
-
-                                if (token != null &&
-                                    _fromLocation != null &&
-                                    _toLocation != null) {
-                                  final uri = Uri.parse(
-                                    '${ApiConfig.baseUrl}/rides/cancel',
-                                  );
-                                  await http.post(
-                                    uri,
-                                    headers: {
-                                      'Authorization': 'Bearer $token',
-                                      'Content-Type': 'application/json',
-                                    },
-                                    body: jsonEncode({'ride_id': _rideId}),
-                                  );
-                                }
-
-                                setState(() => _rideId = null);
-
-                                if (context.mounted) {
-                                  Navigator.of(
-                                    context,
-                                    rootNavigator: true,
-                                  ).pop();
-
-                                  // Show cancellation feedback after sheet is closed
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Ride request cancelled.'),
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 36,
+                                backgroundImage:
+                                    profilePicture != null &&
+                                        profilePicture.isNotEmpty
+                                    ? NetworkImage(profilePicture)
+                                    : null,
+                                backgroundColor: Colors.grey[300],
+                                child:
+                                    profilePicture == null ||
+                                        profilePicture.isEmpty
+                                    ? const Icon(
+                                        Icons.person,
+                                        size: 36,
+                                        color: Colors.white,
+                                      )
+                                    : null,
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      driverName,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
-                                  );
-                                }
+                                    const SizedBox(height: 4),
+                                    const Row(
+                                      children: [
+                                        Icon(
+                                          Icons.star,
+                                          color: Colors.amber,
+                                          size: 16,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text('4.8'),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Vehicle: $vehicle',
+                                      style: TextStyle(color: Colors.grey[600]),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 32),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.verified),
+                              label: const Text('Great, thanks!'),
+                              onPressed: () {
+                                Navigator.of(bottomSheetContext).pop();
                               },
-                              icon: const Icon(Icons.cancel, color: Colors.red),
-                              label: const Text(
-                                'Cancel Ride',
-                                style: TextStyle(color: Colors.red),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                backgroundColor: Colors.green[600],
+                                foregroundColor: Colors.white,
+                                textStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
                         ],
                       ),
-                    );
-                  },
-                );
-              },
-        );
-      },
-    );
-    _isBottomSheetOpen = false;
+                    ),
+                  );
+                },
+              );
+            }
+            timer.cancel();
+            _statusCheckTimer = null;
+          }
+        }
+      } catch (e) {
+        print('Error polling ride status: $e');
+      }
+    });
   }
 
   Future<void> _requestRide() async {
     if (_fromLocation == null || _toLocation == null) return;
 
-    final double distance = _distance.as(
-      LengthUnit.Kilometer,
-      _fromLocation!,
-      _toLocation!,
+    final distance = _calculateDistanceKm(
+      _fromLocation!.latitude,
+      _fromLocation!.longitude,
+      _toLocation!.latitude,
+      _toLocation!.longitude,
     );
+
     final double fare = _baseFare + _perKmRate * distance;
     final double durationMinutes = distance / _averageSpeedKmh * 60;
     final now = DateTime.now().toIso8601String();
 
-    final uri = Uri.parse('${ApiConfig.baseUrl}/rides/request');
+    final uri = Uri.parse('$baseUrl/rides/request');
     final token = await AuthService().getToken();
 
     if (token == null) {
@@ -446,13 +334,195 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
     }
   }
 
+  double _calculateDistanceKm(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const double earthRadius = 6371;
+    final double dLat = _degToRad(lat2 - lat1);
+    final double dLon = _degToRad(lon2 - lon1);
+
+    final double a =
+        (sin(dLat / 2) * sin(dLat / 2)) +
+        cos(_degToRad(lat1)) *
+            cos(_degToRad(lat2)) *
+            (sin(dLon / 2) * sin(dLon / 2));
+
+    final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  double _degToRad(double deg) => deg * pi / 180;
+
+  double _getEstimatedCost(double km) => _baseFare + (_perKmRate * km);
+  double _getEstimatedTimeInMinutes(double km) => km / _averageSpeedKmh * 60;
+
+  Future<void> _showSearchingBottomSheet() async {
+    _isBottomSheetOpen = true;
+    setState(() => _rideCancelled = false);
+    final controller = DraggableScrollableController();
+    String statusText = 'Looking for a nearby driver...';
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      enableDrag: false,
+      isDismissible: false,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext modalContext) {
+        return StatefulBuilder(
+          builder:
+              (
+                BuildContext sheetContext,
+                void Function(VoidCallback) setSheetState,
+              ) {
+                Future.delayed(const Duration(seconds: 5), () {
+                  if (mounted && !_rideCancelled) {
+                    setSheetState(() {
+                      statusText = 'Matching you with the best driver...';
+                    });
+                  }
+                });
+
+                return DraggableScrollableSheet(
+                  controller: controller,
+                  initialChildSize: 0.3,
+                  minChildSize: 0.3,
+                  maxChildSize: 0.5,
+                  builder:
+                      (
+                        BuildContext context,
+                        ScrollController scrollController,
+                      ) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 20,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(24),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 12,
+                                offset: const Offset(0, -3),
+                              ),
+                            ],
+                          ),
+                          child: ListView(
+                            controller: scrollController,
+                            children: [
+                              const Center(child: CircularProgressIndicator()),
+                              const SizedBox(height: 20),
+                              Center(
+                                child: Text(
+                                  statusText,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Center(
+                                child: Text(
+                                  'Hang tight! A driver will be assigned shortly.',
+                                  style: TextStyle(fontSize: 14),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Center(
+                                child: TextButton.icon(
+                                  onPressed: () async {
+                                    setState(() {
+                                      _rideCancelled = true;
+                                    });
+
+                                    setSheetState(
+                                      () => statusText = 'Cancelling ride...',
+                                    );
+
+                                    final token = await AuthService()
+                                        .getToken();
+
+                                    if (token != null && _rideId != null) {
+                                      final uri = Uri.parse(
+                                        '$baseUrl/rides/cancel',
+                                      );
+                                      await http.post(
+                                        uri,
+                                        headers: {
+                                          'Authorization': 'Bearer $token',
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: jsonEncode({'ride_id': _rideId}),
+                                      );
+                                    }
+
+                                    setState(() {
+                                      _rideId = null;
+                                    });
+
+                                    if (context.mounted) {
+                                      Navigator.of(
+                                        context,
+                                        rootNavigator: true,
+                                      ).pop();
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Ride request cancelled.',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  icon: const Icon(
+                                    Icons.cancel,
+                                    color: Colors.red,
+                                  ),
+                                  label: const Text(
+                                    'Cancel Ride',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                );
+              },
+        );
+      },
+    );
+    _isBottomSheetOpen = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = theme.colorScheme;
 
-    final double? totalDistance = (_fromLocation != null && _toLocation != null)
-        ? _distance.as(LengthUnit.Kilometer, _fromLocation!, _toLocation!)
+    final bool hasRouteInfo =
+        _routeDistanceMeters != null && _routeDurationSeconds != null;
+    final double? totalDistance = hasRouteInfo
+        ? _routeDistanceMeters! / 1000
+        : (_fromLocation != null && _toLocation != null)
+        ? _calculateDistanceKm(
+            _fromLocation!.latitude,
+            _fromLocation!.longitude,
+            _toLocation!.latitude,
+            _toLocation!.longitude,
+          )
         : null;
 
     return Scaffold(
@@ -477,12 +547,16 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
               label: 'Pickup Location',
               icon: Icons.my_location,
               controller: _fromController,
-              onLocationPicked: (loc) async {
-                final address = await _reverseGeocode(loc);
+              onLocationPicked: (picked) async {
+                final LatLng loc = picked['latLng'];
+                final String desc = picked['description'];
                 setState(() {
                   _fromLocation = loc;
-                  _fromController.text = address;
+                  _fromController.text = desc;
+                  _routeDistanceMeters = null;
+                  _routeDurationSeconds = null;
                 });
+                await _fetchRouteInfo();
               },
               onClear: () {
                 setState(() {
@@ -496,12 +570,16 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
               label: 'Destination',
               icon: Icons.location_on,
               controller: _toController,
-              onLocationPicked: (loc) async {
-                final address = await _reverseGeocode(loc);
+              onLocationPicked: (picked) async {
+                final LatLng loc = picked['latLng'];
+                final String desc = picked['description'];
                 setState(() {
-                  _toLocation = loc as LatLng?;
-                  _toController.text = address;
+                  _toLocation = loc;
+                  _toController.text = desc;
+                  _routeDistanceMeters = null;
+                  _routeDurationSeconds = null;
                 });
+                await _fetchRouteInfo();
               },
               onClear: () {
                 setState(() {
@@ -510,26 +588,70 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
                 });
               },
             ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedPaymentMethod,
-              decoration: const InputDecoration(
-                labelText: 'Payment Method',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(12)),
+            // Payment Method Section - Consistent Card Style
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                  border: Border.all(color: Colors.grey[300]!, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.payment, color: color.primary, size: 22),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Payment Method',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        _simplePaymentOption(
+                          icon: Icons.money,
+                          label: 'Cash',
+                          selected: _selectedPaymentMethod == 'Cash',
+                          onTap: () =>
+                              setState(() => _selectedPaymentMethod = 'Cash'),
+                        ),
+                        _simplePaymentOption(
+                          icon: Icons.credit_card,
+                          label: 'Card',
+                          selected: _selectedPaymentMethod == 'Card',
+                          onTap: () =>
+                              setState(() => _selectedPaymentMethod = 'Card'),
+                        ),
+                        _simplePaymentOption(
+                          icon: Icons.account_balance_wallet,
+                          label: 'Wallet',
+                          selected: _selectedPaymentMethod == 'Wallet',
+                          onTap: () =>
+                              setState(() => _selectedPaymentMethod = 'Wallet'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              items: ['Cash', 'Card', 'Wallet']
-                  .map(
-                    (method) =>
-                        DropdownMenuItem(value: method, child: Text(method)),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => _selectedPaymentMethod = value);
-                }
-              },
             ),
             if (_fromLocation != null &&
                 _toLocation != null &&
@@ -542,92 +664,104 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: SizedBox(
-                  height: 220,
-                  child: FlutterMap(
-                    mapController: _mapController,
-                    options: MapOptions(
-                      initialCenter: LatLng(
-                        (_fromLocation!.latitude + _toLocation!.latitude) / 2,
-                        (_fromLocation!.longitude + _toLocation!.longitude) / 2,
-                      ),
-                      initialZoom: (totalDistance <= 2)
-                          ? 15
-                          : (totalDistance <= 5)
-                          ? 13
-                          : 11,
-                    ),
-                    children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.app',
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: _fromLocation!,
-                            width: 40,
-                            height: 40,
-                            child: const Icon(
-                              Icons.location_pin,
-                              color: Colors.green,
-                              size: 36,
-                            ),
-                          ),
-                          Marker(
-                            point: _toLocation!,
-                            width: 40,
-                            height: 40,
-                            child: const Icon(
-                              Icons.location_pin,
-                              color: Colors.red,
-                              size: 36,
-                            ),
-                          ),
-                        ],
-                      ),
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: [_fromLocation!, _toLocation!],
-                            strokeWidth: 4.0,
-                            color: theme.primaryColor,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+              RideMapPreview(
+                key: ValueKey(
+                  '${_fromLocation!.latitude},${_fromLocation!.longitude}-${_toLocation!.latitude},${_toLocation!.longitude}',
                 ),
+                fromLocation: _fromLocation!,
+                toLocation: _toLocation!,
+                apiKey: googleMapsApiKey,
               ),
               const SizedBox(height: 12),
               RouteInfoCard(
-                cost: _getEstimatedCost(totalDistance),
-                distance: totalDistance,
-                duration: _getEstimatedTime(totalDistance),
+                cost: _getEstimatedCost(totalDistance).toStringAsFixed(2),
+                distanceInMeters: hasRouteInfo
+                    ? _routeDistanceMeters!
+                    : totalDistance * 1000,
+                duration: hasRouteInfo
+                    ? (_routeDurationSeconds! / 60).toStringAsFixed(2)
+                    : _getEstimatedTimeInMinutes(
+                        totalDistance,
+                      ).toStringAsFixed(2),
               ),
             ],
             const SizedBox(height: 20),
-            Text(
-              'Driver Search Radius (km)',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w500,
+            // Modern Driver Search Radius Section
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+                border: Border.all(color: Colors.grey[300]!, width: 1),
               ),
-            ),
-            const SizedBox(height: 8),
-            Slider(
-              value: _searchRadiusKm,
-              min: 5,
-              max: 100,
-              divisions: 19,
-              label: _searchRadiusKm.toStringAsFixed(0),
-              onChanged: (value) {
-                setState(() {
-                  _searchRadiusKm = value;
-                });
-              },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.radar, color: color.primary, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Driver Search Radius',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: color.primary.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${_searchRadiusKm.toStringAsFixed(0)} km',
+                          style: TextStyle(
+                            color: color.primary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Slider(
+                    value: _searchRadiusKm,
+                    min: 5,
+                    max: 100,
+                    divisions: 19,
+                    label: _searchRadiusKm.toStringAsFixed(0),
+                    activeColor: color.primary,
+                    inactiveColor: Colors.grey[300],
+                    onChanged: (value) =>
+                        setState(() => _searchRadiusKm = value),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: const [
+                      Text(
+                        '5 km',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      Text(
+                        '100 km',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 30),
             SizedBox(
@@ -670,10 +804,63 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
     );
   }
 
+  // Replace _buildPaymentOption with this simpler version:
+  Widget _simplePaymentOption({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? theme.colorScheme.primary.withOpacity(0.08)
+                : null,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected ? theme.colorScheme.primary : Colors.grey[300]!,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: selected ? theme.colorScheme.primary : Colors.grey[600],
+                size: 24,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: selected
+                      ? theme.colorScheme.primary
+                      : Colors.grey[700],
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _statusCheckTimer?.cancel();
     _statusCheckTimer = null;
+    _fromController.dispose();
+    _toController.dispose();
     super.dispose();
   }
 }

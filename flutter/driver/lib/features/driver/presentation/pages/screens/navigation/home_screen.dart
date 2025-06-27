@@ -1,6 +1,7 @@
 import 'package:driver/features/skeleton/widgets/earnings_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../providers/driver_provider.dart'; // Adjust the import path accordingly
 
 class HomeScreen extends ConsumerWidget {
@@ -14,13 +15,13 @@ class HomeScreen extends ConsumerWidget {
       color: Color(0xFFFBF5DF), // Background color
       child: Stack(
         children: [
-          Center(
-            child: EarningsCard(cardHeight: 300,),
-            // child: Text(
-            //   'B A N A N A',
-            //   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.yellow[600]),
-            // ),
-          ),
+          Center(child: EarningsCard(cardHeight: 300),),
+          // GoogleMap(
+          //   initialCameraPosition: CameraPosition(
+          //     target: LatLng(45.521563, -122.677433), // Example: Manila
+          //     zoom: 14,
+          //   ),
+          // ),
           Positioned(
               left: 20,
               bottom: 20,

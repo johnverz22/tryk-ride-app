@@ -20,29 +20,41 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Use the switchProvider to get the current state of the switch
     final isSwitched = ref.watch(switchProvider);
+    final isOverlayVisible = ref.watch(overlayProvider);
+
+    void showOverlay(BuildContext context) {
+      if (!isOverlayVisible) {
+        ref.read(overlayProvider.notifier).state = true;
+      } else {
+        ref.read(overlayProvider.notifier).state = false;
+      }
+    }
 
     return AppBar(
       elevation: 0,
       backgroundColor: Colors.transparent,
       toolbarHeight: preferredSize.height,
-      leadingWidth: 70,
-      leading: IconButton(
-        icon: Container(
-          decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white,
-            width: 1,
+      leadingWidth: 90,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 20),
+        child: IconButton(
+          icon: Container(
+            decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white,
+              width: 1,
+              ),
             ),
+            child: CircleAvatar(
+                radius: 28,
+                backgroundImage: AssetImage('assets/images/profile_picture.jpg'),
+              ),
           ),
-          child: CircleAvatar(
-              radius: 28,
-              backgroundImage: AssetImage('assets/images/profile_picture.jpg'),
-            ),
+          onPressed: () {
+            Scaffold.of(context).openDrawer();
+          },
         ),
-        onPressed: () {
-          Scaffold.of(context).openDrawer();
-        },
       ),
       title: Container(
         height: 56,
@@ -55,7 +67,9 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
             minimumSize: Size(100, 48),
             padding: EdgeInsets.symmetric(horizontal: 16),
           ),
-          onPressed: () {}, 
+          onPressed: () {
+            showOverlay(context);
+          }, 
           child: Text("\$345.00", 
             style: TextStyle(
               fontSize: 20,
@@ -66,9 +80,9 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
       ),
       actions: [
         Padding(
-          padding: const EdgeInsets.only(right: 12), // Adjust as needed
+          padding: const EdgeInsets.only(right: 20), // Adjust as needed
           child: Transform.scale(
-            scale: 1.2, // Scale up the switch (default is 1.0)
+            scale: 1.3, // Scale up the switch (default is 1.0)
             child: Switch(
               thumbIcon: thumbIcon,
               value: isSwitched,

@@ -1,3 +1,4 @@
+import 'package:driver/features/skeleton/widgets/earnings_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/driver_provider.dart'; // Adjust the import path accordingly
@@ -9,84 +10,80 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final driverState = ref.watch(driverProvider);
 
-    return Stack(
+    return Container(
+      color: Color(0xFFFBF5DF), // Background color
+      child: Stack(
         children: [
-          // 🌍 Replace with GoogleMap in production
-          Container(
-            width: double.infinity,
-            height: double.infinity,
-            color: Colors.grey[200],
-            child: const Center(
-              child: Text(
-                "📍 Real-time Map Placeholder",
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            ),
+          Center(
+            child: EarningsCard(cardHeight: 300,),
+            // child: Text(
+            //   'B A N A N A',
+            //   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.yellow[600]),
+            // ),
           ),
-
-          // 📊 Summary Bottom Card
           Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                    offset: const Offset(0, -4),
+              left: 20,
+              bottom: 20,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Top Floating Button
+                  FloatingActionButton(
+                    backgroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50), // Adjust the rounding
+                  ),
+                    onPressed: () {
+                    },
+                    child: Icon(Icons.add),
+                  ),
+                  SizedBox(height: 20), // Space between buttons
+                  // Bottom Floating Button
+                  FloatingActionButton(
+                    backgroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50), // Adjust the rounding
+                  ),
+                    onPressed: () {
+                    },
+                    child: Icon(Icons.add),
                   ),
                 ],
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: const [
-                  SummaryTile(icon: Icons.attach_money, label: 'Earnings', value: '\$128.50'),
-                  SummaryTile(icon: Icons.directions_car_filled, label: 'Trips', value: '8'),
-                  SummaryTile(icon: Icons.timer_outlined, label: 'Online', value: '4h 15m'),
-                ],
-              ),
+            ),
+          Positioned(
+            right: 20,
+            bottom: 20,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Top Floating Button
+                FloatingActionButton(
+                  backgroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50), // Adjust the rounding
+                  ),
+                  onPressed: () {
+                  },
+                  child: Icon(Icons.add),
+                ),
+                SizedBox(height: 20), // Space between buttons
+                // Bottom Floating Button
+                FloatingActionButton(
+                  backgroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50), // Adjust the rounding
+                  ),
+                  onPressed: () {
+                  },
+                  child: Icon(Icons.add),
+                ),
+              ],
             ),
           ),
+        
         ],
-    );
-  }
-}
-
-class SummaryTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const SummaryTile({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 26, color: theme.colorScheme.primary),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-        ),
-      ],
+      ),
     );
   }
 }

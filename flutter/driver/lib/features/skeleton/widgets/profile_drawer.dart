@@ -1,7 +1,6 @@
 import 'package:driver/features/driver/presentation/pages/screens/navigation/dashboard_screen.dart';
 import 'package:driver/features/earnings/presentation/widgets/earnings_widgets.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_rating/flutter_rating.dart';
 
 class ProfileDrawer extends StatelessWidget {
   const ProfileDrawer({super.key});
@@ -15,7 +14,6 @@ class ProfileDrawer extends StatelessWidget {
           children: [
             _buildDrawerHeader(context),
             _buildDrawerBody(context),
-            Spacer(),
             Divider(
               color: Colors.grey[300],
               height: 5,
@@ -29,88 +27,93 @@ class ProfileDrawer extends StatelessWidget {
   }
 
   Widget _buildDrawerHeader(BuildContext context) {
-    return SizedBox(
-      height: 300,
-      child: DrawerHeader(
-        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 12.0),
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 30,
+    return DrawerHeader(
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            iconColor: Colors.black87,
+            leading: CircleAvatar(
+              radius: 25,
               backgroundImage: AssetImage('assets/images/profile_picture.jpg'),
             ),
-            const SizedBox(height: 10),
-            const Text(
-              'User Name',
+            title: const Text('User Name'),
+            subtitle: Row(
+                children: [
+                  Icon(Icons.star, size: 16,),
+                  Text("4.89",style: TextStyle(color: Colors.black87),)
+                ],
+              ),
+            onTap: () {
+              // Handle support tap
+            },
+          ),
+          
+          TextButton(
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,     // 🔹 No padding
+              minimumSize: Size(0, 0),      // 🔹 Removes default minimum size
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap, // 🔹 Shrinks tap area
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => DashboardScreen()),
+              );
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Remaining Driving Time',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  )),
+                Text(
+                  '2h 30m',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  )),
+              ],
+            ),
+            ),
+          Spacer(),
+          TextButton(
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,     // 🔹 No padding
+              minimumSize: Size(0, 0),      // 🔹 Removes default minimum size
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap, // 🔹 Shrinks tap area
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => DashboardScreen()),
+              );
+            },
+            child: Text(
+              'View analytics',
               style: TextStyle(
                 color: Colors.black,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text("Rating",
-                style: TextStyle(
-                  color: Colors.black87,
-                  fontSize: 12,
-                )),
-            Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              StarRating(
-                rating: 4.5,
-                size: 20.0,
-                color: const Color.fromARGB(255, 255, 235, 59),
-                borderColor: Colors.grey,
-                starCount: 5,
-                allowHalfRating: true,
-                onRatingChanged: (rating) {
-                  // Handle rating change if needed
-                },
-              ),
-            ]),
-            const SizedBox(height: 5),
-            Text("120 Reviews",
-              style: TextStyle(
-                color: Colors.black87,
                 fontSize: 12,
-              )
-            ),
-            Spacer(),
-            TextButton(
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,     // 🔹 No padding
-                minimumSize: Size(0, 0),      // 🔹 Removes default minimum size
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap, // 🔹 Shrinks tap area
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => DashboardScreen()),
-                );
-              },
-              child: Text(
-                'View analytics',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                )),
-              )
-          ],
-        ),
+                fontWeight: FontWeight.bold,
+              )),
+            )
+        ],
       ),
     );
   }
 
   Widget _buildDrawerBody(BuildContext context) {
     return Expanded(
-      child: ListView(
-        padding: const EdgeInsets.all(0),
+      child: Column(
         children: [
           ListTile(
             title: const Text('Inbox', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -118,7 +121,12 @@ class ProfileDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            title: const Text('Bonuses & Promotions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            title: const Text('Refer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            onTap: () {
+            },
+          ),
+          ListTile(
+            title: const Text('Events', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             onTap: () {
               Navigator.push(
                 context,
@@ -127,7 +135,7 @@ class ProfileDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            title: const Text('Pay Out', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            title: const Text('Earnings', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             onTap: () {
               // Handle history tap
             },
@@ -135,7 +143,7 @@ class ProfileDrawer extends StatelessWidget {
           ListTile(
             iconColor: Colors.yellow,
             leading: const Icon(Icons.brightness_2_rounded),
-            title: const Text('B A N A N A'),
+            title: const Text('B A N A N A', style: TextStyle(fontWeight: FontWeight.bold),),
             onTap: () {
               // Handle support tap
             },

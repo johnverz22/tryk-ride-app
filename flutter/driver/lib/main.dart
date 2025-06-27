@@ -44,10 +44,10 @@ class Home extends ConsumerWidget {
         primaryColor: Colors.pink,
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.pink,
-          foregroundColor: Colors.white,
-          iconTheme: IconThemeData(color: Colors.white),
+          foregroundColor: Color.fromARGB(255, 0, 0, 0),
+          iconTheme: IconThemeData(color: Colors.black),
         ),
-        colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.pink).copyWith(
+        colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.pink, backgroundColor: Color(0xFFFAF9F6)).copyWith(
           secondary: Colors.pinkAccent,
         ),
       ),

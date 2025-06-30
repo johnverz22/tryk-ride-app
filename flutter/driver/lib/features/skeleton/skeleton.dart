@@ -47,7 +47,7 @@ class Skeleton extends ConsumerWidget {
             ),
         ],
       ),
-      // bottomNavigationBar: const MainNavigation(),
+      bottomNavigationBar: const MainNavigation(),
     );
   }
 }

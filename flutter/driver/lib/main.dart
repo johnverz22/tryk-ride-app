@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'features/skeleton/skeleton.dart';
-// import 'features/skeleton/providers/selected_page_provider.dart';
 import 'features/driver/presentation/pages/screens/auth/auth_screen.dart';
 import 'features/driver/presentation/providers/driver_provider.dart';
 
 void main() {
+  debugPaintSizeEnabled = false;
+
   runApp(const ProviderScope(child: MainApp()));
 }
 
@@ -25,7 +26,6 @@ class Home extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final driverState = ref.watch(driverProvider);
-    debugPaintSizeEnabled = false;
     // Show loading indicator while driver data is being loaded
     if (driverState.isLoading) {
       return const MaterialApp(
@@ -36,8 +36,20 @@ class Home extends ConsumerWidget {
       );
     }
 
-    // final loggedIn = driverState.isAuthenticated;
+    return AppRouter(isLoggedIn: driverState.isAuthenticated);
+  }
+}
 
+class AppRouter extends StatelessWidget {
+  const AppRouter({
+    super.key,
+    required this.isLoggedIn,
+  });
+
+  final bool isLoggedIn;
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Tryk',
       theme: ThemeData(
@@ -57,8 +69,8 @@ class Home extends ConsumerWidget {
         '/auth': (context) => const AuthScreen(),
         // Add other routes as needed
       },
-      // home: loggedIn ? const Skeleton() : const AuthScreen(),
-      home: const Skeleton(),
+      home: isLoggedIn ? const Skeleton() : const AuthScreen(),
+      // home: const Skeleton(),
     );
   }
 }

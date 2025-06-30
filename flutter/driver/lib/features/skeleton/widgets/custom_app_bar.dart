@@ -6,12 +6,11 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const CustomUserAppBar({super.key});
 
   // Switch icon states based on the switch state
-  static const WidgetStateProperty<Icon> thumbIcon = WidgetStateProperty<Icon>.fromMap(
-    <WidgetStatesConstraint, Icon>{
-      WidgetState.selected: Icon(Icons.check),
-      WidgetState.any: Icon(Icons.close),
-    },
-  );
+  static const WidgetStateProperty<Icon> thumbIcon =
+      WidgetStateProperty<Icon>.fromMap(<WidgetStatesConstraint, Icon>{
+        WidgetState.selected: Icon(Icons.check),
+        WidgetState.any: Icon(Icons.close),
+      });
 
   @override
   Size get preferredSize => const Size.fromHeight(80);
@@ -20,13 +19,13 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Use the switchProvider to get the current state of the switch
     final isSwitched = ref.watch(switchProvider);
-    final isOverlayVisible = ref.watch(overlayProvider);
+    final isOverlayVisible = ref.watch(overlayEarnings);
 
     void showOverlay(BuildContext context) {
       if (!isOverlayVisible) {
-        ref.read(overlayProvider.notifier).state = true;
+        ref.read(overlayEarnings.notifier).state = true;
       } else {
-        ref.read(overlayProvider.notifier).state = false;
+        ref.read(overlayEarnings.notifier).state = false;
       }
     }
 
@@ -40,16 +39,13 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
         child: IconButton(
           icon: Container(
             decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.white,
-              width: 1,
-              ),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 1),
             ),
             child: CircleAvatar(
-                radius: 28,
-                backgroundImage: AssetImage('assets/images/profile_picture.jpg'),
-              ),
+              radius: 28,
+              backgroundImage: AssetImage('assets/images/profile_picture.jpg'),
+            ),
           ),
           onPressed: () {
             Scaffold.of(context).openDrawer();
@@ -62,21 +58,19 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.black, // Background color
-            foregroundColor: Colors.white,  // Text (and icon) color
+            foregroundColor: Colors.white, // Text (and icon) color
             side: BorderSide(color: Colors.white, width: 2),
             minimumSize: Size(100, 48),
             padding: EdgeInsets.symmetric(horizontal: 16),
           ),
           onPressed: () {
             showOverlay(context);
-          }, 
-          child: Text("\$345.00", 
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+          },
+          child: Text(
+            "\$345.00",
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
-        )
+        ),
       ),
       actions: [
         Padding(

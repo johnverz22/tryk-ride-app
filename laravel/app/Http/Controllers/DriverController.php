@@ -295,4 +295,52 @@ class DriverController extends Controller
 
         return response()->json(['message' => 'Driver is now offline.']);
     }
+    
+    public function getLocation(Request $request, $rideId)
+    {
+        $ride = Ride::with('driver')->findOrFail($rideId);
+
+        if (!$ride->driver) {
+            return response()->json(['error' => 'Driver not assigned'], 404);
+        }
+
+        return response()->json([
+            'lat' => $ride->driver->latitude,
+            'lng' => $ride->driver->longitude,
+            'driver' => [
+                'name' => $ride->driver->name,
+                'plate' => $ride->driver->car_plate,
+            ],
+        ]);
+    }
+
+    public function trips(Request $request)
+    {
+        $driver = Auth::user();
+
+        if (!$driver || !$driver->profile) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        try {
+            $trips = Ride::with(['user', 'status'])
+                ->where('driver_id', $driver->id)
+                ->latest('requested_at')
+                ->get(); // Use get() instead of paginate()
+
+            Log::info('Driver trips fetched', [
+                'driver_id' => $driver->id,
+                'trips_count' => $trips->count(),
+            ]);
+
+            return response()->json($trips);
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch driver trips', [
+                'driver_id' => $driver->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['error' => 'Could not fetch trips'], 500);
+        }
+    }
 }

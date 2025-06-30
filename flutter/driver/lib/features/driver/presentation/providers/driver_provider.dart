@@ -15,10 +15,10 @@ class DriverProvider with ChangeNotifier {
   bool _hasIncomingRequest = false;
 
   final Set<int> _rejectedRideIds = {};
-
   List<RideRequest> _requestedRides = [];
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  List<Map<String, dynamic>> _trips = []; // ✅ ADDED TRIPS FIELD
 
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   Timer? _pollingTimer;
 
   DriverProvider() {
@@ -32,6 +32,7 @@ class DriverProvider with ChangeNotifier {
   bool get isAuthenticated => _driver != null && _token != null;
   bool get hasIncomingRequest => _hasIncomingRequest;
   List<RideRequest> get requestedRides => _requestedRides;
+  List<Map<String, dynamic>> get trips => _trips; // ✅ ADDED GETTER
 
   // Authentication & State
   Future<void> setDriver(DriverModel driver, String token) async {
@@ -95,6 +96,7 @@ class DriverProvider with ChangeNotifier {
     _isOnline = false;
     _hasIncomingRequest = false;
     _requestedRides.clear();
+    _trips.clear(); // ✅ CLEAR TRIPS ON LOGOUT
     _stopPolling();
     await _storage.deleteAll();
     notifyListeners();
@@ -132,7 +134,6 @@ class DriverProvider with ChangeNotifier {
         'Content-Type': 'application/json',
       };
 
-      // Step 1: Check current ride status
       final statusRes = await http.get(rideStatusUrl, headers: headers);
       if (statusRes.statusCode != 200) return false;
 
@@ -140,17 +141,14 @@ class DriverProvider with ChangeNotifier {
           json.decode(statusRes.body)['ride']?['status']?['name'] ?? '';
       if (status != 'Requested') return false;
 
-      // Step 2: Try accepting the ride
       final acceptRes = await http.post(acceptRideUrl, headers: headers);
       if (acceptRes.statusCode != 200) return false;
 
-      // Step 3: Update local state
-      requestedRides.removeWhere((r) => r.id == ride.id);
+      _requestedRides.removeWhere((r) => r.id == ride.id);
       notifyListeners();
 
       return true;
     } catch (e) {
-      // Optionally log the error here
       return false;
     }
   }
@@ -167,12 +165,10 @@ class DriverProvider with ChangeNotifier {
     );
 
     if (response.statusCode == 200) {
-      // Update local state only
       _rejectedRideIds.add(ride.id);
       _requestedRides.removeWhere((r) => r.id == ride.id);
       _hasIncomingRequest = _requestedRides.isNotEmpty;
       notifyListeners();
-      debugPrint('Ride rejected successfully.');
     } else {
       debugPrint('Failed to reject ride: ${response.statusCode}');
       debugPrint('Response body: ${response.body}');
@@ -185,10 +181,9 @@ class DriverProvider with ChangeNotifier {
     _hasIncomingRequest = _requestedRides.isNotEmpty;
     notifyListeners();
 
-    await fetchRequestedRides(); // Re-pull ride list after rejection
+    await fetchRequestedRides();
   }
 
-  // Fetch ride requests via HTTP (every 5 seconds)
   Future<void> fetchRequestedRides() async {
     if (_token == null) return;
 
@@ -208,7 +203,6 @@ class DriverProvider with ChangeNotifier {
           .where((ride) => !_rejectedRideIds.contains(ride.id))
           .toList();
 
-      // Always update the ride list, even if unchanged
       _requestedRides = newRides;
       _hasIncomingRequest = _requestedRides.isNotEmpty;
       notifyListeners();
@@ -219,7 +213,6 @@ class DriverProvider with ChangeNotifier {
     }
   }
 
-  // Token refresh logic
   Future<bool> refreshToken() async {
     try {
       final response = await http.post(
@@ -242,7 +235,6 @@ class DriverProvider with ChangeNotifier {
     return false;
   }
 
-  // Reusable authenticated request method
   Future<http.Response> authenticatedRequest(
     String url,
     String method, {
@@ -304,6 +296,53 @@ class DriverProvider with ChangeNotifier {
       notifyListeners();
     } else {
       debugPrint('Failed to update driver: ${response.body}');
+    }
+  }
+
+  /// ✅ UPDATED: Fetch trips and store them locally
+  Future<void> fetchDriverTrips() async {
+    if (_token == null) return;
+
+    final url = Uri.parse('${ApiConfig.baseUrl}/driver/trips');
+    final response = await http.get(
+      url,
+      headers: {
+        'Authorization': 'Bearer $_token',
+        'Accept': 'application/json',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      // Debug: Print the actual response structure
+      debugPrint('API Response type: ${data.runtimeType}');
+      debugPrint('API Response: $data');
+
+      // Handle paginated response
+      if (data is Map<String, dynamic> && data.containsKey('data')) {
+        // Paginated response
+        _trips = List<Map<String, dynamic>>.from(data['data']);
+        debugPrint('Extracted ${_trips.length} trips from paginated response');
+      } else if (data is List) {
+        // Direct array response
+        _trips = List<Map<String, dynamic>>.from(data);
+        debugPrint('Got ${_trips.length} trips from direct array response');
+      } else {
+        debugPrint('Unexpected response format: ${data.runtimeType}');
+        _trips = [];
+      }
+
+      // Debug: Print first trip if available
+      if (_trips.isNotEmpty) {}
+
+      notifyListeners();
+    } else {
+      debugPrint(
+        'Failed to fetch trips: ${response.statusCode} → ${response.body}',
+      );
+      _trips = [];
+      notifyListeners();
     }
   }
 }

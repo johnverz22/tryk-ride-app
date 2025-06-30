@@ -144,7 +144,7 @@ class _RideMapPreviewState extends State<RideMapPreview> {
           onMapCreated: (controller) => _mapController = controller,
           myLocationButtonEnabled: true,
           zoomControlsEnabled: true,
-          liteModeEnabled: true,
+          // liteModeEnabled: true,
         ),
       ),
     );

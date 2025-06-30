@@ -1,6 +1,6 @@
 class ApiConfig {
   // REST API base URLs
-  static const String devBaseUrl = 'http://192.168.108.71:8000/api';
+  static const String devBaseUrl = 'http://192.168.108.103:8000/api';
   static const String prodBaseUrl = 'https://your-live-server.com/api';
 
   // WebSocket base URLs

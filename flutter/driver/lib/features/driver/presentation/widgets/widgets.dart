@@ -9,6 +9,9 @@ export 'recent_trip_tile.dart';
 export 'trip_card.dart';
 export 'empty_trip_placeholder.dart';
 export 'search_bar.dart';
+// export 'trips_screen/trip_card.dart';
+// export 'trips_screen/empty_trip_placeholder.dart';
+// export 'trips_screen/search_bar.dart';
 
 // Earnings Screen
 export 'wallet_balance_card.dart';

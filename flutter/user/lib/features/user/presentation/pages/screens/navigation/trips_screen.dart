@@ -22,6 +22,7 @@ class _TripsScreenState extends State<TripsScreen>
 
   final storage = FlutterSecureStorage();
   final List<String> tripCategories = ['Accepted', 'Completed', 'Cancelled'];
+  DateTimeRange? selectedDateRange;
 
   @override
   void initState() {
@@ -75,18 +76,46 @@ class _TripsScreenState extends State<TripsScreen>
     await _loadTrips();
   }
 
+  void _showDateRangePicker() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2022),
+      lastDate: DateTime.now(),
+      initialDateRange: selectedDateRange,
+    );
+
+    if (picked != null) {
+      setState(() {
+        selectedDateRange = picked;
+      });
+    }
+  }
+
   Widget _buildTripList(String category) {
     List<Map<String, dynamic>> trips = allTrips
         .where((trip) => trip['status'] == category)
-        .where(
-          (trip) =>
-              trip['pickup_address'].toLowerCase().contains(
-                searchQuery.toLowerCase(),
-              ) ||
-              trip['dropoff_address'].toLowerCase().contains(
-                searchQuery.toLowerCase(),
-              ),
-        )
+        .where((trip) {
+          final pickup = trip['pickup_address'].toLowerCase();
+          final dropoff = trip['dropoff_address'].toLowerCase();
+          final matchesSearch =
+              pickup.contains(searchQuery.toLowerCase()) ||
+              dropoff.contains(searchQuery.toLowerCase());
+
+          if (selectedDateRange != null) {
+            final tripDate = DateTime.tryParse(trip['requested_at'] ?? '');
+            if (tripDate == null) return false;
+
+            return matchesSearch &&
+                tripDate.isAfter(
+                  selectedDateRange!.start.subtract(const Duration(seconds: 1)),
+                ) &&
+                tripDate.isBefore(
+                  selectedDateRange!.end.add(const Duration(days: 1)),
+                );
+          }
+
+          return matchesSearch;
+        })
         .toList();
 
     if (trips.isEmpty) {
@@ -124,11 +153,25 @@ class _TripsScreenState extends State<TripsScreen>
       body: SafeArea(
         child: Column(
           children: [
-            TripSearchBar(
-              onChanged: (value) => setState(() => searchQuery = value),
-              onFilterPressed: () {
-                // TODO: Show filter modal
-              },
+            Row(
+              children: [
+                Expanded(
+                  child: TripSearchBar(
+                    onChanged: (value) => setState(() => searchQuery = value),
+                    onFilterPressed: _showDateRangePicker,
+                  ),
+                ),
+                if (selectedDateRange != null)
+                  IconButton(
+                    icon: const Icon(Icons.clear),
+                    tooltip: 'Clear date filter',
+                    onPressed: () {
+                      setState(() {
+                        selectedDateRange = null;
+                      });
+                    },
+                  ),
+              ],
             ),
             TabBar(
               controller: _tabController,

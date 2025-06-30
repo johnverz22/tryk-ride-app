@@ -12,73 +12,86 @@ class TripsScreen extends StatefulWidget {
   State<TripsScreen> createState() => _TripsScreenState();
 }
 
-class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin {
+class _TripsScreenState extends State<TripsScreen>
+    with TickerProviderStateMixin {
   late TabController _tabController;
   String searchQuery = '';
   bool isLoading = false;
+  DateTimeRange? selectedDateRange;
 
-  final List<String> tripCategories = ['Upcoming', 'Completed', 'Canceled'];
-
-  final List<Map<String, dynamic>> mockTrips = [
-    {
-      'id': '1',
-      'datetime': DateTime.now().subtract(const Duration(days: 1)),
-      'pickup': 'Airport Terminal 1',
-      'dropoff': 'Downtown Hotel',
-      'price': 23.5,
-      'payment': 'Credit Card',
-      'rider': 'Anna Carter',
-      'rating': 4.5,
-      'status': 'Completed',
-    },
-    {
-      'id': '2',
-      'datetime': DateTime.now().add(const Duration(hours: 5)),
-      'pickup': 'City Center',
-      'dropoff': 'Museum District',
-      'price': 12.0,
-      'payment': 'Wallet',
-      'rider': 'Ben Morris',
-      'rating': null,
-      'status': 'Upcoming',
-    },
-    {
-      'id': '3',
-      'datetime': DateTime.now().subtract(const Duration(days: 3)),
-      'pickup': 'Stadium',
-      'dropoff': 'Suburb 5',
-      'price': 15.0,
-      'payment': 'Cash',
-      'rider': 'Sarah Lee',
-      'rating': 4.1,
-      'status': 'Canceled',
-    },
-  ];
+  final List<String> tripCategories = ['Accepted', 'Completed', 'Cancelled'];
 
   @override
   void initState() {
-    _tabController = TabController(length: tripCategories.length, vsync: this);
     super.initState();
+    _tabController = TabController(length: tripCategories.length, vsync: this);
+    _loadTrips();
   }
 
-  Future<void> _refreshTrips() async {
+  Future<void> _loadTrips() async {
     setState(() => isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
+    final driverProvider = Provider.of<DriverProvider>(context, listen: false);
+    await driverProvider.fetchDriverTrips();
     setState(() => isLoading = false);
   }
 
+  void _showDateRangePicker() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2022),
+      lastDate: DateTime.now(),
+      initialDateRange: selectedDateRange,
+    );
+
+    if (picked != null) {
+      setState(() => selectedDateRange = picked);
+    }
+  }
+
+  Color _getStatusColor(String status, {bool background = false}) {
+    switch (status) {
+      case 'Completed':
+        return background ? Colors.green.shade100 : Colors.green.shade800;
+      case 'Cancelled':
+        return background ? Colors.red.shade100 : Colors.red.shade800;
+      default:
+        return background ? Colors.orange.shade100 : Colors.orange.shade800;
+    }
+  }
+
   Widget _buildTripList(String category) {
-    final filteredTrips = mockTrips
-        .where((trip) => trip['status'] == category)
+    final driverProvider = Provider.of<DriverProvider>(context);
+    final trips = driverProvider.trips;
+
+    final filteredTrips = trips
         .where((trip) {
-          final pickup = trip['pickup'].toLowerCase();
-          final dropoff = trip['dropoff'].toLowerCase();
-          final rider = trip['rider']?.toLowerCase() ?? '';
+          final tripStatus = trip['status']?['name'];
+          return tripStatus == category;
+        })
+        .where((trip) {
+          final pickup = (trip['pickup_address'] ?? '').toLowerCase();
+          final dropoff = (trip['dropoff_address'] ?? '').toLowerCase();
+          final rider = (trip['user']?['name'] ?? '').toLowerCase();
           final query = searchQuery.toLowerCase();
 
-          return pickup.contains(query) ||
+          final matchesSearch =
+              pickup.contains(query) ||
               dropoff.contains(query) ||
               rider.contains(query);
+
+          if (selectedDateRange != null) {
+            final tripDate =
+                DateTime.tryParse(trip['accepted_at'] ?? '') ?? DateTime.now();
+            return matchesSearch &&
+                tripDate.isAfter(
+                  selectedDateRange!.start.subtract(const Duration(seconds: 1)),
+                ) &&
+                tripDate.isBefore(
+                  selectedDateRange!.end.add(const Duration(days: 1)),
+                );
+          }
+
+          return matchesSearch;
         })
         .toList();
 
@@ -95,6 +108,7 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
                 'No $category trips found',
                 style: TextStyle(fontSize: 18, color: Colors.grey[600]),
               ),
+              const SizedBox(height: 10),
             ],
           ),
         ),
@@ -102,20 +116,25 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
     }
 
     return RefreshIndicator(
-      onRefresh: _refreshTrips,
+      onRefresh: _loadTrips,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 80),
         itemCount: filteredTrips.length,
         itemBuilder: (context, index) {
           final trip = filteredTrips[index];
-          final date = DateFormat('EEE, MMM d – h:mm a').format(trip['datetime']);
+          final pickupTime =
+              DateTime.tryParse(trip['accepted_at'] ?? '') ?? DateTime.now();
+          final date = DateFormat('EEE, MMM d – h:mm a').format(pickupTime);
+          final status = trip['status']['name'];
 
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+              boxShadow: const [
+                BoxShadow(color: Colors.black12, blurRadius: 6),
+              ],
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -126,26 +145,28 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
                     children: [
                       const Icon(Icons.person, color: Colors.grey, size: 18),
                       const SizedBox(width: 6),
-                      Text(trip['rider'], style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        trip['user']?['name'] ?? 'Unknown',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       const Spacer(),
                       Chip(
                         label: Text(
-                          trip['status'],
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                          status,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                        backgroundColor: trip['status'] == 'Completed'
-                            ? Colors.green.shade100
-                            : trip['status'] == 'Canceled'
-                                ? Colors.red.shade100
-                                : Colors.orange.shade100,
-                        labelStyle: TextStyle(
-                          color: trip['status'] == 'Completed'
-                              ? Colors.green.shade800
-                              : trip['status'] == 'Canceled'
-                                  ? Colors.red.shade800
-                                  : Colors.orange.shade800,
+                        backgroundColor: _getStatusColor(
+                          status,
+                          background: true,
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        labelStyle: TextStyle(color: _getStatusColor(status)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                       ),
                     ],
                   ),
@@ -156,8 +177,11 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          '${trip['pickup']} → ${trip['dropoff']}',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                          '${trip['pickup_address'] ?? 'Unknown'} → ${trip['dropoff_address'] ?? 'Unknown'}',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -165,9 +189,19 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                      const Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
                       const SizedBox(width: 6),
-                      Text(date, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                      Text(
+                        date,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black87,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -175,10 +209,13 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
                     children: [
                       const Icon(Icons.payment, size: 16, color: Colors.grey),
                       const SizedBox(width: 6),
-                      Text(trip['payment'], style: const TextStyle(fontSize: 13)),
+                      Text(
+                        trip['payment_method'] ?? 'Unknown',
+                        style: const TextStyle(fontSize: 13),
+                      ),
                       const Spacer(),
                       Text(
-                        '₱${trip['price'].toStringAsFixed(2)}',
+                        '₱${(trip['fare_amount'] ?? 0).toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -187,16 +224,6 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
                       ),
                     ],
                   ),
-                  if (trip['rating'] != null) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Icon(Icons.star, size: 16, color: Colors.amber),
-                        const SizedBox(width: 4),
-                        Text('${trip['rating']}', style: const TextStyle(fontSize: 13)),
-                      ],
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -214,33 +241,54 @@ class _TripsScreenState extends State<TripsScreen> with TickerProviderStateMixin
     return Scaffold(
       appBar: CustomUserAppBar(
         isOnline: driverProvider.isOnline,
-        onToggleOnline: (val) => driverProvider.setOnlineStatus(val),
+        onToggleOnline: driverProvider.setOnlineStatus,
       ),
       backgroundColor: Colors.grey[100],
-      body: Column(
-        children: [
-          TripSearchBar(
-            onChanged: (value) => setState(() => searchQuery = value),
-            onFilterPressed: () {
-              // TODO: Add filter modal or sort feature
-            },
-          ),
-          TabBar(
-            controller: _tabController,
-            labelColor: theme.primaryColor,
-            unselectedLabelColor: Colors.grey,
-            labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-            indicatorColor: theme.primaryColor,
-            tabs: tripCategories.map((category) => Tab(text: category)).toList(),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: tripCategories.map(_buildTripList).toList(),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TripSearchBar(
+                    onChanged: (value) => setState(() => searchQuery = value),
+                    onFilterPressed: _showDateRangePicker,
+                  ),
+                ),
+                if (selectedDateRange != null)
+                  IconButton(
+                    icon: const Icon(Icons.clear),
+                    tooltip: 'Clear date filter',
+                    onPressed: () => setState(() => selectedDateRange = null),
+                  ),
+              ],
             ),
-          ),
-        ],
+            TabBar(
+              controller: _tabController,
+              labelColor: theme.primaryColor,
+              unselectedLabelColor: Colors.grey,
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
+              indicatorColor: theme.primaryColor,
+              tabs: tripCategories
+                  .map((category) => Tab(text: category))
+                  .toList(),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(
+                      controller: _tabController,
+                      children: tripCategories
+                          .map((category) => _buildTripList(category))
+                          .toList(),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

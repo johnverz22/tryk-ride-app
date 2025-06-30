@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Ride;
+use App\Enums\RideStatus;
 use App\Services\DriverMatchingService;
 use Illuminate\Support\Facades\DB;
 
@@ -161,7 +162,7 @@ class DriverController extends Controller
         $driverProfile = $user->profile;
         if (
             !$driverProfile ||
-            !$driverProfile->relationLoaded('status') && !$driverProfile->load('status') ||
+            (!$driverProfile->relationLoaded('status') && !$driverProfile->load('status')) ||
             $driverProfile->status->name !== 'approved'
         ) {
             return response()->json([
@@ -169,43 +170,18 @@ class DriverController extends Controller
             ], 403);
         }
 
-        // Fetch ride IDs this driver has rejected
-        $rejectedRideIds = DB::table('ride_rejections')
-            ->where('driver_id', $user->id)
-            ->pluck('ride_id');
-
-        $rides = Ride::with('user')
-            ->whereHas('status', function ($query) {
-                $query->where('name', 'Requested');
-            })
+        $rides = Ride::where('ride_status_id', RideStatus::REQUESTED)
             ->where(function ($query) use ($user) {
-                $query->where('assigned_driver_id', $user->id)
-                    ->orWhereNull('assigned_driver_id');
+                $query->where('driver_id', $user->id) // assigned directly
+                    ->orWhere(function ($q) use ($user) {
+                        $q->whereNull('driver_id') // not yet assigned
+                            ->whereDoesntHave('rejections', function ($r) use ($user) {
+                                $r->where('driver_id', $user->id); // rejected by this driver
+                            });
+                    });
             })
-            ->whereNull('driver_id')
-            ->whereNotIn('id', $rejectedRideIds)
-            ->latest()
-            ->get([
-                'id',
-                'pickup_address',
-                'pickup_latitude',
-                'pickup_longitude',
-                'dropoff_address',
-                'dropoff_latitude',
-                'dropoff_longitude',
-                'requested_at',
-                'ride_status_id',
-                'fare_amount',
-                'distance_km',
-                'duration_minutes',
-            ]);
+            ->get();
 
-        Log::info('Driver requested rides', [
-            'driver_id' => $user->id,
-            'ride_ids' => $rides->pluck('id'),
-            'count' => $rides->count(),
-        ]);
-        
         return response()->json($rides);
     }
     

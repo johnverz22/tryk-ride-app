@@ -65,6 +65,12 @@ class RideController extends Controller
             ], 202);
         }
 
+        $nearestDriver = $drivers->first(); // already sorted by distance
+
+        if (!$nearestDriver) {
+            return response()->json(['message' => 'No drivers found'], 404);
+        }
+
         // Step 4: Create the ride
         $ride = Ride::create([
             'user_id' => $request->user()->id,
@@ -145,25 +151,36 @@ class RideController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        if ($ride->assigned_driver_id !== $user->id) {
-            return response()->json(['message' => 'You are not assigned to this ride.'], 403);
-        }
-
         if ($ride->ride_status_id !== RideStatus::REQUESTED) {
             return response()->json(['message' => 'Ride is not in a rejectable state.'], 409);
         }
 
-        // Unassign driver
-        $ride->assigned_driver_id = null;
-        $ride->save();
+        // Unassign the driver and log rejection
+        $ride->update(['assigned_driver_id' => null]);
 
-        // Record the rejection
         RideRejection::firstOrCreate([
             'ride_id' => $ride->id,
             'driver_id' => $user->id,
         ]);
 
-        return response()->json(['message' => 'You rejected the ride. It is now visible to nearby drivers again.'], 200);
+        // Find nearby drivers excluding those who rejected
+        $matcher = app(DriverMatchingService::class);
+        $nearbyDrivers = $matcher->findNearbyDrivers(
+            $ride->pickup_latitude,
+            $ride->pickup_longitude,
+            $ride->search_radius_km
+        )->filter(function ($driver) use ($ride) {
+            return !$ride->rejections->pluck('driver_id')->contains($driver->id);
+        });
+
+        // Notify all remaining nearby drivers
+        foreach ($nearbyDrivers as $driver) {
+            event(new RideRequested($ride, $driver));
+        }
+
+        return response()->json([
+            'message' => 'You rejected the ride. It is now visible to nearby drivers.',
+        ]);
     }
 
     public function show($id)

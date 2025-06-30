@@ -168,6 +168,7 @@ class DriverProvider with ChangeNotifier {
       _rejectedRideIds.add(ride.id);
       _requestedRides.removeWhere((r) => r.id == ride.id);
       _hasIncomingRequest = _requestedRides.isNotEmpty;
+      debugPrint('Ride rejected successfully');
       notifyListeners();
     } else {
       debugPrint('Failed to reject ride: ${response.statusCode}');

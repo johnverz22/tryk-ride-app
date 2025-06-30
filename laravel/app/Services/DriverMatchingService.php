@@ -28,14 +28,6 @@ class DriverMatchingService
             ->with('profile.status')
             ->get();
 
-        Log::info('Matching drivers found', [
-            'radius_km' => $radiusInKm,
-            'lat' => $latitude,
-            'lng' => $longitude,
-            'driver_ids' => $drivers->pluck('id'),
-            'total_found' => $drivers->count()
-        ]);
-
         return $drivers;
     }
 }

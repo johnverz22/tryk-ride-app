@@ -1,5 +1,6 @@
 class RideRequest {
   final int id;
+  final String? driverId;
   final String pickupAddress;
   final double pickupLatitude;
   final double pickupLongitude;
@@ -16,6 +17,7 @@ class RideRequest {
 
   RideRequest({
     required this.id,
+    required this.driverId,
     required this.pickupAddress,
     required this.pickupLatitude,
     required this.pickupLongitude,
@@ -33,6 +35,7 @@ class RideRequest {
   factory RideRequest.fromJson(Map<String, dynamic> json) {
     return RideRequest(
       id: json['id'],
+      driverId: json['driver_id'],
       pickupAddress: json['pickup_address'],
       pickupLatitude: json['pickup_latitude'].toDouble(),
       pickupLongitude: json['pickup_longitude'].toDouble(),

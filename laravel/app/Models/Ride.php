@@ -76,4 +76,9 @@ class Ride extends Model
     {
         return $this->belongsTo(RideStatus::class, 'ride_status_id');
     }
+
+    public function rejections()
+    {
+        return $this->hasMany(RideRejection::class);
+    }
 }

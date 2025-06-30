@@ -147,6 +147,9 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
     String? profilePicture,
     String vehicle,
   ) async {
+    if (_isBottomSheetOpen) return; // Prevent multiple modals
+    _isBottomSheetOpen = true;
+
     final result = await showModalBottomSheet<String?>(
       context: context,
       isScrollControlled: true,
@@ -265,12 +268,14 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
       },
     );
 
+    _isBottomSheetOpen = false;
+
     if (!mounted) return;
 
     print('Driver confirmed modal result: $result');
 
     // Handle navigation after modal closes
-    if (result == 'navigate_to_tracking' && mounted) {
+    if (result == 'navigate_to_tracking') {
       print(
         '[NAVIGATION] About to navigate to TrackDriverScreen with rideId: $_rideId',
       );

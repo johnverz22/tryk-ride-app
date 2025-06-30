@@ -111,13 +111,6 @@ class DriverResource extends Resource
                         'rejected', 'suspended', 'banned' => 'danger',
                     })
                     ->tooltip(fn ($record) => $record->profile?->status?->label ?? 'Unknown'),
-                // SelectColumn::make('profile.driver_status_id')
-                //     ->label('Status')
-                //     ->options(
-                //         \App\Models\DriverStatus::all()->pluck('label', 'id')
-                //     )
-                //     ->searchable()
-                //     ->selectablePlaceholder(false),
             ])
             ->filters([
                 SelectFilter::make('driver_status_id')

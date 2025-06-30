@@ -8,6 +8,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\SavedLocation;
+use App\Models\Ride;
 
 class UserController extends Controller
 {
@@ -55,5 +56,36 @@ class UserController extends Controller
             Log::error('Failed to fetch saved locations', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Internal server error'], 500);
         }
+    }
+
+    public function userTrips(Request $request)
+    {
+        $user = Auth::user();
+
+        $rides = Ride::with('driver', 'status')
+            ->where('user_id', $user->id)
+            ->orderByDesc('requested_at')
+            ->get()
+            ->map(function ($ride) {
+                $formatted = [
+                    'id' => $ride->id,
+                    'pickup_address' => $ride->pickup_address,
+                    'dropoff_address' => $ride->dropoff_address,
+                    'fare_amount' => $ride->fare_amount,
+                    'payment_method' => $ride->payment_method,
+                    'driver' => $ride->driver?->name,
+                    'rider_rating' => $ride->rider_rating,
+                    'status' => $ride->status?->name,
+                    'accepted_at' => $ride->accepted_at,
+                    'completed_at' => $ride->completed_at,
+                    'canceled_at' => $ride->canceled_at,
+                    'requested_at' => $ride->requested_at,
+                ];
+
+                Log::debug('Ride details:', $formatted);
+                return $formatted;
+            });
+            
+        return response()->json($rides);
     }
 }

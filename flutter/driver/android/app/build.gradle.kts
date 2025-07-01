@@ -1,16 +1,9 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
-
-val localProperties = Properties()
-localProperties.load(rootProject.file("local.properties").inputStream())
-val apiKey = localProperties.getProperty("API_KEY")
-
 android {
     namespace = "com.example.driver"
     compileSdk = flutter.compileSdkVersion
@@ -35,8 +28,6 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-
-        manifestPlaceholders["MAPS_API_KEY"] = apiKey
     }
 
     buildTypes {

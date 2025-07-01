@@ -29,6 +29,8 @@ dependencies:
   url_launcher: ^6.2.5
   flutter_rating: ^2.0.2
   smooth_page_indicator: ^1.2.1
+  go_router: ^15.2.4
+  flutter_dotenv: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -39,3 +41,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - .env

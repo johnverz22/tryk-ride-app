@@ -5,33 +5,20 @@ class UserModel extends UserEntity {
   final String? location;
 
   const UserModel({
-    required String id,
-    required String name,
-    required String email,
-    required String phone,
-    String? profilePhotoUrl,
-    required String role,
-    required bool isVerified,
-    required double walletBalance,
-    String? defaultPaymentMethod,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    DateTime? lastLoginAt,
+    required super.id,
+    required super.name,
+    required super.email,
+    required super.phone,
+    super.profilePhotoUrl,
+    required super.role,
+    required super.isVerified,
+    required super.walletBalance,
+    super.defaultPaymentMethod,
+    required super.createdAt,
+    required super.updatedAt,
+    super.lastLoginAt,
     this.location,
-  }) : super(
-          id: id,
-          name: name,
-          email: email,
-          phone: phone,
-          profilePhotoUrl: profilePhotoUrl,
-          role: role,
-          isVerified: isVerified,
-          walletBalance: walletBalance,
-          defaultPaymentMethod: defaultPaymentMethod,
-          createdAt: createdAt,
-          updatedAt: updatedAt,
-          lastLoginAt: lastLoginAt,
-        );
+  });
 
   factory UserModel.fromJson({required Map<String, dynamic> json}) {
     return UserModel(

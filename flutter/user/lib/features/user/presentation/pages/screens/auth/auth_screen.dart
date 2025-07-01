@@ -156,8 +156,9 @@ class _AuthScreenState extends State<AuthScreen> {
                             label: 'Name',
                             icon: Icons.person,
                             controller: nameController,
-                            validator: (val) =>
-                                val == null || val.isEmpty ? 'Enter your name' : null,
+                            validator: (val) => val == null || val.isEmpty
+                                ? 'Enter your name'
+                                : null,
                           ),
                         if (!isLogin) const SizedBox(height: 16),
 
@@ -167,9 +168,11 @@ class _AuthScreenState extends State<AuthScreen> {
                           controller: emailController,
                           inputType: TextInputType.emailAddress,
                           validator: (val) {
-                            if (val == null || val.isEmpty) return 'Enter a valid email';
+                            if (val == null || val.isEmpty)
+                              return 'Enter a valid email';
                             final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-                            if (!emailRegex.hasMatch(val)) return 'Enter a valid email address';
+                            if (!emailRegex.hasMatch(val))
+                              return 'Enter a valid email address';
                             return null;
                           },
                         ),
@@ -180,8 +183,9 @@ class _AuthScreenState extends State<AuthScreen> {
                           icon: Icons.lock,
                           controller: passwordController,
                           obscure: true,
-                          validator: (val) =>
-                              val == null || val.length < 6 ? 'Min 6 characters' : null,
+                          validator: (val) => val == null || val.length < 6
+                              ? 'Min 6 characters'
+                              : null,
                         ),
                         const SizedBox(height: 16),
 
@@ -200,7 +204,9 @@ class _AuthScreenState extends State<AuthScreen> {
                                 onPressed: _submit,
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 32, vertical: 14),
+                                    horizontal: 32,
+                                    vertical: 14,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -244,7 +250,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
                         ElevatedButton.icon(
                           onPressed: () => debugPrint('Google sign in'),
-                          icon: const FaIcon(FontAwesomeIcons.google, color: Colors.white),
+                          icon: const FaIcon(
+                            FontAwesomeIcons.google,
+                            color: Colors.white,
+                          ),
                           label: const Text('Continue with Google'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFDB4437),
@@ -259,7 +268,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
                         ElevatedButton.icon(
                           onPressed: () => debugPrint('Facebook sign in'),
-                          icon: const FaIcon(FontAwesomeIcons.facebookF, color: Colors.white),
+                          icon: const FaIcon(
+                            FontAwesomeIcons.facebookF,
+                            color: Colors.white,
+                          ),
                           label: const Text('Continue with Facebook'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF1877F2),
@@ -274,7 +286,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
                         ElevatedButton.icon(
                           onPressed: () => debugPrint('X sign in'),
-                          icon: const FaIcon(FontAwesomeIcons.xTwitter, color: Colors.white),
+                          icon: const FaIcon(
+                            FontAwesomeIcons.xTwitter,
+                            color: Colors.white,
+                          ),
                           label: const Text('Continue with X'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.black,

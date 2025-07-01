@@ -5,6 +5,7 @@ export 'home_screen/location_card.dart';
 export 'home_screen/place_chip.dart';
 export 'home_screen/recent_trip_tile.dart';
 export 'home_screen/ride_map_preview.dart';
+export 'section_header_with_see_all.dart';
 
 // Trips Screen
 export 'trips_screen/trip_card.dart';

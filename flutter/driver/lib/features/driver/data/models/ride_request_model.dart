@@ -1,5 +1,6 @@
 class RideRequest {
   final int id;
+  final int userId;
   final String? driverId;
   final String pickupAddress;
   final double pickupLatitude;
@@ -14,9 +15,12 @@ class RideRequest {
   final double? fareAmount;
   final String? paymentMethod;
   final bool isPaid;
+  final String? riderName;
+  final String? riderProfilePicture;
 
   RideRequest({
     required this.id,
+    required this.userId,
     required this.driverId,
     required this.pickupAddress,
     required this.pickupLatitude,
@@ -30,11 +34,14 @@ class RideRequest {
     this.fareAmount,
     this.paymentMethod,
     required this.isPaid,
+    this.riderName,
+    this.riderProfilePicture,
   });
 
   factory RideRequest.fromJson(Map<String, dynamic> json) {
     return RideRequest(
       id: json['id'],
+      userId: json['user_id'],
       driverId: json['driver_id'],
       pickupAddress: json['pickup_address'],
       pickupLatitude: json['pickup_latitude'].toDouble(),
@@ -54,6 +61,8 @@ class RideRequest {
           : null,
       paymentMethod: json['payment_method'],
       isPaid: json['is_paid'] ?? false,
+      riderName: json['user']?['name'],
+      riderProfilePicture: json['user']?['profile_picture'],
     );
   }
 }

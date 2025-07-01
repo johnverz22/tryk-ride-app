@@ -60,6 +60,129 @@ class _HomeScreenState extends State<HomeScreen> {
     _autoAcceptTimer = null;
   }
 
+  Future<void> _showDriverConfirmationDialog({
+    required BuildContext context,
+    required String riderName,
+    required String? profilePicture,
+  }) async {
+    final result = await showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (bottomSheetContext) {
+        return PopScope(
+          canPop: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.emoji_transportation,
+                  size: 48,
+                  color: Colors.green,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Ride Accepted Successfully!',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$riderName is on waiting for you to pick you up!',
+                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 36,
+                      backgroundImage:
+                          (profilePicture != null && profilePicture.isNotEmpty)
+                          ? NetworkImage(profilePicture)
+                          : null,
+                      backgroundColor: Colors.grey[300],
+                      child: (profilePicture == null || profilePicture.isEmpty)
+                          ? const Icon(
+                              Icons.person,
+                              size: 36,
+                              color: Colors.white,
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            riderName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Row(
+                            children: [
+                              Icon(Icons.star, color: Colors.amber, size: 16),
+                              SizedBox(width: 4),
+                              Text('4.8'),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.verified),
+                    label: const Text('Great, thanks!'),
+                    onPressed: () {
+                      Navigator.of(
+                        bottomSheetContext,
+                      ).pop('navigate_to_tracking');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      backgroundColor: Colors.green[600],
+                      foregroundColor: Colors.white,
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result == 'navigate_to_tracking') {
+      // TODO: Navigate to your tracking screen
+      // Navigator.pushNamed(context, '/tracking');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final driverProvider = Provider.of<DriverProvider>(context);
@@ -189,16 +312,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         setState(() => _selectedRide = null);
                       }
                       if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            success
-                                ? 'Ride accepted successfully.'
-                                : 'Unable to accept the ride.',
+
+                      if (success) {
+                        await _showDriverConfirmationDialog(
+                          context: context,
+                          riderName: ride.riderName ?? 'Rider',
+                          profilePicture: ride.riderProfilePicture,
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Unable to accept the ride.'),
+                            backgroundColor: Colors.red,
                           ),
-                          backgroundColor: success ? Colors.green : Colors.red,
-                        ),
-                      );
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,

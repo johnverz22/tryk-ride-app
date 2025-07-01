@@ -16,9 +16,7 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
   Future<UserModel> getUser({required UserParams userParams}) async {
     final response = await dio.get(
       'https://pokeapi.co/api/v2/pokemon/',
-      queryParameters: {
-        'api_key': 'if needed',
-      },
+      queryParameters: {'api_key': 'if needed'},
     );
 
     if (response.statusCode == 200) {

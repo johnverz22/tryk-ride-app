@@ -21,12 +21,14 @@ class UserRepositoryImpl implements UserRepository {
   });
 
   @override
-  Future<Either<Failure, UserModel>> getUser(
-      {required UserParams userParams}) async {
+  Future<Either<Failure, UserModel>> getUser({
+    required UserParams userParams,
+  }) async {
     if (await networkInfo.isConnected!) {
       try {
-        UserModel remoteUser =
-            await remoteDataSource.getUser(userParams: userParams);
+        UserModel remoteUser = await remoteDataSource.getUser(
+          userParams: userParams,
+        );
 
         localDataSource.cacheUser(userToCache: remoteUser);
 

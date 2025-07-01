@@ -28,10 +28,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/user/saved-locations', [Controllers\SavedLocationController::class, 'store']);
     Route::put('/user/saved-locations/{id}', [Controllers\SavedLocationController::class, 'update']);
 
+    Route::get('/rides/ongoing', [Controllers\RideController::class, 'ongoing']);
     Route::post('/rides/request', [Controllers\RideController::class, 'store']);
     Route::post('/rides/cancel', [Controllers\RideController::class, 'cancel']);
+    Route::get('/rides/{id}', [Controllers\RideController::class, 'show']);
     Route::post('/rides/{id}/accept', [Controllers\RideController::class, 'accept']);
     Route::patch('/rides/{ride}/reject', [Controllers\RideController::class, 'reject']);
-    Route::get('/rides/{id}', [Controllers\RideController::class, 'show']);
     Route::get('/rides/{id}/driver-location', [Controllers\DriverController::class, 'getLocation']);
 });

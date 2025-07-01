@@ -6,7 +6,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:user/features/user/presentation/pages/screens/navigation/home/ride_tracking_screen.dart';
 import '../../../../../../../core/services/auth_service.dart';
 import '../../../../widgets/widgets.dart';
 
@@ -82,7 +81,6 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
     }
   }
 
-  // Replace your entire _checkRideStatusPeriodically method with this fixed version
   Future<void> _checkRideStatusPeriodically() async {
     final token = await AuthService().getToken();
     if (token == null || _rideId == null) return;
@@ -104,16 +102,13 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
         );
 
         if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final ride = data['ride'];
+          final ride = jsonDecode(response.body); // FIXED
           final statusId = ride['ride_status_id'];
 
           if (statusId == 2 && ride['driver'] != null) {
-            // Cancel timer FIRST before any UI operations
             timer.cancel();
             _statusCheckTimer = null;
 
-            // Close any existing bottom sheet
             if (_isBottomSheetOpen && mounted) {
               Navigator.of(context, rootNavigator: true).pop();
               _isBottomSheetOpen = false;
@@ -126,7 +121,6 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
               final vehicle = driver['vehicle'] ?? 'Toyota Vios';
               final driverName = driver['name'];
 
-              // Show driver confirmed modal and handle navigation
               await _showDriverConfirmedModal(
                 driverName,
                 profilePicture,
@@ -160,8 +154,8 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
       ),
       backgroundColor: Colors.white,
       builder: (bottomSheetContext) {
-        return WillPopScope(
-          onWillPop: () async => false, // Prevent back button dismissal
+        return PopScope(
+          canPop: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
             child: Column(
@@ -273,39 +267,8 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
     if (!mounted) return;
 
     print('Driver confirmed modal result: $result');
-
-    // Handle navigation after modal closes
-    if (result == 'navigate_to_tracking') {
-      print(
-        '[NAVIGATION] About to navigate to TrackDriverScreen with rideId: $_rideId',
-      );
-
-      try {
-        // Navigate to tracking screen
-        await Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) {
-              print('[NAVIGATION] Building TrackDriverScreen');
-              return RideTrackingScreen(
-                rideId: _rideId,
-                pickup: _fromLocation,
-                destination: _toLocation,
-              );
-            },
-          ),
-        );
-        print('[NAVIGATION] Navigation completed successfully');
-      } catch (e) {
-        print('[NAVIGATION] Navigation failed: $e');
-      }
-    } else {
-      print(
-        '[NAVIGATION] Navigation skipped - result: $result, mounted: $mounted',
-      );
-    }
   }
 
-  // Also update your _showSearchingBottomSheet method to handle cancellation properly
   Future<void> _showSearchingBottomSheet() async {
     _isBottomSheetOpen = true;
     setState(() => _rideCancelled = false);

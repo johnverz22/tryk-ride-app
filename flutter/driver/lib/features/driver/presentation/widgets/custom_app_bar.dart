@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/driver_provider.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart'; // <-- Add this
 import '../../../../core/config/api_config.dart';
 
 class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -21,16 +22,32 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(75);
 
+  Future<Position> _getCurrentPosition() async {
+    LocationPermission permission;
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
+        throw Exception('Location permissions are denied');
+      }
+    }
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+  }
+
   Future<void> handleToggleOnline(bool value, BuildContext context) async {
     final driverProvider = Provider.of<DriverProvider>(context, listen: false);
 
     if (value) {
-      const double latitude = 16.6155;
-      const double longitude = 120.3170;
-
-      driverProvider.setOnlineStatus(true);
-
       try {
+        Position position = await _getCurrentPosition();
+
+        driverProvider.setOnlineStatus(true);
+
         await http.post(
           Uri.parse('${ApiConfig.baseUrl}/driver/update-location'),
           headers: {
@@ -38,8 +55,8 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
             'Content-Type': 'application/json',
           },
           body: jsonEncode({
-            'latitude': latitude,
-            'longitude': longitude,
+            'latitude': position.latitude,
+            'longitude': position.longitude,
             'is_online': driverProvider.isOnline,
           }),
         );
@@ -61,6 +78,7 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
         debugPrint('Failed to go offline: $e');
       }
     }
+
     onToggleOnline(value);
   }
 
@@ -130,9 +148,7 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
               const SizedBox(width: 6),
               Switch(
                 value: isOnline,
-                thumbIcon: WidgetStateProperty.resolveWith<Icon?>((
-                  Set<WidgetState> states,
-                ) {
+                thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
                   if (states.contains(WidgetState.selected)) {
                     return const Icon(Icons.check); // Online icon
                   }

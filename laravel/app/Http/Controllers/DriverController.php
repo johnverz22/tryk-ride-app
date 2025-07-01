@@ -274,20 +274,27 @@ class DriverController extends Controller
     
     public function getLocation(Request $request, $rideId)
     {
-        $ride = Ride::with('driver')->findOrFail($rideId);
+        $ride = Ride::with('driver.profile')->findOrFail($rideId);
 
-        if (!$ride->driver) {
-            return response()->json(['error' => 'Driver not assigned'], 404);
+        if (!$ride->driver || !$ride->driver->profile) {
+            Log::warning("Ride ID {$rideId} has no assigned driver or driver profile.");
+            return response()->json(['error' => 'Driver not assigned or profile missing'], 404);
         }
 
-        return response()->json([
-            'lat' => $ride->driver->latitude,
-            'lng' => $ride->driver->longitude,
+        $profile = $ride->driver->profile;
+
+        $response = [
+            'latitude' => $profile->current_latitude,
+            'longitude' => $profile->current_longitude,
             'driver' => [
                 'name' => $ride->driver->name,
                 'plate' => $ride->driver->car_plate,
             ],
-        ]);
+        ];
+
+        Log::info("Driver location fetched for ride ID {$rideId}", $response);
+
+        return response()->json($response);
     }
 
     public function trips(Request $request)

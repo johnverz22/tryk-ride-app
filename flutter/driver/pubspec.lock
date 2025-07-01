@@ -544,14 +544,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.7"
-  laravel_echo:
-    dependency: "direct main"
-    description:
-      name: laravel_echo
-      sha256: aec1c8a989f8718ffbb9864e746eed2181638e156d4e22724230a5be9cdf43ab
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0-beta.1"
   leak_tracker:
     dependency: transitive
     description:

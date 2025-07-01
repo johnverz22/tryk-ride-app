@@ -126,21 +126,26 @@ class RideController extends Controller
     {
         $driver = Auth::user();
 
-        // Only update the ride if it's still pending (ride_status_id = 1)
-        $updated = DB::table('rides')
-            ->where('id', $id)
+        $ride = Ride::where('id', $id)
             ->where('ride_status_id', 1)
-            ->update([
-                'driver_id' => $driver->id,
-                'ride_status_id' => 2,
-                'accepted_at' => now(),
-            ]);
+            ->first();
 
-        if ($updated) {
-            return response()->json(['message' => 'Ride accepted successfully.'], 200);
-        } else {
+        if (!$ride) {
             return response()->json(['message' => 'Ride has already been taken.'], 409);
         }
+
+        $ride->update([
+            'driver_id' => $driver->id,
+            'ride_status_id' => 2,
+            'accepted_at' => now(),
+        ]);
+
+        $ride->load(['driver', 'user', 'status']);
+
+        return response()->json([
+            'message' => 'Ride accepted successfully.',
+            'ride' => $ride,
+        ]);
     }
 
     public function reject(Ride $ride)
@@ -190,6 +195,25 @@ class RideController extends Controller
         }
 
         $ride = Ride::with(['driver', 'user', 'status'])->findOrFail($id);
-        return response()->json(['ride' => $ride]);
+
+        Log::info('Returning ride response:', ['ride' => $ride->toArray()]);
+
+        return response()->json($ride);
+    }
+
+    public function ongoing()
+    {
+        $user = Auth::user();
+
+        $rides = Ride::with(['driver', 'user', 'status'])
+                    ->whereIn('ride_status_id', [
+                        RideStatus::ACCEPTED,
+                        RideStatus::DRIVER_EN_ROUTE,
+                        RideStatus::PICKED_UP,
+                    ])
+                    ->where('user_id', '=', $user->id)
+                    ->get();
+
+        return response()->json(['rides' => $rides]);
     }
 }

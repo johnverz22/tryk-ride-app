@@ -32,14 +32,13 @@ class UserLocalDataSourceImpl implements UserLocalDataSource {
     if (userToCache != null) {
       sharedPreferences.setString(
         cachedUser,
-        json.encode(
-          userToCache.toJson(),
-        ),
+        json.encode(userToCache.toJson()),
       );
     } else {
       throw CacheException();
     }
   }
 }
+
 // This code defines a local data source for caching user data using SharedPreferences.
 // It provides methods to cache a user and retrieve the last cached user.

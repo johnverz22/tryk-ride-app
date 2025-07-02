@@ -21,7 +21,7 @@ class _TripsScreenState extends State<TripsScreen>
   bool isLoading = false;
   DateTimeRange? selectedDateRange;
 
-  final List<String> tripCategories = ['Accepted', 'Completed', 'Cancelled'];
+  final List<String> tripCategories = ['Ongoing', 'Completed', 'Cancelled'];
 
   @override
   void initState() {
@@ -68,6 +68,16 @@ class _TripsScreenState extends State<TripsScreen>
     final filteredTrips = trips
         .where((trip) {
           final tripStatus = trip['status']?['name'];
+
+          // Handle 'Ongoing' grouping
+          if (category == 'Ongoing') {
+            return [
+              'Accepted',
+              'Driver En Route',
+              'Ride in Progress',
+            ].contains(tripStatus);
+          }
+
           return tripStatus == category;
         })
         .where((trip) {

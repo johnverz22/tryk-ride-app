@@ -42,10 +42,22 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     },
   ];
 
-  void _selectFavoriteLocation(LatLng latLng, {String? description}) {
+  void _selectFavoriteLocation(LatLng latLng, {String? description}) async {
+    // Only use reverse geocoding if description is generic (like "Home", "Work", etc.)
+    final isGeneric = [
+      'Home',
+      'Work',
+      'Gym',
+      'Library',
+      'Coffee Shop',
+    ].contains(description);
+    final placeName = isGeneric
+        ? await _getPlaceNameFromLatLng(latLng)
+        : description;
+
     setState(() {
       _selectedPoint = latLng;
-      _selectedDescription = description;
+      _selectedDescription = placeName;
     });
     _mapController?.animateCamera(CameraUpdate.newLatLngZoom(latLng, 15));
   }
@@ -111,7 +123,11 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     );
     final currentLatLng = LatLng(position.latitude, position.longitude);
 
-    setState(() => _selectedPoint = currentLatLng);
+    final placeName = await _getPlaceNameFromLatLng(currentLatLng);
+    setState(() {
+      _selectedPoint = currentLatLng;
+      _selectedDescription = placeName;
+    });
     _mapController?.animateCamera(
       CameraUpdate.newLatLngZoom(currentLatLng, 15),
     );
@@ -155,6 +171,59 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     }
   }
 
+  Future<String> _getPlaceNameFromLatLng(LatLng latLng) async {
+    final url =
+        'https://maps.googleapis.com/maps/api/geocode/json?latlng=${latLng.latitude},${latLng.longitude}&key=$googleMapsApiKey';
+
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+
+      if (data['status'] == 'OK' && data['results'].isNotEmpty) {
+        final results = data['results'] as List;
+
+        // 1. Try best formatted address (skip Unnamed Road or plus codes)
+        for (final result in results) {
+          final address = result['formatted_address'].toString().toLowerCase();
+          if (!address.contains('unnamed road') && !address.contains('+')) {
+            return result['formatted_address'];
+          }
+        }
+
+        // 2. Try nearest landmark
+        for (final result in results) {
+          final components = result['address_components'] as List<dynamic>;
+          for (final comp in components) {
+            final types = comp['types'] as List<dynamic>;
+            if (types.contains('point_of_interest') ||
+                types.contains('establishment')) {
+              return comp['long_name'];
+            }
+          }
+        }
+
+        // 3. Try sublocality, locality, or administrative area
+        for (final result in results) {
+          final components = result['address_components'] as List<dynamic>;
+          for (final comp in components) {
+            final types = comp['types'] as List<dynamic>;
+            if (types.contains('sublocality') ||
+                types.contains('locality') ||
+                types.contains('administrative_area_level_2')) {
+              return comp['long_name'];
+            }
+          }
+        }
+
+        // 4. Final fallback to any available formatted address
+        return results.first['formatted_address'];
+      }
+    }
+
+    return 'Unknown location';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -175,7 +244,13 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
               zoom: 13,
             ),
             onMapCreated: (controller) => _mapController = controller,
-            onTap: (point) => setState(() => _selectedPoint = point),
+            onTap: (point) async {
+              final placeName = await _getPlaceNameFromLatLng(point);
+              setState(() {
+                _selectedPoint = point;
+                _selectedDescription = placeName;
+              });
+            },
             markers: _selectedPoint != null
                 ? {
                     Marker(
@@ -355,9 +430,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           ? FloatingActionButton.extended(
               onPressed: () => Navigator.pop(context, {
                 'latLng': _selectedPoint,
-                'description':
-                    _selectedDescription ??
-                    'Lat: ${_selectedPoint!.latitude.toStringAsFixed(5)}, Lng: ${_selectedPoint!.longitude.toStringAsFixed(5)}',
+                'description': _selectedDescription ?? 'Selected Location',
               }),
               backgroundColor: theme.primaryColor,
               icon: const Icon(Icons.check),

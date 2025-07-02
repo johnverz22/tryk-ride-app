@@ -144,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         elevation: 3,
-                        shadowColor: Colors.grey.withOpacity(0.2),
+                        shadowColor: Colors.grey.withValues(alpha: 0.2),
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20,

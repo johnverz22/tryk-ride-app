@@ -16,10 +16,12 @@ class TripCard extends StatelessWidget {
   Color _getStatusColor(String? status) {
     switch (status) {
       case 'Accepted':
+      case 'Driver En Route':
+      case 'Ride in Progress':
         return Colors.orange;
       case 'Completed':
         return Colors.green;
-      case 'Cancelled': // Match backend spelling
+      case 'Cancelled':
         return Colors.redAccent;
       default:
         return Colors.grey;

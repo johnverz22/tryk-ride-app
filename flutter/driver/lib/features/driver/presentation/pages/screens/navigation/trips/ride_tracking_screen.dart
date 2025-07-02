@@ -388,7 +388,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
               Polyline(
                 polylineId: const PolylineId('route'),
                 points: decodedPoints,
-                color: Colors.blue,
+                color: Theme.of(context).colorScheme.primary,
                 width: 4,
               ),
             };
@@ -438,7 +438,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
   }
 
   void _startWaitingTimer() {
-    _waitingSeconds = 300;
+    _waitingSeconds = 3;
     _isWaiting = true;
     _waitTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
@@ -457,6 +457,19 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
         _waitingSeconds += 120;
         _extended = true;
       });
+
+      // Restart the timer if it was canceled
+      if (_waitTimer?.isActive != true) {
+        _waitTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          setState(() {
+            if (_waitingSeconds > 0) {
+              _waitingSeconds--;
+            } else {
+              timer.cancel();
+            }
+          });
+        });
+      }
     }
   }
 
@@ -523,7 +536,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                     children: [
                       CircleAvatar(
                         radius: 28,
-                        backgroundColor: Colors.blueAccent,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         child: const Icon(Icons.person, color: Colors.white),
                       ),
                       const SizedBox(width: 16),
@@ -613,11 +626,14 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
 
                   ElevatedButton.icon(
                     onPressed: _navigateWithGoogleMaps,
-                    icon: const Icon(Icons.navigation),
-                    label: const Text('Navigate'),
+                    icon: const Icon(Icons.navigation, color: Colors.white),
+                    label: const Text(
+                      'Navigate in Google Maps',
+                      style: TextStyle(color: Colors.white),
+                    ),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size.fromHeight(45),
-                      backgroundColor: Colors.green,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                     ),
                   ),
 
@@ -627,8 +643,13 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                       onPressed: _markDriverEnRoute,
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size.fromHeight(45),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
                       ),
-                      child: const Text('Start Ride'),
+                      child: const Text(
+                        'Start Ride',
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
 
                   if (rideStatus == RideStatus.driverEnRoute && !_isWaiting)
@@ -636,8 +657,13 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                       onPressed: _startWaitingTimer,
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size.fromHeight(45),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
                       ),
-                      child: const Text("I'm Here (Start 5 min wait)"),
+                      child: const Text(
+                        "I'm Here (Wait for 5 minutes)",
+                        style: TextStyle(color: Colors.white),
+                      ),
                     ),
 
                   if (_isWaiting && rideStatus != RideStatus.inProgress) ...[
@@ -649,6 +675,12 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: _extendWaitingTime,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                foregroundColor: Colors.white,
+                              ),
                               child: const Text('+2 min Extension'),
                             ),
                           ),
@@ -659,7 +691,16 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: _startRide,
-                              child: const Text('Start Ride'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text(
+                                'Start Ride',
+                                style: TextStyle(color: Colors.white),
+                              ),
                             ),
                           ),
                       ],
@@ -667,12 +708,15 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                   ],
 
                   if (rideStatus == RideStatus.inProgress)
-                    ElevatedButton(
+                    ElevatedButton.icon(
                       onPressed: _completeRide,
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size.fromHeight(45),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
                       ),
-                      child: const Text('Complete Ride'),
+                      icon: const Icon(Icons.check),
+                      label: const Text('Complete Ride'),
                     ),
 
                   const SizedBox(height: 12),
@@ -700,7 +744,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
   Widget _infoTile(IconData icon, String value, String label) {
     return Column(
       children: [
-        Icon(icon, color: Colors.blueAccent, size: 20),
+        Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
         const SizedBox(height: 4),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),

@@ -32,10 +32,12 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
 
   double? _routeDistanceMeters;
   int? _routeDurationSeconds;
+  int? _rideId;
+  double? _distance;
+  int? _duration;
   final double _baseFare = 5.0;
   final double _perKmRate = 2.0;
   final double _averageSpeedKmh = 40.0;
-  int? _rideId;
   static const int requestedStatusId = 1;
 
   @override
@@ -421,15 +423,15 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
   Future<void> _requestRide() async {
     if (_fromLocation == null || _toLocation == null) return;
 
-    final distance = _calculateDistanceKm(
-      _fromLocation!.latitude,
-      _fromLocation!.longitude,
-      _toLocation!.latitude,
-      _toLocation!.longitude,
-    );
+    // final distance = _calculateDistanceKm(
+    //   _fromLocation!.latitude,
+    //   _fromLocation!.longitude,
+    //   _toLocation!.latitude,
+    //   _toLocation!.longitude,
+    // );
 
-    final double fare = _baseFare + _perKmRate * distance;
-    final double durationMinutes = distance / _averageSpeedKmh * 60;
+    // final double fare = _baseFare + _perKmRate * distance;
+    // final double durationMinutes = distance / _averageSpeedKmh * 60;
     final now = DateTime.now().toIso8601String();
 
     final uri = Uri.parse('$baseUrl/rides/request');
@@ -460,9 +462,9 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
           'dropoff_latitude': _toLocation!.latitude,
           'dropoff_longitude': _toLocation!.longitude,
           'requested_at': now,
-          'distance_km': distance,
-          'duration_minutes': durationMinutes,
-          'fare_amount': fare,
+          'distance_km': _distance,
+          'duration_minutes': _duration,
+          'fare_amount': _getEstimatedCost(_distance!),
           'ride_status_id': requestedStatusId,
           'payment_method': _selectedPaymentMethod,
           'search_radius_km': _searchRadiusKm.round(),
@@ -687,7 +689,14 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
                 fromLocation: _fromLocation!,
                 toLocation: _toLocation!,
                 apiKey: googleMapsApiKey,
+                onRouteInfoLoaded: (distance, duration) {
+                  setState(() {
+                    _distance = distance; // in km
+                    _duration = duration; // in minutes
+                  });
+                },
               ),
+
               const SizedBox(height: 12),
               RouteInfoCard(
                 cost: _getEstimatedCost(totalDistance).toStringAsFixed(2),
@@ -710,7 +719,7 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
+                    color: Colors.black.withValues(alpha: 0.5),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -737,7 +746,7 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: color.primary.withOpacity(0.08),
+                          color: color.primary.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(

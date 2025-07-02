@@ -11,12 +11,16 @@ class RideMapPreview extends StatefulWidget {
   final String? apiKey;
   final Color routeColor;
 
+  final void Function(double distanceKm, int durationMinutes)?
+  onRouteInfoLoaded;
+
   const RideMapPreview({
     Key? key,
     required this.fromLocation,
     required this.toLocation,
     required this.apiKey,
     this.routeColor = Colors.blue,
+    this.onRouteInfoLoaded,
   }) : super(key: key);
 
   @override
@@ -60,22 +64,29 @@ class _RideMapPreviewState extends State<RideMapPreview> {
       final data = json.decode(response.body);
 
       if (data['status'] == 'OK') {
-        final points = data['routes'][0]['overview_polyline']['points'];
+        final route = data['routes'][0];
+        final points = route['overview_polyline']['points'];
         final decoded = PolylinePoints().decodePolyline(points);
+
+        // 🚀 Get distance and duration
+        final leg = route['legs'][0];
+        final distanceMeters = leg['distance']['value']; // meters
+        final durationSeconds = leg['duration']['value']; // seconds
+
         setState(() {
           _routePoints = decoded
               .map((p) => LatLng(p.latitude, p.longitude))
               .toList();
           _isLoading = false;
         });
-      } else {
-        debugPrint(
-          'Directions API error: ${data['status']} - ${data['error_message'] ?? "No message"}',
-        );
-        setState(() {
-          _hasError = true;
-          _isLoading = false;
-        });
+
+        // 🔔 Notify parent
+        if (widget.onRouteInfoLoaded != null) {
+          widget.onRouteInfoLoaded!(
+            distanceMeters / 1000.0,
+            (durationSeconds / 60).round(),
+          );
+        }
       }
     } catch (e) {
       debugPrint('Failed to fetch route: $e');

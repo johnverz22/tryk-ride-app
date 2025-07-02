@@ -157,7 +157,7 @@ class DriverController extends Controller
 
     public function requestedRides(Request $request)
     {
-        $user = $request->user();
+        $user = Auth::user();
 
         $driverProfile = $user->profile;
         if (
@@ -207,12 +207,16 @@ class DriverController extends Controller
 
         $profile->current_latitude = $validated['latitude'];
         $profile->current_longitude = $validated['longitude'];
-        $profile->is_online =  $validated['is_online'];
+
+        if (array_key_exists('is_online', $validated)) {
+            $profile->is_online = $validated['is_online'];
+        }
+
         $profile->save();
 
         return response()->json([
-            'message' => 'Location updated successfully',
-            'latitude' => $profile->current_latitude,
+            'message'   => 'Location updated successfully',
+            'latitude'  => $profile->current_latitude,
             'longitude' => $profile->current_longitude,
             'is_online' => $profile->is_online,
         ]);

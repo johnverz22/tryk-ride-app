@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
 
 import '../../data/models/driver_model.dart';
 import '../../data/models/ride_request_model.dart';
@@ -199,29 +200,56 @@ class DriverProvider with ChangeNotifier {
   Future<void> fetchRequestedRides() async {
     if (_token == null) return;
 
-    final url = Uri.parse('${ApiConfig.baseUrl}/driver/requested-rides');
-    final response = await http.get(
-      url,
-      headers: {
-        'Authorization': 'Bearer $_token',
-        'Accept': 'application/json',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final newRides = (data as List)
-          .map((e) => RideRequest.fromJson(e))
-          .where((ride) => !_rejectedRideIds.contains(ride.id))
-          .toList();
-
-      _requestedRides = newRides;
-      _hasIncomingRequest = _requestedRides.isNotEmpty;
-      notifyListeners();
-    } else {
-      debugPrint(
-        'Failed to fetch rides: ${response.statusCode} → ${response.body}',
+    try {
+      // 👇 Step 1: Get current location
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
       );
+
+      final lat = position.latitude;
+      final lng = position.longitude;
+
+      // 👇 Step 2: Send location to backend
+      final locationUrl = Uri.parse(
+        '${ApiConfig.baseUrl}/driver/update-location',
+      );
+      await http.post(
+        locationUrl,
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'latitude': lat, 'longitude': lng}),
+      );
+
+      // 👇 Step 3: Fetch requested rides
+      final ridesUrl = Uri.parse('${ApiConfig.baseUrl}/driver/requested-rides');
+      final response = await http.get(
+        ridesUrl,
+        headers: {
+          'Authorization': 'Bearer $_token',
+          'Accept': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final newRides = (data as List)
+            .map((e) => RideRequest.fromJson(e))
+            .where((ride) => !_rejectedRideIds.contains(ride.id))
+            .toList();
+
+        _requestedRides = newRides;
+        _hasIncomingRequest = _requestedRides.isNotEmpty;
+        notifyListeners();
+      } else {
+        debugPrint(
+          'Failed to fetch rides: ${response.statusCode} → ${response.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint('Error fetching rides or location: $e');
     }
   }
 

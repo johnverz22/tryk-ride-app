@@ -247,6 +247,9 @@ class RideController extends Controller
         }
 
         $ride->ride_status_id = $statusId;
+        if ($statusId === RideStatus::RIDE_IN_PROGRESS) {
+            $ride->picked_up_at = now();
+        }
         $ride->save();
 
         return response()->json([
@@ -269,8 +272,8 @@ class RideController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        // Update ride status to Completed (adjust the constant or value accordingly)
         $ride->ride_status_id = RideStatus::COMPLETED;
+        $ride->completed_at = now();
         $ride->save();
 
         return response()->json([

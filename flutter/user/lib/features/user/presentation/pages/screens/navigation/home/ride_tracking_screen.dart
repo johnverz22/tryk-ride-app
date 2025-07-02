@@ -88,8 +88,17 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
           _initialLoading = false;
         });
 
-        _fetchDriverLocation();
-        _startPolling();
+        final status = ride['status']?['name']?.toString().toLowerCase();
+        if (status != 'completed') {
+          _fetchDriverLocation();
+          _startPolling();
+        } else {
+          setState(() {
+            _pickup = _pickup; // set these again from _ride
+            _destination = _destination;
+          });
+          await _updatePolylines();
+        }
       } else {
         debugPrint('Failed to load ride: ${response.statusCode}');
       }
@@ -106,6 +115,12 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
 
   Future<void> _fetchDriverLocation() async {
     if (_ride == null) return;
+
+    final status = _ride?['status']?['name']?.toString().toLowerCase();
+    if (status == 'completed') {
+      _pollingTimer?.cancel();
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -161,8 +176,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     LatLng? origin;
     LatLng? destination;
 
-    if (_driverLocation == null) return;
-
     if (status == 'accepted' || status == 'driver en route') {
       origin = _driverLocation;
       destination = _pickup;
@@ -176,7 +189,12 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       return;
     }
 
-    if (origin == null || destination == null) return;
+    if (origin == null || destination == null) {
+      debugPrint(
+        "Origin or destination is null: origin=$origin, dest=$destination",
+      );
+      return;
+    }
 
     final String url =
         'https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&key=$googleMapsApiKey';
@@ -201,12 +219,39 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
               _polylines = {
                 Polyline(
                   polylineId: const PolylineId('route'),
-                  color: Colors.blue,
+                  color: Theme.of(context).colorScheme.primary,
                   width: 5,
                   points: polylineCoordinates,
                 ),
               };
             });
+
+            // 👇 Fit route in camera
+            final bounds = LatLngBounds(
+              southwest: LatLng(
+                origin.latitude <= destination.latitude
+                    ? origin.latitude
+                    : destination.latitude,
+                origin.longitude <= destination.longitude
+                    ? origin.longitude
+                    : destination.longitude,
+              ),
+              northeast: LatLng(
+                origin.latitude >= destination.latitude
+                    ? origin.latitude
+                    : destination.latitude,
+                origin.longitude >= destination.longitude
+                    ? origin.longitude
+                    : destination.longitude,
+              ),
+            );
+
+            if (_mapController != null) {
+              final GoogleMapController controller = _mapController!;
+              controller.animateCamera(
+                CameraUpdate.newLatLngBounds(bounds, 80),
+              );
+            }
           }
         }
       }
@@ -266,9 +311,16 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
   }
 
   void _confirmCancelRide() {
-    if (_ride?['status']?['name'] == 'Ride in Progress') {
+    final rideStatus = _ride?['status']?['name'];
+
+    if (rideStatus == 'Ride in Progress' ||
+        rideStatus == 'Completed' ||
+        rideStatus == 'Cancelled') {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot cancel after pickup.')),
+        SnackBar(
+          content: Text('Ride cannot be cancelled.'),
+          backgroundColor: Theme.of(context).primaryColor,
+        ),
       );
       return;
     }
@@ -304,7 +356,9 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
         Marker(
           markerId: const MarkerId('driver'),
           position: _driverLocation!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
           infoWindow: const InfoWindow(title: 'Driver'),
         ),
       );
@@ -324,6 +378,31 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
         );
       }
     } else if (status == 'ride in progress') {
+      if (_destination != null) {
+        markers.add(
+          Marker(
+            markerId: const MarkerId('dropoff'),
+            position: _destination!,
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueRed,
+            ),
+            infoWindow: const InfoWindow(title: 'Dropoff'),
+          ),
+        );
+      }
+    } else if (status == 'completed') {
+      if (_pickup != null) {
+        markers.add(
+          Marker(
+            markerId: const MarkerId('pickup'),
+            position: _pickup!,
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueGreen,
+            ),
+            infoWindow: const InfoWindow(title: 'Pickup'),
+          ),
+        );
+      }
       if (_destination != null) {
         markers.add(
           Marker(
@@ -459,7 +538,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                     backgroundImage: isPhotoValid
                         ? NetworkImage(photoUrl)
                         : null,
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     child: !isPhotoValid
                         ? const Icon(
                             Icons.person,
@@ -512,7 +591,10 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                             }
                           }
                         },
-                        icon: const Icon(Icons.phone, color: Colors.green),
+                        icon: Icon(
+                          Icons.phone,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         tooltip: 'Call Driver',
                       ),
                       IconButton(
@@ -525,7 +607,10 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                             }
                           }
                         },
-                        icon: const Icon(Icons.message, color: Colors.blue),
+                        icon: Icon(
+                          Icons.message,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         tooltip: 'Message Driver',
                       ),
                     ],
@@ -561,11 +646,14 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: _launchGoogleMapsNavigation,
-                  icon: const Icon(Icons.navigation),
-                  label: const Text('Open in Google Maps'),
+                  icon: const Icon(Icons.navigation, color: Colors.white),
+                  label: const Text(
+                    'Open in Google Maps',
+                    style: TextStyle(color: Colors.white),
+                  ),
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: Colors.blue,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ),
@@ -582,7 +670,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
   Widget _infoTile(IconData icon, String value, String label) {
     return Column(
       children: [
-        Icon(icon, color: Colors.blueAccent, size: 20),
+        Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
         const SizedBox(height: 4),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../../widgets/widgets.dart';
+import '../../screens/navigation/home/ride_tracking_screen.dart';
 
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});
@@ -21,7 +22,7 @@ class _TripsScreenState extends State<TripsScreen>
   String? baseUrl = dotenv.env['BASE_URL'];
 
   final storage = FlutterSecureStorage();
-  final List<String> tripCategories = ['Accepted', 'Completed', 'Cancelled'];
+  final List<String> tripCategories = ['Ongoing', 'Completed', 'Cancelled'];
   DateTimeRange? selectedDateRange;
 
   @override
@@ -93,7 +94,17 @@ class _TripsScreenState extends State<TripsScreen>
 
   Widget _buildTripList(String category) {
     List<Map<String, dynamic>> trips = allTrips
-        .where((trip) => trip['status'] == category)
+        .where((trip) {
+          final status = trip['status'];
+          if (category == 'Ongoing') {
+            return [
+              'Accepted',
+              'Driver En Route',
+              'Ride in Progress',
+            ].contains(status);
+          }
+          return status == category;
+        })
         .where((trip) {
           final pickup = trip['pickup_address'].toLowerCase();
           final dropoff = trip['dropoff_address'].toLowerCase();
@@ -135,7 +146,16 @@ class _TripsScreenState extends State<TripsScreen>
         itemBuilder: (context, index) {
           return TripCard(
             trip: trips[index],
-            onViewDetails: () {},
+            onViewDetails: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RideTrackingScreen(
+                    rideId: int.tryParse(trips[index]['id'].toString()),
+                  ),
+                ),
+              );
+            },
             onRebook: () {},
           );
         },

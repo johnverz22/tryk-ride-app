@@ -18,7 +18,7 @@ class RideStatusSeeder extends Seeder
             ['id' => 1, 'name' => 'Requested'],
             ['id' => 2, 'name' => 'Accepted'],
             ['id' => 3, 'name' => 'Driver En Route'],
-            ['id' => 4, 'name' => 'Passenger Picked Up'],
+            ['id' => 4, 'name' => 'Ride in Progress'],
             ['id' => 5, 'name' => 'Completed'],
             ['id' => 6, 'name' => 'Cancelled'],
         ];

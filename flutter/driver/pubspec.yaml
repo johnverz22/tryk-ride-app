@@ -35,6 +35,7 @@ dependencies:
   flutter_dotenv: ^5.1.0
   flutter_typeahead: ^5.2.0
   collection: ^1.17.2
+  location: ^5.0.3
   # laravel_echo: ^1.0.0-beta.1
   # pusher_client: ^2.0.0
 

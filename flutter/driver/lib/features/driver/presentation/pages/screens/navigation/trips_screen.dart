@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../../../widgets/widgets.dart';
 import '../../../providers/driver_provider.dart';
 
+import 'trips/ride_tracking_screen.dart';
+
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});
 
@@ -127,104 +129,114 @@ class _TripsScreenState extends State<TripsScreen>
           final date = DateFormat('EEE, MMM d – h:mm a').format(pickupTime);
           final status = trip['status']['name'];
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 6),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.person, color: Colors.grey, size: 18),
-                      const SizedBox(width: 6),
-                      Text(
-                        trip['user']?['name'] ?? 'Unknown',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const Spacer(),
-                      Chip(
-                        label: Text(
-                          status,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        backgroundColor: _getStatusColor(
-                          status,
-                          background: true,
-                        ),
-                        labelStyle: TextStyle(color: _getStatusColor(status)),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_pin, color: Colors.purple),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          '${trip['pickup_address'] ?? 'Unknown'} → ${trip['dropoff_address'] ?? 'Unknown'}',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.calendar_today,
-                        size: 16,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        date,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(Icons.payment, size: 16, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      Text(
-                        trip['payment_method'] ?? 'Unknown',
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '₱${(trip['fare_amount'] ?? 0).toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
+          return GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => RideTrackingScreen(rideId: trip['id']),
+                ),
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black12, blurRadius: 6),
                 ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.person, color: Colors.grey, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          trip['user']?['name'] ?? 'Unknown',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const Spacer(),
+                        Chip(
+                          label: Text(
+                            status,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          backgroundColor: _getStatusColor(
+                            status,
+                            background: true,
+                          ),
+                          labelStyle: TextStyle(color: _getStatusColor(status)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_pin, color: Colors.purple),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '${trip['pickup_address'] ?? 'Unknown'} → ${trip['dropoff_address'] ?? 'Unknown'}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          date,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.payment, size: 16, color: Colors.grey),
+                        const SizedBox(width: 6),
+                        Text(
+                          trip['payment_method'] ?? 'Unknown',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '₱${(trip['fare_amount'] ?? 0).toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           );

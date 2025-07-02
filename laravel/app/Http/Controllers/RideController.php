@@ -209,11 +209,73 @@ class RideController extends Controller
                     ->whereIn('ride_status_id', [
                         RideStatus::ACCEPTED,
                         RideStatus::DRIVER_EN_ROUTE,
-                        RideStatus::PICKED_UP,
+                        RideStatus::RIDE_IN_PROGRESS,
                     ])
                     ->where('user_id', '=', $user->id)
                     ->get();
 
         return response()->json(['rides' => $rides]);
+    }
+    
+    public function start($id, Request $request)
+    {
+        $user = Auth::user();
+
+        $ride = Ride::find($id);
+
+        if (!$ride) {
+            return response()->json(['message' => 'Ride not found.'], 404);
+        }
+
+        if ($ride->driver_id !== $user->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $statusId = $request->input('status_id');
+
+        if (!in_array($statusId, [RideStatus::DRIVER_EN_ROUTE, RideStatus::RIDE_IN_PROGRESS])) {
+            return response()->json(['message' => 'Invalid status transition.'], 400);
+        }
+
+        // Validate transitions
+        if ($statusId === RideStatus::DRIVER_EN_ROUTE && $ride->ride_status_id !== RideStatus::ACCEPTED) {
+            return response()->json(['message' => 'Can only mark en route from accepted status.'], 400);
+        }
+
+        if ($statusId === RideStatus::RIDE_IN_PROGRESS && !in_array($ride->ride_status_id, [RideStatus::DRIVER_EN_ROUTE, RideStatus::ACCEPTED])) {
+            return response()->json(['message' => 'Can only start ride from accepted or en route status.'], 400);
+        }
+
+        $ride->ride_status_id = $statusId;
+        $ride->save();
+
+        return response()->json([
+            'message' => 'Ride status updated successfully.',
+            'ride' => $ride,
+        ]);
+    }
+
+    public function complete($id, Request $request)
+    {
+        $user = Auth::user();
+
+        $ride = Ride::find($id);
+
+        if (!$ride) {
+            return response()->json(['message' => 'Ride not found.'], 404);
+        }
+
+        if ($ride->driver_id !== $user->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // Update ride status to Completed (adjust the constant or value accordingly)
+        $ride->ride_status_id = RideStatus::COMPLETED;
+        $ride->save();
+
+        return response()->json([
+            'message' => 'Ride completed successfully.',
+            'ride' => $ride,
+        ]);
     }
 }

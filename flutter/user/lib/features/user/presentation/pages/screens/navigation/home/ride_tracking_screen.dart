@@ -101,7 +101,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
   void _startPolling() {
     _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       _fetchDriverLocation();
-      // _fetchRideDetails();
     });
   }
 
@@ -135,7 +134,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
             : double.tryParse(lngRaw.toString()) ?? 0.0;
 
         final driverLatLng = LatLng(lat, lng);
-
         final updatedDriver = locationData['driver'] as Map<String, dynamic>?;
 
         setState(() {
@@ -145,8 +143,8 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
           }
         });
 
-        _updatePolylines();
-        _mapController?.animateCamera(CameraUpdate.newLatLng(driverLatLng));
+        await _updatePolylines();
+        await _recenterMap(driverLatLng);
       } else {
         debugPrint("Failed to fetch driver location: ${response.statusCode}");
       }
@@ -168,9 +166,14 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     if (status == 'accepted' || status == 'driver en route') {
       origin = _driverLocation;
       destination = _pickup;
-    } else if (status == 'passenger picked up') {
+    } else if (status == 'ride in progress') {
       origin = _driverLocation;
       destination = _destination;
+    } else if (status == 'completed') {
+      origin = _pickup;
+      destination = _destination;
+    } else {
+      return;
     }
 
     if (origin == null || destination == null) return;
@@ -185,8 +188,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
         final data = jsonDecode(response.body);
 
         if (data['routes'] != null && data['routes'].isNotEmpty) {
-          final route = data['routes'][0];
-          final polyline = route['overview_polyline']['points'];
+          final polyline = data['routes'][0]['overview_polyline']['points'];
 
           List<PointLatLng> result = PolylinePoints().decodePolyline(polyline);
 
@@ -194,22 +196,32 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
               .map((point) => LatLng(point.latitude, point.longitude))
               .toList();
 
-          setState(() {
-            _polylines = {
-              Polyline(
-                polylineId: const PolylineId('route'),
-                color: Colors.blue,
-                width: 5,
-                points: polylineCoordinates,
-              ),
-            };
-          });
+          if (polylineCoordinates.isNotEmpty) {
+            setState(() {
+              _polylines = {
+                Polyline(
+                  polylineId: const PolylineId('route'),
+                  color: Colors.blue,
+                  width: 5,
+                  points: polylineCoordinates,
+                ),
+              };
+            });
+          }
         }
-      } else {
-        debugPrint("Failed to fetch directions: ${response.statusCode}");
       }
     } catch (e) {
       debugPrint("Error fetching directions: $e");
+    }
+  }
+
+  Future<void> _recenterMap(LatLng target) async {
+    if (_mapController != null) {
+      await _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: target, zoom: 15),
+        ),
+      );
     }
   }
 
@@ -238,14 +250,12 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
 
         Navigator.pop(context);
       } else {
-        debugPrint('Cancel failed: ${response.statusCode}');
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Failed to cancel ride.')));
       }
     } catch (e) {
-      debugPrint('Cancel error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -256,9 +266,9 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
   }
 
   void _confirmCancelRide() {
-    if (_ride?['status']?['name'] == 'Passenger Picked Up') {
+    if (_ride?['status']?['name'] == 'Ride in Progress') {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot cancel after pickup')),
+        const SnackBar(content: Text('Cannot cancel after pickup.')),
       );
       return;
     }
@@ -278,7 +288,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
               Navigator.pop(context);
               _cancelRide();
             },
-            child: const Text('Cancel'),
+            child: const Text('Yes'),
           ),
         ],
       ),
@@ -287,10 +297,9 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
 
   Set<Marker> _buildMarkers() {
     final Set<Marker> markers = {};
+    final status = _ride?['status']['name']?.toString().toLowerCase() ?? '';
 
-    final status = _ride?['status']['name'] ?? '';
-
-    if (_driverLocation != null) {
+    if (_driverLocation != null && status != 'completed') {
       markers.add(
         Marker(
           markerId: const MarkerId('driver'),
@@ -301,7 +310,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       );
     }
 
-    if (status == 'Accepted' || status == 'Driver En Route') {
+    if (status == 'accepted' || status == 'driver en route') {
       if (_pickup != null) {
         markers.add(
           Marker(
@@ -314,7 +323,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
           ),
         );
       }
-    } else if (status == 'Passenger Picked Up') {
+    } else if (status == 'ride in progress') {
       if (_destination != null) {
         markers.add(
           Marker(
@@ -332,6 +341,34 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     return markers;
   }
 
+  Future<void> _launchGoogleMapsNavigation() async {
+    final status = _ride?['status']?['name']?.toLowerCase();
+    final origin = _driverLocation;
+    final destination = (status == 'accepted' || status == 'driver en route')
+        ? _pickup
+        : (status == 'ride in progress')
+        ? _destination
+        : null;
+
+    if (origin == null || destination == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to get navigation route')),
+      );
+      return;
+    }
+
+    final url =
+        'https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&travelmode=driving';
+
+    if (await canLaunchUrl(Uri.parse(url))) {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Google Maps')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_initialLoading) {
@@ -343,7 +380,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ride In Progress'),
+        title: const Text('Track Ride'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -472,12 +509,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                             final uri = Uri.parse('tel:$phoneNumber');
                             if (await canLaunchUrl(uri)) {
                               await launchUrl(uri);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Unable to launch dialer'),
-                                ),
-                              );
                             }
                           }
                         },
@@ -491,14 +522,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                             final uri = Uri.parse('sms:$phoneNumber');
                             if (await canLaunchUrl(uri)) {
                               await launchUrl(uri);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Unable to launch messaging app',
-                                  ),
-                                ),
-                              );
                             }
                           }
                         },
@@ -532,6 +555,19 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                       'Fare',
                     ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _launchGoogleMapsNavigation,
+                  icon: const Icon(Icons.navigation),
+                  label: const Text('Open in Google Maps'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    backgroundColor: Colors.blue,
+                  ),
+                ),
               ),
             ],
           ),

@@ -35,18 +35,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (_remainingSeconds <= 0) {
         _cancelAutoAcceptTimer();
-        final success = await Provider.of<DriverProvider>(
+        if (!mounted) return;
+        final updatedRide = await Provider.of<DriverProvider>(
           context,
           listen: false,
         ).acceptRequest(ride);
 
-        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              success ? 'Ride auto-accepted.' : 'Ride no longer available.',
+              updatedRide != null
+                  ? 'Ride auto-accepted.'
+                  : 'Ride no longer available.',
             ),
-            backgroundColor: success ? Colors.green : Colors.red,
+            backgroundColor: updatedRide != null ? Colors.green : Colors.red,
           ),
         );
 
@@ -97,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '$riderName is on waiting for you to pick you up!',
+                  '$riderName is waiting for you to pick up!',
                   style: TextStyle(fontSize: 16, color: Colors.grey[700]),
                   textAlign: TextAlign.center,
                 ),
@@ -306,18 +308,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     icon: const Icon(Icons.check, size: 20),
                     label: const Text("Accept"),
                     onPressed: () async {
-                      final success = await provider.acceptRequest(ride);
+                      final updatedRide = await provider.acceptRequest(ride);
+
                       if (_selectedRide?.id == ride.id) {
                         _cancelAutoAcceptTimer();
                         setState(() => _selectedRide = null);
                       }
+
                       if (!mounted) return;
 
-                      if (success) {
+                      if (updatedRide != null) {
                         await _showDriverConfirmationDialog(
                           context: context,
-                          riderName: ride.riderName ?? 'Rider',
-                          profilePicture: ride.riderProfilePicture,
+                          riderName: updatedRide.riderName ?? 'Rider',
+                          profilePicture: updatedRide.riderProfilePicture,
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(

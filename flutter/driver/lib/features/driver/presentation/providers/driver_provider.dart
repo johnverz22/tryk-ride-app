@@ -121,7 +121,7 @@ class DriverProvider with ChangeNotifier {
     super.dispose();
   }
 
-  Future<bool> acceptRequest(RideRequest ride) async {
+  Future<RideRequest?> acceptRequest(RideRequest ride) async {
     try {
       final rideStatusUrl = Uri.parse('${ApiConfig.baseUrl}/rides/${ride.id}');
       final acceptRideUrl = Uri.parse(
@@ -133,32 +133,34 @@ class DriverProvider with ChangeNotifier {
         'Content-Type': 'application/json',
       };
 
-      // 1. Check if ride is still "Requested"
+      // 1. Get latest ride info
       final statusRes = await http.get(rideStatusUrl, headers: headers);
-      if (statusRes.statusCode != 200) return false;
+      if (statusRes.statusCode != 200) return null;
 
-      final status = json.decode(statusRes.body)['status']?['name'] ?? '';
+      final rideJson = json.decode(statusRes.body);
+      final status = rideJson['status']?['name'] ?? '';
+
       debugPrint(
         'statusRes Ride Response: ${statusRes.statusCode} - ${statusRes.body}',
       );
-      if (status != 'Requested') return false;
+
+      if (status != 'Requested') return null;
 
       // 2. Accept the ride
       final acceptRes = await http.post(acceptRideUrl, headers: headers);
-      if (acceptRes.statusCode != 200) return false;
+      if (acceptRes.statusCode != 200) return null;
 
-      // 3. (Optional) Re-fetch ride details if needed — remove if unnecessary
-      // final updatedRideRes = await http.get(rideStatusUrl, headers: headers);
-      // if (updatedRideRes.statusCode != 200) return false;
+      // 3. Build updated ride
+      final updatedRide = RideRequest.fromJson(rideJson);
 
       // 4. Remove from local list and notify
       _requestedRides.removeWhere((r) => r.id == ride.id);
       notifyListeners();
 
-      return true;
+      return updatedRide;
     } catch (e) {
       debugPrint('Accept error: $e');
-      return false;
+      return null;
     }
   }
 

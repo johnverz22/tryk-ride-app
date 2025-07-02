@@ -1,19 +1,19 @@
+import 'package:driver/features/driver/presentation/pages/screens/navigation/home_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:driver/features/driver/data/models/driver_model.dart';
-import 'package:driver/features/skeleton/widgets/main_navigation.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../../../core/services/auth_service.dart';
-import '../../../providers/driver_provider.dart';
 
-class AuthScreen extends StatefulWidget {
+class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  _AuthScreenState createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
   final AuthService _authService = AuthService();
 
@@ -40,9 +40,9 @@ class _AuthScreenState extends State<AuthScreen> {
     bool success = false;
     try {
       if (isLogin) {
-        success = await _authService.login(email, password, context);
+        success = await _authService.login(email, password, context, ref);
       } else {
-        success = await _authService.register(name, email, password, context);
+        success = await _authService.register(name, email, password, context, ref);
       }
     } catch (_) {
       setState(() {
@@ -60,13 +60,12 @@ class _AuthScreenState extends State<AuthScreen> {
       final userData = await _authService.getDriver();
 
       if (token != null && userData != null && mounted) {
-        final userProvider = Provider.of<DriverProvider>(context, listen: false);
-        userProvider.setDriver(DriverModel.fromJson(json: userData), token);
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const MainNavigation()),
+        ref.read(driverNotifierProvider.notifier).setDriver(
+          DriverModel.fromJson(json: userData),
+          token,
         );
+
+        context.go('/home');
       } else {
         setState(() => error = 'Could not load user data.');
       }

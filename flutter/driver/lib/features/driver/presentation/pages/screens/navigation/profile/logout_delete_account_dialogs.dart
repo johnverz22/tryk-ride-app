@@ -1,12 +1,10 @@
+import 'package:driver/features/driver/presentation/providers/driver_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../../../core/services/auth_service.dart';
-import '../../../../providers/driver_provider.dart';
 import '../../auth/auth_screen.dart';
 
-Future<void> showLogoutDialog(BuildContext context) async {
-  // Get provider and services BEFORE the dialog closes
-  final userProvider = Provider.of<DriverProvider>(context, listen: false);
+Future<void> showLogoutDialog(BuildContext context, WidgetRef ref) async {
   final authService = AuthService();
 
   return showDialog<void>(
@@ -24,15 +22,15 @@ Future<void> showLogoutDialog(BuildContext context) async {
             onPressed: () async {
               Navigator.of(dialogContext).pop(); // Close the dialog
 
-              await authService.logout(context);
-              await userProvider.logout();
+              await authService.logout(ref); 
 
-              // Use outer `context`, which is still valid
+              ref.read(driverProvider.notifier).logout(); // Reset the driver state
+
               if (context.mounted) {
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => const AuthScreen()),
-                  (route) => false,
+                  (route) => false, // Remove all previous routes
                 );
               }
             },

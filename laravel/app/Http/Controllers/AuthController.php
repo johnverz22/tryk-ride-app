@@ -12,20 +12,27 @@ use Illuminate\Validation\ValidationException;
 use App\Models\User;
 use App\Models\DriverStatus;
 use App\Models\DriverProfile;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
-    {
-        $validated = Validator::make($request->all(), [
-            'name'     => 'required|string',
-            'email'    => 'required|email|unique:users',
-            'password' => 'required|min:8',
-            'role_id'  => 'required|in:2,3',
-        ])->validate();
 
-        DB::beginTransaction();
+public function register(Request $request)
+{
 
+    // Validate input
+    $validated = Validator::make($request->all(), [
+        'name'     => 'required|string',
+        'email'    => 'required|email|unique:users',
+        'password' => 'required|min:8',
+        'role_id'  => 'required|in:2,3',
+    ])->validate();
+
+    // Start DB transaction
+    DB::beginTransaction();
+
+    try {
+        // Create user
         $user = User::create([
             'name'     => $validated['name'],
             'email'    => $validated['email'],
@@ -33,6 +40,8 @@ class AuthController extends Controller
             'role_id'  => $validated['role_id'],
         ]);
 
+
+        // Check if the user is a driver and create driver profile
         if ($user->role_id === 3) {
             $pendingStatus = DriverStatus::where('name', 'onboarding')->firstOrFail()->id;
 
@@ -40,15 +49,21 @@ class AuthController extends Controller
                 'user_id' => $user->id,
                 'driver_status_id' => $pendingStatus,
             ]);
+
+            Log::info('Driver profile created', ['user_id' => $user->id, 'driver_status' => $pendingStatus]);
         }
 
+        // Commit transaction
         DB::commit();
 
+        // Create access and refresh tokens
         $accessToken = $user->createToken('flutter')->plainTextToken;
         $refreshToken = Str::random(64);
         $user->refresh_token = Hash::make($refreshToken);
         $user->save();
 
+
+        // Return response with tokens and user info
         return response()->json([
             'token' => $accessToken,
             'user'  => $user,
@@ -63,7 +78,12 @@ class AuthController extends Controller
             false, // Raw
             'Strict'
         );
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json(['error' => 'Registration failed', 'message' => $e->getMessage()], 500);
     }
+}
+
 
     public function login(Request $request)
     {

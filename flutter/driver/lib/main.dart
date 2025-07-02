@@ -1,32 +1,23 @@
+import 'package:driver/core/router/router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'features/skeleton/skeleton.dart';
-import 'features/driver/presentation/pages/screens/auth/auth_screen.dart';
 import 'features/driver/presentation/providers/driver_provider.dart';
 
-void main() {
+void main() async {
+  await dotenv.load();
   debugPaintSizeEnabled = false;
-
   runApp(const ProviderScope(child: MainApp()));
 }
 
-class MainApp extends StatelessWidget {
+class MainApp extends ConsumerWidget {
   const MainApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Home();
-  }
-}
-
-class Home extends ConsumerWidget {
-  const Home({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final driverState = ref.watch(driverProvider);
-    // Show loading indicator while driver data is being loaded
+
     if (driverState.isLoading) {
       return const MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -36,41 +27,26 @@ class Home extends ConsumerWidget {
       );
     }
 
-    return AppRouter(isLoggedIn: driverState.isAuthenticated);
-  }
-}
+    final router = ref.watch(routerProvider);
 
-class AppRouter extends StatelessWidget {
-  const AppRouter({
-    super.key,
-    required this.isLoggedIn,
-  });
-
-  final bool isLoggedIn;
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Tryk',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: Colors.pink,
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.pink,
-          foregroundColor: Color.fromARGB(255, 0, 0, 0),
+          foregroundColor: Colors.black,
           iconTheme: IconThemeData(color: Colors.black),
         ),
-        colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.pink, backgroundColor: Color(0xFFFAF9F6)).copyWith(
+        colorScheme: ColorScheme.fromSwatch(
+          primarySwatch: Colors.pink,
+          backgroundColor: const Color(0xFFFAF9F6),
+        ).copyWith(
           secondary: Colors.pinkAccent,
         ),
       ),
-      debugShowCheckedModeBanner: false,
-      routes: {
-        '/home': (context) => const Skeleton(),
-        '/auth': (context) => const AuthScreen(),
-        // Add other routes as needed
-      },
-      home: isLoggedIn ? const Skeleton() : const AuthScreen(),
-      // home: const Skeleton(),
+      routerConfig: router,
     );
   }
 }

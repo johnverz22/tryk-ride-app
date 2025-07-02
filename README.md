@@ -40,7 +40,7 @@ php artisan migrate
 ## Seed the Roles Table
 
 ```
-php artisan db:seed --class=RoleSeeder
+php artisan db:seed
 ```
 
 ## Create a Filament User

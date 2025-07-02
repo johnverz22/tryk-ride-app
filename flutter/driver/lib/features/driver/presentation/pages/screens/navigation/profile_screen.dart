@@ -1,6 +1,6 @@
+import 'package:driver/features/driver/presentation/providers/driver_provider.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../../providers/driver_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'profile/logout_delete_account_dialogs.dart';
 import 'profile/personal_info_screen.dart';
 import 'profile/notifications_preferences_screen.dart';
@@ -11,13 +11,13 @@ import '../../../../../profile/presentation/pages/driving_setup_screen.dart';
 import '../../../../../profile/presentation/pages/driver_id_verification_screen.dart';
 import '../../../../../profile/presentation/pages/earnings_settings_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final driver = Provider.of<DriverProvider>(context).driver;
+    final driver = ref.watch(driverProvider).driver;
 
     return Scaffold(
       appBar: AppBar(
@@ -59,7 +59,7 @@ class ProfileScreen extends StatelessWidget {
                       label: 'Logout',
                       icon: Icons.logout,
                       color: theme.colorScheme.primary,
-                      onPressed: () => showLogoutDialog(context),
+                      onPressed: () => showLogoutDialog(context, ref),
                     ),
                     const SizedBox(height: 12),
                     _buildActionButton(

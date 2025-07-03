@@ -52,7 +52,7 @@ php artisan make:filament-user
 ## Run the Server
 
 ```
-php artisan serve --host=0.0.0.0 --port=8000
+php artisan serve --host=192.168.0.0 --port=8000
 ```
 
 ## Visit the Admin Panel

@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:user/features/user/data/models/user_model.dart';
 import 'package:user/features/user/presentation/pages/screens/main_navigation_screen.dart';
 import '../../../../../../core/services/auth_service.dart';
 import '../../../providers/user_provider.dart';
 
-class AuthScreen extends StatefulWidget {
+class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
   final AuthService _authService = AuthService();
 
@@ -40,9 +40,14 @@ class _AuthScreenState extends State<AuthScreen> {
     bool success = false;
     try {
       if (isLogin) {
-        success = await _authService.login(email, password, context);
+        success = await _authService.login(email, password, ref); // ✅ FIXED
       } else {
-        success = await _authService.register(name, email, password, context);
+        success = await _authService.register(
+          name,
+          email,
+          password,
+          ref,
+        ); // ✅ FIXED
       }
     } catch (_) {
       setState(() {
@@ -60,8 +65,9 @@ class _AuthScreenState extends State<AuthScreen> {
       final userData = await _authService.getUser();
 
       if (token != null && userData != null && mounted) {
-        final userProvider = Provider.of<UserProvider>(context, listen: false);
-        userProvider.setUser(UserModel.fromJson(json: userData), token);
+        ref
+            .read(userProvider.notifier)
+            .setUser(UserModel.fromJson(json: userData), token);
 
         Navigator.pushReplacement(
           context,
@@ -168,11 +174,13 @@ class _AuthScreenState extends State<AuthScreen> {
                           controller: emailController,
                           inputType: TextInputType.emailAddress,
                           validator: (val) {
-                            if (val == null || val.isEmpty)
+                            if (val == null || val.isEmpty) {
                               return 'Enter a valid email';
+                            }
                             final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-                            if (!emailRegex.hasMatch(val))
+                            if (!emailRegex.hasMatch(val)) {
                               return 'Enter a valid email address';
+                            }
                             return null;
                           },
                         ),
@@ -227,7 +235,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             setState(() {
                               isLogin = !isLogin;
                               error = null;
-                              if (isLogin) nameController.clear(); // Optional
+                              if (isLogin) nameController.clear();
                             });
                           },
                           child: Text(

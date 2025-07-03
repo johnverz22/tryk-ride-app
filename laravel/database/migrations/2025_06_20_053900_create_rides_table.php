@@ -31,6 +31,8 @@ return new class extends Migration
             $table->timestamp('picked_up_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamp('canceled_at')->nullable();
+            $table->timestamp('start_requested_at')->nullable()->after('accepted_at');
+            $table->timestamp('completion_requested_at')->nullable()->after('picked_up_at');
 
             $table->double('distance_km')->nullable();
             $table->double('duration_minutes')->nullable();

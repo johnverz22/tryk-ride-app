@@ -1,20 +1,24 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:provider/provider.dart';
-import 'package:driver/features/driver/presentation/providers/driver_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/driver/data/models/driver_model.dart';
-import '../config/api_config.dart';
+import '../../features/driver/presentation/providers/driver_provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 final storage = FlutterSecureStorage();
-final baseUrl = ApiConfig.baseUrl;
+final baseUrl = dotenv.env['BASE_URL'];
 
 class AuthService {
   final client = http.Client();
 
-  // Register driver
-  Future<bool> register(String name, String email, String password, BuildContext context) async {
+  // Register user
+  Future<bool> register(
+    String name,
+    String email,
+    String password,
+    WidgetRef ref,
+  ) async {
     try {
       final res = await client.post(
         Uri.parse('$baseUrl/register'),
@@ -23,19 +27,19 @@ class AuthService {
           'name': name,
           'email': email,
           'password': password,
-          'role_id': 3, // Or 3 for drivers
+          'role_id': 2,
         }),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        final token = data['token']; // Sanctum key
-        final driver = DriverModel.fromJson(json: data['user']);
+        final token = data['token'];
+        final user = DriverModel.fromJson(json: data['user']);
 
         await storage.write(key: 'token', value: token);
         await storage.write(key: 'user', value: jsonEncode(data['user']));
 
-        Provider.of<DriverProvider>(context, listen: false).setDriver(driver, token);
+        ref.read(driverProvider.notifier).setDriver(user, token);
         return true;
       } else {
         print('[AuthService] Register failed: ${res.body}');
@@ -47,27 +51,24 @@ class AuthService {
     }
   }
 
-  // Login driver
-  Future<bool> login(String email, String password, BuildContext context) async {
+  // Login user
+  Future<bool> login(String email, String password, WidgetRef ref) async {
     try {
       final res = await client.post(
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
+        body: jsonEncode({'email': email, 'password': password}),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        final token = data['token']; // Sanctum key
-        final driver = DriverModel.fromJson(json: data['user']);
+        final token = data['token'];
+        final user = DriverModel.fromJson(json: data['user']);
 
         await storage.write(key: 'token', value: token);
         await storage.write(key: 'user', value: jsonEncode(data['user']));
 
-        Provider.of<DriverProvider>(context, listen: false).setDriver(driver, token);
+        ref.read(driverProvider.notifier).setDriver(user, token);
         return true;
       } else {
         print('[AuthService] Login failed: ${res.body}');
@@ -79,8 +80,8 @@ class AuthService {
     }
   }
 
-  // Logout driver
-  Future<void> logout(BuildContext context) async {
+  // Logout user
+  Future<void> logout(WidgetRef ref) async {
     try {
       final token = await getToken();
       if (token != null) {
@@ -98,7 +99,7 @@ class AuthService {
 
     await storage.delete(key: 'token');
     await storage.delete(key: 'user');
-    Provider.of<DriverProvider>(context, listen: false).logout();
+    ref.read(driverProvider.notifier).logout();
     print('[AuthService] Logged out');
   }
 
@@ -107,11 +108,11 @@ class AuthService {
     return await storage.read(key: 'token');
   }
 
-  // Get stored driver
-  Future<Map<String, dynamic>?> getDriver() async {
-    final driverJson = await storage.read(key: 'user');
-    if (driverJson != null) {
-      return jsonDecode(driverJson);
+  // Get stored user
+  Future<Map<String, dynamic>?> getUser() async {
+    final userJson = await storage.read(key: 'user');
+    if (userJson != null) {
+      return jsonDecode(userJson);
     }
     return null;
   }

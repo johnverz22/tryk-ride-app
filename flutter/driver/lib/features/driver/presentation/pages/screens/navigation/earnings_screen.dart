@@ -1,22 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../widgets/widgets.dart';
 import 'earnings/withdraw_screen.dart';
 import 'earnings/earnings_history_screen.dart';
-import 'package:provider/provider.dart';
-import '../../../providers/driver_provider.dart';
+import '../../../providers/driver_provider.dart'; // Make sure this is a Riverpod provider now
 
-class EarningsScreen extends StatelessWidget {
+class EarningsScreen extends ConsumerWidget {
   const EarningsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final driverProvider = Provider.of<DriverProvider>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final driverState = ref.watch(driverProvider);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: CustomUserAppBar(
-        isOnline: driverProvider.isOnline,
-        onToggleOnline: (val) => driverProvider.setOnlineStatus(val),
+        isOnline: driverState.isOnline,
+        onToggleOnline: (val) =>
+            ref.read(driverProvider.notifier).setOnlineStatus(val),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -37,7 +39,9 @@ class EarningsScreen extends StatelessWidget {
           Card(
             elevation: 1,
             margin: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
               child: Row(
@@ -58,7 +62,9 @@ class EarningsScreen extends StatelessWidget {
             onSeeAll: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const EarningsHistoryScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const EarningsHistoryScreen(),
+                ),
               );
             },
           ),
@@ -105,7 +111,9 @@ class EarningsScreen extends StatelessWidget {
           Card(
             elevation: 1,
             color: Colors.deepPurple.shade50,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
               child: Row(

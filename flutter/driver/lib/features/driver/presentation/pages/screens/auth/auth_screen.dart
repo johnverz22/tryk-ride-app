@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:driver/features/driver/data/models/driver_model.dart';
 import 'package:driver/features/driver/presentation/pages/screens/main_navigation_screen.dart';
 import '../../../../../../core/services/auth_service.dart';
 import '../../../providers/driver_provider.dart';
 
-class AuthScreen extends StatefulWidget {
+// Provide AuthService via Riverpod
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService();
+});
+
+class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
   @override
-  State<AuthScreen> createState() => _AuthScreenState();
+  ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _formKey = GlobalKey<FormState>();
-  final AuthService _authService = AuthService();
+
+  late final AuthService _authService;
 
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
@@ -24,6 +30,12 @@ class _AuthScreenState extends State<AuthScreen> {
   bool isLogin = true;
   bool loading = false;
   String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    _authService = ref.read(authServiceProvider);
+  }
 
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -38,11 +50,12 @@ class _AuthScreenState extends State<AuthScreen> {
     final password = passwordController.text.trim();
 
     bool success = false;
+
     try {
       if (isLogin) {
-        success = await _authService.login(email, password, context);
+        success = await _authService.login(email, password, ref);
       } else {
-        success = await _authService.register(name, email, password, context);
+        success = await _authService.register(name, email, password, ref);
       }
     } catch (_) {
       setState(() {
@@ -57,10 +70,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
     if (success) {
       final token = await _authService.getToken();
-      final userData = await _authService.getDriver();
+      final userData = await _authService.getUser();
 
       if (token != null && userData != null && mounted) {
-        final userProvider = Provider.of<DriverProvider>(context, listen: false);
+        final userProvider = ref.read(driverProvider.notifier);
         userProvider.setDriver(DriverModel.fromJson(json: userData), token);
 
         Navigator.pushReplacement(
@@ -156,8 +169,9 @@ class _AuthScreenState extends State<AuthScreen> {
                             label: 'Name',
                             icon: Icons.person,
                             controller: nameController,
-                            validator: (val) =>
-                                val == null || val.isEmpty ? 'Enter your name' : null,
+                            validator: (val) => val == null || val.isEmpty
+                                ? 'Enter your name'
+                                : null,
                           ),
                         if (!isLogin) const SizedBox(height: 16),
 
@@ -167,9 +181,11 @@ class _AuthScreenState extends State<AuthScreen> {
                           controller: emailController,
                           inputType: TextInputType.emailAddress,
                           validator: (val) {
-                            if (val == null || val.isEmpty) return 'Enter a valid email';
+                            if (val == null || val.isEmpty)
+                              return 'Enter a valid email';
                             final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-                            if (!emailRegex.hasMatch(val)) return 'Enter a valid email address';
+                            if (!emailRegex.hasMatch(val))
+                              return 'Enter a valid email address';
                             return null;
                           },
                         ),
@@ -180,8 +196,9 @@ class _AuthScreenState extends State<AuthScreen> {
                           icon: Icons.lock,
                           controller: passwordController,
                           obscure: true,
-                          validator: (val) =>
-                              val == null || val.length < 6 ? 'Min 6 characters' : null,
+                          validator: (val) => val == null || val.length < 6
+                              ? 'Min 6 characters'
+                              : null,
                         ),
                         const SizedBox(height: 16),
 
@@ -200,7 +217,9 @@ class _AuthScreenState extends State<AuthScreen> {
                                 onPressed: _submit,
                                 style: ElevatedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 32, vertical: 14),
+                                    horizontal: 32,
+                                    vertical: 14,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -221,7 +240,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             setState(() {
                               isLogin = !isLogin;
                               error = null;
-                              if (isLogin) nameController.clear(); // Optional
+                              if (isLogin) nameController.clear();
                             });
                           },
                           child: Text(
@@ -244,7 +263,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
                         ElevatedButton.icon(
                           onPressed: () => debugPrint('Google sign in'),
-                          icon: const FaIcon(FontAwesomeIcons.google, color: Colors.white),
+                          icon: const FaIcon(
+                            FontAwesomeIcons.google,
+                            color: Colors.white,
+                          ),
                           label: const Text('Continue with Google'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFDB4437),
@@ -259,7 +281,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
                         ElevatedButton.icon(
                           onPressed: () => debugPrint('Facebook sign in'),
-                          icon: const FaIcon(FontAwesomeIcons.facebookF, color: Colors.white),
+                          icon: const FaIcon(
+                            FontAwesomeIcons.facebookF,
+                            color: Colors.white,
+                          ),
                           label: const Text('Continue with Facebook'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF1877F2),
@@ -274,7 +299,10 @@ class _AuthScreenState extends State<AuthScreen> {
 
                         ElevatedButton.icon(
                           onPressed: () => debugPrint('X sign in'),
-                          icon: const FaIcon(FontAwesomeIcons.xTwitter, color: Colors.white),
+                          icon: const FaIcon(
+                            FontAwesomeIcons.xTwitter,
+                            color: Colors.white,
+                          ),
                           label: const Text('Continue with X'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.black,

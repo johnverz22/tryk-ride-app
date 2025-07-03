@@ -1,11 +1,9 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:provider/provider.dart';
-import 'package:user/features/user/presentation/providers/user_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/user/data/models/user_model.dart';
-
+import '../../features/user/presentation/providers/user_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 final storage = FlutterSecureStorage();
@@ -19,7 +17,7 @@ class AuthService {
     String name,
     String email,
     String password,
-    BuildContext context,
+    WidgetRef ref,
   ) async {
     try {
       final res = await client.post(
@@ -29,19 +27,19 @@ class AuthService {
           'name': name,
           'email': email,
           'password': password,
-          'role_id': 2, // Or 3 for drivers
+          'role_id': 2,
         }),
       );
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        final token = data['token']; // Sanctum key
+        final token = data['token'];
         final user = UserModel.fromJson(json: data['user']);
 
         await storage.write(key: 'token', value: token);
         await storage.write(key: 'user', value: jsonEncode(data['user']));
 
-        Provider.of<UserProvider>(context, listen: false).setUser(user, token);
+        ref.read(userProvider.notifier).setUser(user, token);
         return true;
       } else {
         print('[AuthService] Register failed: ${res.body}');
@@ -54,11 +52,7 @@ class AuthService {
   }
 
   // Login user
-  Future<bool> login(
-    String email,
-    String password,
-    BuildContext context,
-  ) async {
+  Future<bool> login(String email, String password, WidgetRef ref) async {
     try {
       final res = await client.post(
         Uri.parse('$baseUrl/login'),
@@ -68,13 +62,13 @@ class AuthService {
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        final token = data['token']; // Sanctum key
+        final token = data['token'];
         final user = UserModel.fromJson(json: data['user']);
 
         await storage.write(key: 'token', value: token);
         await storage.write(key: 'user', value: jsonEncode(data['user']));
 
-        Provider.of<UserProvider>(context, listen: false).setUser(user, token);
+        ref.read(userProvider.notifier).setUser(user, token);
         return true;
       } else {
         print('[AuthService] Login failed: ${res.body}');
@@ -87,7 +81,7 @@ class AuthService {
   }
 
   // Logout user
-  Future<void> logout(BuildContext context) async {
+  Future<void> logout(WidgetRef ref) async {
     try {
       final token = await getToken();
       if (token != null) {
@@ -105,7 +99,7 @@ class AuthService {
 
     await storage.delete(key: 'token');
     await storage.delete(key: 'user');
-    Provider.of<UserProvider>(context, listen: false).logout();
+    ref.read(userProvider.notifier).logout();
     print('[AuthService] Logged out');
   }
 

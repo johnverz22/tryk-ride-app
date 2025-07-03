@@ -1,18 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../widgets/widgets.dart';
 import '../../../providers/driver_provider.dart';
 import '../../../../data/models/ride_request_model.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   RideRequest? _selectedRide;
   Timer? _autoAcceptTimer;
   int _remainingSeconds = 30;
@@ -36,10 +37,11 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_remainingSeconds <= 0) {
         _cancelAutoAcceptTimer();
         if (!mounted) return;
-        final updatedRide = await Provider.of<DriverProvider>(
-          context,
-          listen: false,
-        ).acceptRequest(ride);
+
+        // Using ref.read to get provider notifier and call method
+        final updatedRide = await ref
+            .read(driverProvider.notifier)
+            .acceptRequest(ride);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -187,8 +189,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final driverProvider = Provider.of<DriverProvider>(context);
-    final rides = driverProvider.requestedRides;
+    // Watch the driverProvider to get latest state
+    final driverState = ref.watch(driverProvider);
+    final rides = driverState.requestedRides;
 
     final nearestRide = rides.isNotEmpty
         ? rides.reduce(
@@ -208,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: CustomUserAppBar(
-        isOnline: driverProvider.isOnline,
+        isOnline: driverState.isOnline,
         onToggleOnline: (val) {
           if (!val) {
             _cancelAutoAcceptTimer();
@@ -228,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   context,
                   ride,
                   isSelected,
-                  driverProvider,
+                  ref.read(driverProvider.notifier),
                 );
               },
             ),

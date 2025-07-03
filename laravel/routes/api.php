@@ -36,5 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/rides/{ride}/reject', [Controllers\RideController::class, 'reject']);
     Route::get('/rides/{id}/driver-location', [Controllers\DriverController::class, 'getLocation']);
     Route::post('/rides/{id}/start', [Controllers\RideController::class, 'start']);
+    Route::post('/rides/{id}/confirm-start', [Controllers\RideController::class, 'confirmStart']);
     Route::post('/rides/{id}/complete', [Controllers\RideController::class, 'complete']);
+    Route::post('/rides/{id}/confirm-completion', [Controllers\RideController::class, 'confirmCompletion']);
 });

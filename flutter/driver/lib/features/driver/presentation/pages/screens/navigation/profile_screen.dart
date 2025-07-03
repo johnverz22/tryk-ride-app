@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../providers/driver_provider.dart';
 import 'profile/logout_delete_account_dialogs.dart';
 import 'profile/personal_info_screen.dart';
@@ -11,13 +12,13 @@ import 'profile/driving_setup_screen.dart';
 import 'profile/driver_id_verification_screen.dart';
 import 'profile/earnings_settings_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final driver = Provider.of<DriverProvider>(context).driver;
+    final driver = ref.watch(driverProvider).driver;
 
     return Scaffold(
       body: driver == null
@@ -30,20 +31,60 @@ class ProfileScreen extends StatelessWidget {
                 _sectionCard(
                   title: 'Driver Account',
                   items: [
-                    _buildNavTile(context, Icons.person_outline, 'Personal Information', const PersonalInfoScreen()),
-                    _buildNavTile(context, Icons.verified_user, 'Driver ID Verification', const DriverIdVerificationScreen()),
-                    _buildNavTile(context, Icons.notifications_outlined, 'Notification Preferences', const NotificationsPreferencesScreen()),
-                    _buildNavTile(context, Icons.payment, 'Payment & Earnings Settings', const EarningsSettingsScreen()),
-                    _buildNavTile(context, Icons.lock_outline, 'Privacy Settings', const PrivacySettingsScreen()),
-                    _buildNavTile(context, Icons.language, 'Language Settings', const LanguageSettingsScreen()),
+                    _buildNavTile(
+                      context,
+                      Icons.person_outline,
+                      'Personal Information',
+                      const PersonalInfoScreen(),
+                    ),
+                    _buildNavTile(
+                      context,
+                      Icons.verified_user,
+                      'Driver ID Verification',
+                      const DriverIdVerificationScreen(),
+                    ),
+                    _buildNavTile(
+                      context,
+                      Icons.notifications_outlined,
+                      'Notification Preferences',
+                      const NotificationsPreferencesScreen(),
+                    ),
+                    _buildNavTile(
+                      context,
+                      Icons.payment,
+                      'Payment & Earnings Settings',
+                      const EarningsSettingsScreen(),
+                    ),
+                    _buildNavTile(
+                      context,
+                      Icons.lock_outline,
+                      'Privacy Settings',
+                      const PrivacySettingsScreen(),
+                    ),
+                    _buildNavTile(
+                      context,
+                      Icons.language,
+                      'Language Settings',
+                      const LanguageSettingsScreen(),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
                 _sectionCard(
                   title: 'Driving Preferences',
                   items: [
-                    _buildNavTile(context, Icons.directions_car, 'Vehicle Details', const VehicleDetailsScreen()),
-                    _buildNavTile(context, Icons.accessibility_new, 'Special Rider Requirements', const DrivingSetupScreen()),
+                    _buildNavTile(
+                      context,
+                      Icons.directions_car,
+                      'Vehicle Details',
+                      const VehicleDetailsScreen(),
+                    ),
+                    _buildNavTile(
+                      context,
+                      Icons.accessibility_new,
+                      'Special Rider Requirements',
+                      const DrivingSetupScreen(),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -55,7 +96,7 @@ class ProfileScreen extends StatelessWidget {
                       label: 'Logout',
                       icon: Icons.logout,
                       color: theme.colorScheme.primary,
-                      onPressed: () => showLogoutDialog(context),
+                      onPressed: () => showLogoutDialog(context, ref),
                     ),
                     const SizedBox(height: 12),
                     _buildActionButton(
@@ -63,7 +104,7 @@ class ProfileScreen extends StatelessWidget {
                       label: 'Delete Account',
                       icon: Icons.delete_forever,
                       color: Colors.red,
-                      onPressed: () => showDeleteAccountDialog(context),
+                      onPressed: () => showDeleteAccountDialog(context, ref),
                     ),
                   ],
                 ),
@@ -80,7 +121,8 @@ class ProfileScreen extends StatelessWidget {
             radius: 44,
             backgroundImage: driver.profilePhotoUrl != null
                 ? NetworkImage(driver.profilePhotoUrl!)
-                : const AssetImage('assets/images/profile.jpg') as ImageProvider,
+                : const AssetImage('assets/images/profile.jpg')
+                      as ImageProvider,
           ),
           const SizedBox(height: 12),
           Text(
@@ -91,7 +133,9 @@ class ProfileScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: driver.isVerified ? Colors.green.shade100 : Colors.orange.shade100,
+              color: driver.isVerified
+                  ? Colors.green.shade100
+                  : Colors.orange.shade100,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -99,7 +143,9 @@ class ProfileScreen extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: driver.isVerified ? Colors.green.shade800 : Colors.orange.shade800,
+                color: driver.isVerified
+                    ? Colors.green.shade800
+                    : Colors.orange.shade800,
               ),
             ),
           ),
@@ -107,7 +153,6 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
-
 
   Widget _sectionCard({required String title, required List<Widget> items}) {
     return Card(
@@ -120,27 +165,47 @@ class ProfileScreen extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             const Divider(),
-            ...items.expand((widget) => [widget, const Divider(height: 0)]).toList()..removeLast(),
+            ...items
+                .expand((widget) => [widget, const Divider(height: 0)])
+                .toList()
+              ..removeLast(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildNavTile(BuildContext context, IconData icon, String title, Widget screen) {
+  Widget _buildNavTile(
+    BuildContext context,
+    IconData icon,
+    String title,
+    Widget screen,
+  ) {
     return ListTile(
       leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
       title: Text(title, style: const TextStyle(fontSize: 16)),
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => screen)),
+      onTap: () =>
+          Navigator.push(context, MaterialPageRoute(builder: (_) => screen)),
     );
   }
 
-  Widget _buildActionButton(BuildContext context,
-      {required String label, required IconData icon, required Color color, required VoidCallback onPressed}) {
+  Widget _buildActionButton(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
@@ -152,7 +217,9 @@ class ProfileScreen extends StatelessWidget {
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );

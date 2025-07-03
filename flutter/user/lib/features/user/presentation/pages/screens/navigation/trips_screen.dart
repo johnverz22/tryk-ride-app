@@ -100,7 +100,9 @@ class _TripsScreenState extends State<TripsScreen>
             return [
               'Accepted',
               'Driver En Route',
+              'Ride Started Awaiting User Confirmation',
               'Ride in Progress',
+              'Ride Completed Awaiting User Confirmation',
             ].contains(status);
           }
           return status == category;

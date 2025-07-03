@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 
@@ -292,12 +294,16 @@ class DriverProvider with ChangeNotifier {
       switch (method.toUpperCase()) {
         case 'PUT':
           response = await http.put(uri, headers: headers, body: body);
+          break;
         case 'POST':
           response = await http.post(uri, headers: headers, body: body);
+          break;
         case 'GET':
           response = await http.get(uri, headers: headers);
+          break;
         case 'DELETE':
           response = await http.delete(uri, headers: headers);
+          break;
         default:
           throw UnimplementedError('Method $method not supported');
       }
@@ -307,7 +313,21 @@ class DriverProvider with ChangeNotifier {
         if (refreshed) {
           final newToken = await _storage.read(key: 'token');
           if (newToken != null) headers['Authorization'] = 'Bearer $newToken';
-          response = await http.put(uri, headers: headers, body: body);
+          // Retry original request with new token
+          switch (method.toUpperCase()) {
+            case 'PUT':
+              response = await http.put(uri, headers: headers, body: body);
+              break;
+            case 'POST':
+              response = await http.post(uri, headers: headers, body: body);
+              break;
+            case 'GET':
+              response = await http.get(uri, headers: headers);
+              break;
+            case 'DELETE':
+              response = await http.delete(uri, headers: headers);
+              break;
+          }
         }
       }
 
@@ -373,9 +393,6 @@ class DriverProvider with ChangeNotifier {
         _trips = [];
       }
 
-      // Debug: Print first trip if available
-      if (_trips.isNotEmpty) {}
-
       notifyListeners();
     } else {
       debugPrint(
@@ -386,3 +403,10 @@ class DriverProvider with ChangeNotifier {
     }
   }
 }
+
+// Riverpod provider wrapping DriverProvider
+final driverProvider = ChangeNotifierProvider<DriverProvider>((ref) {
+  final provider = DriverProvider();
+  ref.onDispose(() => provider.dispose());
+  return provider;
+});

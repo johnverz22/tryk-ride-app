@@ -1,63 +1,63 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import '../../data/models/user_model.dart';
 
-class UserProvider with ChangeNotifier {
-  UserModel? _user;
-  String? _token;
-  String? baseUrl = dotenv.env['BASE_URL'];
+class UserState {
+  final UserModel? user;
+  final String? token;
 
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  const UserState({this.user, this.token});
 
-  UserProvider() {
-    loadUserData();
+  bool get isAuthenticated => user != null && token != null;
+
+  UserState copyWith({UserModel? user, String? token}) {
+    return UserState(user: user ?? this.user, token: token ?? this.token);
   }
+}
 
-  UserModel? get user => _user;
-  String? get token => _token;
-  bool get isAuthenticated => _user != null && _token != null;
+class UserNotifier extends AsyncNotifier<UserState> {
+  final _storage = const FlutterSecureStorage();
+  String? get baseUrl => dotenv.env['BASE_URL'];
 
-  Future<void> setUser(UserModel user, String token) async {
-    _user = user;
-    _token = token;
-    await _storage.write(key: 'token', value: token);
-    await _storage.write(key: 'user', value: jsonEncode(user.toJson()));
-    notifyListeners();
-  }
-
-  Future<void> setToken(String token) async {
-    _token = token;
-    await _storage.write(key: 'token', value: token);
-    notifyListeners();
-  }
-
-  Future<void> loadUserData() async {
+  @override
+  Future<UserState> build() async {
     final token = await _storage.read(key: 'token');
     final userJson = await _storage.read(key: 'user');
-
-    if (token != null) _token = token;
+    UserModel? user;
 
     if (userJson != null) {
       try {
         final userMap = jsonDecode(userJson);
-        _user = UserModel.fromJson(json: userMap);
+        user = UserModel.fromJson(json: userMap);
       } catch (e) {
-        debugPrint('[UserProvider] Error decoding user: $e');
+        print('[UserNotifier] Error decoding user: $e');
       }
     }
 
-    notifyListeners();
+    return UserState(user: user, token: token);
+  }
+
+  Future<void> setUser(UserModel user, String token) async {
+    await _storage.write(key: 'token', value: token);
+    await _storage.write(key: 'user', value: jsonEncode(user.toJson()));
+    state = AsyncData(UserState(user: user, token: token));
+  }
+
+  Future<void> setToken(String token) async {
+    await _storage.write(key: 'token', value: token);
+    final current = state.valueOrNull;
+    state = AsyncData(
+      current?.copyWith(token: token) ?? UserState(token: token),
+    );
   }
 
   Future<void> logout() async {
-    _user = null;
-    _token = null;
     await _storage.delete(key: 'token');
     await _storage.delete(key: 'user');
-    notifyListeners();
+    state = const AsyncData(UserState());
   }
 
   Future<bool> refreshToken() async {
@@ -77,7 +77,7 @@ class UserProvider with ChangeNotifier {
         }
       }
     } catch (e) {
-      debugPrint('Token refresh failed: $e');
+      print('Token refresh failed: $e');
     }
 
     return false;
@@ -90,11 +90,11 @@ class UserProvider with ChangeNotifier {
     dynamic body,
   }) async {
     headers ??= {};
-    final token = await _storage.read(key: 'token');
+    final token = state.value?.token ?? await _storage.read(key: 'token');
     if (token != null) headers['Authorization'] = 'Bearer $token';
 
-    http.Response response;
     final uri = Uri.parse(url);
+    http.Response response;
 
     try {
       if (method == 'PUT') {
@@ -103,14 +103,13 @@ class UserProvider with ChangeNotifier {
         throw UnimplementedError('Method not supported');
       }
 
-      // If token expired, try refresh
       if (response.statusCode == 401) {
         final refreshed = await refreshToken();
-
         if (refreshed) {
-          final newToken = await _storage.read(key: 'token');
+          final newToken =
+              state.value?.token ?? await _storage.read(key: 'token');
           if (newToken != null) headers['Authorization'] = 'Bearer $newToken';
-          response = await http.put(uri, headers: headers, body: body); // retry
+          response = await http.put(uri, headers: headers, body: body);
         }
       }
 
@@ -121,7 +120,8 @@ class UserProvider with ChangeNotifier {
   }
 
   Future<void> updateUser(UserModel updatedUser) async {
-    if (_token == null) return;
+    final token = state.value?.token;
+    if (token == null) return;
 
     final response = await authenticatedRequest(
       '$baseUrl/user/update',
@@ -131,14 +131,20 @@ class UserProvider with ChangeNotifier {
     );
 
     if (response.statusCode == 200) {
-      _user = updatedUser;
       await _storage.write(
         key: 'user',
         value: jsonEncode(updatedUser.toJson()),
       );
-      notifyListeners();
+      state = AsyncData(
+        state.value?.copyWith(user: updatedUser) ??
+            UserState(user: updatedUser, token: token),
+      );
     } else {
-      debugPrint('Failed to update user: ${response.body}');
+      print('Failed to update user: ${response.body}');
     }
   }
 }
+
+final userProvider = AsyncNotifierProvider<UserNotifier, UserState>(
+  () => UserNotifier(),
+);

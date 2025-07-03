@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../providers/user_provider.dart';
 
-class PersonalInfoScreen extends StatefulWidget {
+class PersonalInfoScreen extends ConsumerStatefulWidget {
   const PersonalInfoScreen({super.key});
 
   @override
-  State<PersonalInfoScreen> createState() => _PersonalInfoScreenState();
+  ConsumerState<PersonalInfoScreen> createState() => _PersonalInfoScreenState();
 }
 
-class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
+class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
@@ -19,23 +19,26 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   final _locationController = TextEditingController();
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final user = Provider.of<UserProvider>(context).user;
-    if (user != null) {
-      _nameController.text = user.name;
-      _emailController.text = user.email;
-      _phoneController.text = user.phone;
-      _dobController.text = user.lastLoginAt?.toIso8601String().split("T").first ?? "1990-01-01";
-      _locationController.text = user.location ?? "";
-    }
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = ref.read(userProvider).value?.user;
+      if (user != null) {
+        _nameController.text = user.name;
+        _emailController.text = user.email;
+        _phoneController.text = user.phone;
+        _dobController.text =
+            user.lastLoginAt?.toIso8601String().split("T").first ??
+            "1990-01-01";
+        _locationController.text = user.location ?? "";
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final user = userProvider.user;
+    final userAsync = ref.watch(userProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -43,19 +46,36 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         centerTitle: true,
         elevation: 0,
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            _buildEditableField("Full Name", _nameController),
-            _buildEditableField("Email Address", _emailController),
-            _buildEditableField("Phone Number", _phoneController),
-            // _buildEditableField("Date of Birth", _dobController),
-            // _buildEditableField("Location", _locationController),
-            const SizedBox(height: 100),
-          ],
-        ),
+      body: userAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, st) => Center(child: Text('Error: $e')),
+        data: (state) {
+          final user = state.user;
+          if (user == null) return const Center(child: Text("User not found"));
+
+          return Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                _buildEditableField("Full Name", _nameController),
+                _buildEditableField(
+                  "Email Address",
+                  _emailController,
+                  type: TextInputType.emailAddress,
+                ),
+                _buildEditableField(
+                  "Phone Number",
+                  _phoneController,
+                  type: TextInputType.phone,
+                ),
+                _buildEditableField("Date of Birth", _dobController),
+                _buildEditableField("Location", _locationController),
+                const SizedBox(height: 100),
+              ],
+            ),
+          );
+        },
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
@@ -65,23 +85,27 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
             height: 50,
             child: ElevatedButton.icon(
               onPressed: () async {
+                final user = ref.read(userProvider).value?.user;
                 if (_formKey.currentState!.validate() && user != null) {
                   final updatedUser = user.copyWith(
                     name: _nameController.text.trim(),
                     email: _emailController.text.trim(),
                     phone: _phoneController.text.trim(),
-                    // location: _locationController.text.trim(),
+                    location: _locationController.text.trim(),
                     updatedAt: DateTime.now(),
                   );
 
                   try {
-                    await userProvider.updateUser(updatedUser);
+                    await ref
+                        .read(userProvider.notifier)
+                        .updateUser(updatedUser);
 
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Changes saved")),
                     );
                   } catch (e) {
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text("Update failed: $e")),
                     );
@@ -93,8 +117,13 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.colorScheme.primary,
                 foregroundColor: Colors.white,
-                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
@@ -103,11 +132,16 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
     );
   }
 
-  Widget _buildEditableField(String label, TextEditingController controller) {
+  Widget _buildEditableField(
+    String label,
+    TextEditingController controller, {
+    TextInputType type = TextInputType.text,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: TextFormField(
         controller: controller,
+        keyboardType: type,
         style: const TextStyle(fontSize: 16),
         decoration: InputDecoration(
           labelText: label,
@@ -117,18 +151,27 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
           fillColor: Colors.grey.shade100,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.transparent),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.transparent),
+            borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
-        validator: (value) => value == null || value.isEmpty ? 'Please enter $label' : null,
+        validator: (value) {
+          if (value == null || value.isEmpty) return 'Please enter $label';
+          if (label.contains("Email") &&
+              !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w]{2,4}$').hasMatch(value)) {
+            return 'Enter a valid email';
+          }
+          if (label.contains("Phone") &&
+              !RegExp(r'^[\d +()-]{7,15}$').hasMatch(value)) {
+            return 'Enter a valid phone number';
+          }
+          return null;
+        },
       ),
     );
   }

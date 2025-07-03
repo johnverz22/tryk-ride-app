@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'features/user/presentation/pages/screens/main_navigation_screen.dart';
 import 'features/user/presentation/pages/screens/auth/auth_screen.dart';
 import 'features/user/presentation/providers/user_provider.dart';
@@ -9,66 +10,45 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
 
-  runApp(
-    MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => UserProvider())],
-      child: const MainApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: MainApp()));
 }
 
-class MainApp extends StatelessWidget {
+class MainApp extends ConsumerWidget {
   const MainApp({super.key});
 
-  Future<bool> checkLoggedIn(UserProvider userProvider) async {
-    await userProvider.loadUserData();
-    return userProvider.token != null;
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userAsync = ref.watch(userProvider);
 
-    return FutureBuilder<bool>(
-      future: checkLoggedIn(userProvider),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const MaterialApp(
-            home: Scaffold(body: Center(child: CircularProgressIndicator())),
-          );
-        }
-
-        final loggedIn = snapshot.data ?? false;
-
-        return MaterialApp(
-          title: 'Tryk',
-          theme: ThemeData(
-            primaryColor: Colors.pink,
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Colors.pink,
-              foregroundColor: Colors.white,
-              iconTheme: IconThemeData(color: Colors.white),
-            ),
-            colorScheme: ColorScheme.fromSwatch(
-              primarySwatch: Colors.pink,
-            ).copyWith(secondary: Colors.pinkAccent),
-            textTheme: const TextTheme(
-              // bodyLarge: TextStyle(color: Colors.white),
-              // bodyMedium: TextStyle(color: Colors.white),
-              // titleLarge: TextStyle(color: Colors.white),
-              // headlineSmall: TextStyle(color: Colors.white),
-              // labelLarge: TextStyle(color: Colors.white),
-            ),
+    return userAsync.when(
+      loading: () => const MaterialApp(
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+      ),
+      error: (err, stack) => MaterialApp(
+        home: Scaffold(body: Center(child: Text('Error: $err'))),
+      ),
+      data: (userState) => MaterialApp(
+        title: 'Tryk',
+        theme: ThemeData(
+          primaryColor: Colors.pink,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.pink,
+            foregroundColor: Colors.white,
+            iconTheme: IconThemeData(color: Colors.white),
           ),
-          debugShowCheckedModeBanner: false,
-          routes: {
-            '/home': (context) => const MainNavigationScreen(),
-            '/auth': (context) => const AuthScreen(),
-            // Add other routes as needed
-          },
-          home: loggedIn ? const MainNavigationScreen() : const AuthScreen(),
-        );
-      },
+          colorScheme: ColorScheme.fromSwatch(
+            primarySwatch: Colors.pink,
+          ).copyWith(secondary: Colors.pinkAccent),
+        ),
+        debugShowCheckedModeBanner: false,
+        routes: {
+          '/home': (context) => const MainNavigationScreen(),
+          '/auth': (context) => const AuthScreen(),
+        },
+        home: userState.isAuthenticated
+            ? const MainNavigationScreen()
+            : const AuthScreen(),
+      ),
     );
   }
 }

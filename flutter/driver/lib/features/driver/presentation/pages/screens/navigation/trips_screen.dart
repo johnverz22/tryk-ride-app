@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 
 import '../../../widgets/widgets.dart';
 import '../../../providers/driver_provider.dart';
 
 import 'trips/ride_tracking_screen.dart';
 
-class TripsScreen extends StatefulWidget {
+class TripsScreen extends ConsumerStatefulWidget {
   const TripsScreen({super.key});
 
   @override
-  State<TripsScreen> createState() => _TripsScreenState();
+  ConsumerState<TripsScreen> createState() => _TripsScreenState();
 }
 
-class _TripsScreenState extends State<TripsScreen>
+class _TripsScreenState extends ConsumerState<TripsScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
   String searchQuery = '';
@@ -32,8 +32,10 @@ class _TripsScreenState extends State<TripsScreen>
 
   Future<void> _loadTrips() async {
     setState(() => isLoading = true);
-    final driverProvider = Provider.of<DriverProvider>(context, listen: false);
-    await driverProvider.fetchDriverTrips();
+
+    final driverNotifier = ref.read(driverProvider.notifier);
+    await driverNotifier.fetchDriverTrips();
+
     setState(() => isLoading = false);
   }
 
@@ -62,8 +64,8 @@ class _TripsScreenState extends State<TripsScreen>
   }
 
   Widget _buildTripList(String category) {
-    final driverProvider = Provider.of<DriverProvider>(context);
-    final trips = driverProvider.trips;
+    final driverState = ref.watch(driverProvider);
+    final trips = driverState.trips;
 
     final filteredTrips = trips
         .where((trip) {
@@ -74,7 +76,9 @@ class _TripsScreenState extends State<TripsScreen>
             return [
               'Accepted',
               'Driver En Route',
+              'Ride Started Awaiting User Confirmation',
               'Ride in Progress',
+              'Ride Completed Awaiting User Confirmation',
             ].contains(tripStatus);
           }
 
@@ -257,13 +261,14 @@ class _TripsScreenState extends State<TripsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final driverProvider = Provider.of<DriverProvider>(context);
+    final driverState = ref.watch(driverProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
       appBar: CustomUserAppBar(
-        isOnline: driverProvider.isOnline,
-        onToggleOnline: driverProvider.setOnlineStatus,
+        isOnline: driverState.isOnline,
+        onToggleOnline: (value) =>
+            ref.read(driverProvider.notifier).setOnlineStatus(value),
       ),
       backgroundColor: Colors.grey[100],
       body: SafeArea(

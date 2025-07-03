@@ -29,6 +29,9 @@ class Ride extends Model
         'completed_at',
         'canceled_at',
 
+        'start_requested_at',
+        'completion_requested_at',
+
         'distance_km',
         'duration_minutes',
         'fare_amount',

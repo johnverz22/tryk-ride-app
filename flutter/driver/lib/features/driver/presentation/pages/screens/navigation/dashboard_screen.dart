@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../widgets/widgets.dart';
-import 'package:provider/provider.dart';
 import '../../../providers/driver_provider.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final driverProvider = Provider.of<DriverProvider>(context);
+    final driver = ref.watch(driverProvider);
 
     return Scaffold(
       appBar: CustomUserAppBar(
-        isOnline: driverProvider.isOnline,
-        onToggleOnline: (val) => driverProvider.setOnlineStatus(val),
+        isOnline: driver.isOnline,
+        onToggleOnline: (val) =>
+            ref.read(driverProvider.notifier).setOnlineStatus(val),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -22,13 +23,23 @@ class DashboardScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 🔹 Today’s Overview
-            Text('Today’s Overview', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            Text(
+              'Today’s Overview',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 12),
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               elevation: 2,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 20,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: const [
@@ -42,13 +53,23 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             // 🔹 Performance Section
-            Text('Performance', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            Text(
+              'Performance',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 12),
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               elevation: 2,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 20,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: const [
@@ -62,10 +83,17 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 24),
 
             // 🔹 Weekly Earnings Chart
-            Text('Weekly Earnings', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            Text(
+              'Weekly Earnings',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 12),
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               color: Colors.deepPurple.shade50,
               elevation: 1,
               child: SizedBox(
@@ -73,7 +101,9 @@ class DashboardScreen extends StatelessWidget {
                 child: Center(
                   child: Text(
                     '📊 Chart Coming Soon',
-                    style: theme.textTheme.bodyLarge?.copyWith(color: Colors.deepPurple),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: Colors.deepPurple,
+                    ),
                   ),
                 ),
               ),
@@ -92,7 +122,9 @@ class DashboardScreen extends StatelessWidget {
                     label: const Text('Earnings'),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
@@ -106,7 +138,9 @@ class DashboardScreen extends StatelessWidget {
                     label: const Text('History'),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),

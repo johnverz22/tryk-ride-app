@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../providers/driver_provider.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:geolocator/geolocator.dart'; // <-- Add this
+import 'package:geolocator/geolocator.dart';
 import '../../../../core/config/api_config.dart';
 
-class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
+import '../providers/driver_provider.dart';
+
+class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final VoidCallback? onNotificationTap;
   final bool isOnline;
   final ValueChanged<bool> onToggleOnline;
@@ -39,38 +40,38 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  Future<void> handleToggleOnline(bool value, BuildContext context) async {
-    final driverProvider = Provider.of<DriverProvider>(context, listen: false);
+  Future<void> handleToggleOnline(bool value, WidgetRef ref) async {
+    final driverNotifier = ref.read(driverProvider.notifier);
 
     if (value) {
       try {
         Position position = await _getCurrentPosition();
 
-        driverProvider.setOnlineStatus(true);
+        driverNotifier.setOnlineStatus(true);
 
         await http.post(
           Uri.parse('${ApiConfig.baseUrl}/driver/update-location'),
           headers: {
-            'Authorization': 'Bearer ${driverProvider.token}',
+            'Authorization': 'Bearer ${driverNotifier.token}',
             'Content-Type': 'application/json',
           },
           body: jsonEncode({
             'latitude': position.latitude,
             'longitude': position.longitude,
-            'is_online': driverProvider.isOnline,
+            'is_online': driverNotifier.isOnline,
           }),
         );
       } catch (e) {
         debugPrint('Failed to update location: $e');
       }
     } else {
-      driverProvider.setOnlineStatus(false);
+      driverNotifier.setOnlineStatus(false);
 
       try {
         await http.post(
           Uri.parse('${ApiConfig.baseUrl}/driver/go-offline'),
           headers: {
-            'Authorization': 'Bearer ${driverProvider.token}',
+            'Authorization': 'Bearer ${driverNotifier.token}',
             'Content-Type': 'application/json',
           },
         );
@@ -83,10 +84,10 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final driver = Provider.of<DriverProvider>(context, listen: false).driver;
-    final userName = driver?.name ?? 'Driver';
-    final profilePhoto = driver?.profilePhotoUrl ?? '';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final driverState = ref.watch(driverProvider);
+    final userName = driverState.driver?.name ?? 'Driver';
+    final profilePhoto = driverState.driver?.profilePhotoUrl ?? '';
     final currentDate = DateFormat.yMMMMEEEEd().format(DateTime.now());
 
     return AppBar(
@@ -148,13 +149,13 @@ class CustomUserAppBar extends StatelessWidget implements PreferredSizeWidget {
               const SizedBox(width: 6),
               Switch(
                 value: isOnline,
-                thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
-                  if (states.contains(WidgetState.selected)) {
+                thumbIcon: MaterialStateProperty.resolveWith<Icon?>((states) {
+                  if (states.contains(MaterialState.selected)) {
                     return const Icon(Icons.check); // Online icon
                   }
                   return const Icon(Icons.close); // Offline icon
                 }),
-                onChanged: (value) => handleToggleOnline(value, context),
+                onChanged: (value) => handleToggleOnline(value, ref),
                 activeColor: Colors.greenAccent,
                 inactiveThumbColor: Colors.grey,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

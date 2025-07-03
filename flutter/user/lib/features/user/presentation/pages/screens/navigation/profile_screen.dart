@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/user_provider.dart';
 import 'profile/logout_delete_account_dialogs.dart';
 import 'profile/personal_info_screen.dart';
@@ -12,76 +12,141 @@ import 'profile/preferred_drivers_screen.dart';
 import 'profile/vehicle_preferences_screen.dart';
 import 'profile/special_requirements_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final user = Provider.of<UserProvider>(context).user;
+    final userState = ref.watch(userProvider);
 
-    final name = user?.name ?? 'Guest';
-    final email = user?.email ?? '';
-    final photoUrl = user?.profilePhotoUrl;
+    return userState.when(
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, st) => Scaffold(body: Center(child: Text('Error: $e'))),
+      data: (state) {
+        final user = state.user;
+        if (user == null) {
+          return const Scaffold(body: Center(child: Text('User not found')));
+        }
 
-    return Scaffold(
-      body: user == null
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildProfileHeader(context, name, email, photoUrl),
-                const SizedBox(height: 32),
+        final name = user.name;
+        final email = user.email;
+        final photoUrl = user.profilePhotoUrl;
 
-                _sectionCard(
-                  title: 'Account Settings',
-                  items: [
-                    _buildNavTile(context, Icons.person_outline, 'Personal Information', const PersonalInfoScreen()),
-                    _buildNavTile(context, Icons.notifications_outlined, 'Notifications Preferences', const NotificationsPreferencesScreen()),
-                    _buildNavTile(context, Icons.payment_outlined, 'Payment Methods', const PaymentMethodsScreen()),
-                    _buildNavTile(context, Icons.lock_outline, 'Privacy Settings', const PrivacySettingsScreen()),
-                    _buildNavTile(context, Icons.language, 'Language Settings', const LanguageSettingsScreen()),
-                  ],
-                ),
+        return Scaffold(
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildProfileHeader(context, name, email, photoUrl),
+              const SizedBox(height: 32),
 
-                const SizedBox(height: 24),
-                _sectionCard(
-                  title: 'Trip Preferences',
-                  items: [
-                    _buildNavTile(context, Icons.star_border, 'Favorite Locations', const FavoriteLocationsScreen()),
-                    _buildNavTile(context, Icons.people_alt_outlined, 'Preferred Drivers', const PreferredDriversScreen()),
-                    _buildNavTile(context, Icons.directions_car, 'Vehicle Preferences', const VehiclePreferencesScreen()),
-                    _buildNavTile(context, Icons.accessibility_new, 'Special Requirements', const SpecialRequirementsScreen()),
-                  ],
-                ),
+              _sectionCard(
+                title: 'Account Settings',
+                items: [
+                  _buildNavTile(
+                    context,
+                    Icons.person_outline,
+                    'Personal Information',
+                    const PersonalInfoScreen(),
+                  ),
+                  _buildNavTile(
+                    context,
+                    Icons.notifications_outlined,
+                    'Notifications Preferences',
+                    const NotificationsPreferencesScreen(),
+                  ),
+                  _buildNavTile(
+                    context,
+                    Icons.payment_outlined,
+                    'Payment Methods',
+                    const PaymentMethodsScreen(),
+                  ),
+                  _buildNavTile(
+                    context,
+                    Icons.lock_outline,
+                    'Privacy Settings',
+                    const PrivacySettingsScreen(),
+                  ),
+                  _buildNavTile(
+                    context,
+                    Icons.language,
+                    'Language Settings',
+                    const LanguageSettingsScreen(),
+                  ),
+                ],
+              ),
 
-                const SizedBox(height: 24),
-                _sectionCard(
-                  title: 'Security',
-                  items: [
-                    _buildActionButton(
-                      context,
-                      label: 'Logout',
-                      icon: Icons.logout,
-                      color: theme.colorScheme.primary,
-                      onPressed: () => showLogoutDialog(context),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildActionButton(
-                      context,
-                      label: 'Delete Account',
-                      icon: Icons.delete_forever,
-                      color: Colors.red,
-                      onPressed: () => showDeleteAccountDialog(context),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              const SizedBox(height: 24),
+              _sectionCard(
+                title: 'Trip Preferences',
+                items: [
+                  _buildNavTile(
+                    context,
+                    Icons.star_border,
+                    'Favorite Locations',
+                    const FavoriteLocationsScreen(),
+                  ),
+                  _buildNavTile(
+                    context,
+                    Icons.people_alt_outlined,
+                    'Preferred Drivers',
+                    const PreferredDriversScreen(),
+                  ),
+                  _buildNavTile(
+                    context,
+                    Icons.directions_car,
+                    'Vehicle Preferences',
+                    const VehiclePreferencesScreen(),
+                  ),
+                  _buildNavTile(
+                    context,
+                    Icons.accessibility_new,
+                    'Special Requirements',
+                    const SpecialRequirementsScreen(),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+              _sectionCard(
+                title: 'Security',
+                items: [
+                  _buildActionButton(
+                    context,
+                    label: 'Logout',
+                    icon: Icons.logout,
+                    color: theme.colorScheme.primary,
+                    onPressed: () async {
+                      await ref.read(userProvider.notifier).logout();
+                      if (context.mounted) {
+                        Navigator.pushReplacementNamed(context, '/login');
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _buildActionButton(
+                    context,
+                    label: 'Delete Account',
+                    icon: Icons.delete_forever,
+                    color: Colors.red,
+                    onPressed: () => showDeleteAccountDialog(context, ref),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context, String name, String email, String? photoUrl) {
+  Widget _buildProfileHeader(
+    BuildContext context,
+    String name,
+    String email,
+    String? photoUrl,
+  ) {
     return Center(
       child: Column(
         children: [
@@ -89,7 +154,8 @@ class ProfileScreen extends StatelessWidget {
             radius: 44,
             backgroundImage: photoUrl != null && photoUrl.isNotEmpty
                 ? NetworkImage(photoUrl)
-                : const AssetImage('assets/images/profile.jpg') as ImageProvider,
+                : const AssetImage('assets/images/profile.jpg')
+                      as ImageProvider,
           ),
           const SizedBox(height: 12),
           Text(
@@ -97,10 +163,7 @@ class ProfileScreen extends StatelessWidget {
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
-          Text(
-            email,
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
-          ),
+          Text(email, style: const TextStyle(fontSize: 14, color: Colors.grey)),
           const SizedBox(height: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -133,22 +196,41 @@ class ProfileScreen extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             const Divider(),
-            ...items.expand((widget) => [widget, const Divider(height: 0)]).toList()..removeLast(),
+            ...items
+                .expand((widget) => [widget, const Divider(height: 0)])
+                .toList()
+              ..removeLast(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildNavTile(BuildContext context, IconData icon, String title, Widget screen, {Color? iconColor}) {
+  Widget _buildNavTile(
+    BuildContext context,
+    IconData icon,
+    String title,
+    Widget screen, {
+    Color? iconColor,
+  }) {
     return ListTile(
-      leading: Icon(icon, color: iconColor ?? Theme.of(context).colorScheme.primary),
+      leading: Icon(
+        icon,
+        color: iconColor ?? Theme.of(context).colorScheme.primary,
+      ),
       title: Text(title, style: const TextStyle(fontSize: 16)),
       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => screen)),
+      onTap: () =>
+          Navigator.push(context, MaterialPageRoute(builder: (_) => screen)),
     );
   }
 
@@ -170,7 +252,9 @@ class ProfileScreen extends StatelessWidget {
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
     );

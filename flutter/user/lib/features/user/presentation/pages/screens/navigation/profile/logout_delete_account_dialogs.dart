@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../../../core/services/auth_service.dart';
-import '../../../../providers/user_provider.dart';
 import '../../auth/auth_screen.dart';
 
 Future<void> showLogoutDialog(BuildContext context, WidgetRef ref) async {
-  final authService = AuthService();
+  final authService = ref.read(authServiceProvider);
 
   return showDialog<void>(
     context: context,
@@ -25,8 +24,7 @@ Future<void> showLogoutDialog(BuildContext context, WidgetRef ref) async {
               Navigator.of(dialogContext).pop(); // Close dialog first
 
               try {
-                await authService.logout(ref);
-                await ref.read(userProvider.notifier).logout();
+                await authService.logout();
 
                 if (!context.mounted) return;
 
@@ -72,7 +70,7 @@ Future<void> showDeleteAccountDialog(
             onPressed: () async {
               Navigator.of(dialogContext).pop();
 
-              // TODO: Add delete account logic here
+              // TODO: Implement deleteAccount logic in AuthService and call it here
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text("Account deletion not implemented."),

@@ -1,9 +1,16 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../../data/models/user_model.dart';
+
+// Top-level function for compute()
+UserModel parseUserJson(String jsonString) {
+  final userMap = jsonDecode(jsonString);
+  return UserModel.fromJson(json: userMap);
+}
 
 class UserState {
   final UserModel? user;
@@ -30,8 +37,7 @@ class UserNotifier extends AsyncNotifier<UserState> {
 
     if (userJson != null) {
       try {
-        final userMap = jsonDecode(userJson);
-        user = UserModel.fromJson(json: userMap);
+        user = await compute(parseUserJson, userJson);
       } catch (e) {
         print('[UserNotifier] Error decoding user: $e');
       }

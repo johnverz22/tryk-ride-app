@@ -37,7 +37,6 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
   int? _duration;
   final double _baseFare = 5.0;
   final double _perKmRate = 2.0;
-  final double _averageSpeedKmh = 40.0;
   static const int requestedStatusId = 1;
 
   @override
@@ -274,8 +273,6 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
   Future<void> _showSearchingBottomSheet() async {
     _isBottomSheetOpen = true;
     setState(() => _rideCancelled = false);
-    final controller = DraggableScrollableController();
-    String statusText = 'Looking for a nearby driver...';
 
     await showModalBottomSheet<void>(
       context: context,
@@ -283,138 +280,26 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
       enableDrag: false,
       isDismissible: false,
       backgroundColor: Colors.transparent,
-      builder: (BuildContext modalContext) {
-        return StatefulBuilder(
-          builder:
-              (
-                BuildContext sheetContext,
-                void Function(VoidCallback) setSheetState,
-              ) {
-                Future.delayed(const Duration(seconds: 5), () {
-                  if (!sheetContext.mounted || _rideCancelled) return;
-
-                  setSheetState(() {
-                    statusText = 'Matching you with the best driver...';
-                  });
-                });
-
-                return DraggableScrollableSheet(
-                  controller: controller,
-                  initialChildSize: 0.3,
-                  minChildSize: 0.3,
-                  maxChildSize: 0.5,
-                  builder:
-                      (
-                        BuildContext context,
-                        ScrollController scrollController,
-                      ) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 20,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(24),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 12,
-                                offset: const Offset(0, -3),
-                              ),
-                            ],
-                          ),
-                          child: ListView(
-                            controller: scrollController,
-                            children: [
-                              const Center(child: CircularProgressIndicator()),
-                              const SizedBox(height: 20),
-                              Center(
-                                child: Text(
-                                  statusText,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              const Center(
-                                child: Text(
-                                  'Hang tight! A driver will be assigned shortly.',
-                                  style: TextStyle(fontSize: 14),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              Center(
-                                child: TextButton.icon(
-                                  onPressed: () async {
-                                    setState(() => _rideCancelled = true);
-                                    setSheetState(
-                                      () => statusText = 'Cancelling ride...',
-                                    );
-
-                                    // Cancel the ride
-                                    final token = await AuthService()
-                                        .getToken();
-                                    if (token != null && _rideId != null) {
-                                      final uri = Uri.parse(
-                                        '$baseUrl/rides/cancel',
-                                      );
-                                      await http.post(
-                                        uri,
-                                        headers: {
-                                          'Authorization': 'Bearer $token',
-                                          'Content-Type': 'application/json',
-                                        },
-                                        body: jsonEncode({'ride_id': _rideId}),
-                                      );
-                                    }
-
-                                    // Cancel the status check timer
-                                    _statusCheckTimer?.cancel();
-                                    _statusCheckTimer = null;
-
-                                    setState(() => _rideId = null);
-
-                                    if (context.mounted) {
-                                      Navigator.of(
-                                        context,
-                                        rootNavigator: true,
-                                      ).pop();
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Ride request cancelled.',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  icon: const Icon(
-                                    Icons.cancel,
-                                    color: Colors.red,
-                                  ),
-                                  label: const Text(
-                                    'Cancel Ride',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                );
-              },
+      builder: (_) {
+        return SearchingDriverBottomSheet(
+          baseUrl: baseUrl,
+          rideId: _rideId,
+          onCancelled: () {
+            if (mounted) {
+              setState(() {
+                _rideId = null;
+                _isBottomSheetOpen = false;
+              });
+            }
+          },
+          cancelStatusCheck: () {
+            _statusCheckTimer?.cancel();
+            _statusCheckTimer = null;
+          },
         );
       },
     );
+
     _isBottomSheetOpen = false;
   }
 
@@ -423,15 +308,6 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
   Future<void> _requestRide() async {
     if (_fromLocation == null || _toLocation == null) return;
 
-    // final distance = _calculateDistanceKm(
-    //   _fromLocation!.latitude,
-    //   _fromLocation!.longitude,
-    //   _toLocation!.latitude,
-    //   _toLocation!.longitude,
-    // );
-
-    // final double fare = _baseFare + _perKmRate * distance;
-    // final double durationMinutes = distance / _averageSpeedKmh * 60;
     final now = DateTime.now().toIso8601String();
 
     final uri = Uri.parse('$baseUrl/rides/request');
@@ -523,16 +399,16 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
   double _degToRad(double deg) => deg * pi / 180;
 
   double _getEstimatedCost(double km) => _baseFare + (_perKmRate * km);
-  double _getEstimatedTimeInMinutes(double km) => km / _averageSpeedKmh * 60;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = theme.colorScheme;
 
-    final bool hasRouteInfo =
+    final hasRouteInfo =
         _routeDistanceMeters != null && _routeDurationSeconds != null;
-    final double? totalDistance = hasRouteInfo
+
+    final totalDistance = hasRouteInfo
         ? _routeDistanceMeters! / 1000
         : (_fromLocation != null && _toLocation != null)
         ? _calculateDistanceKm(
@@ -542,6 +418,9 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
             _toLocation!.longitude,
           )
         : null;
+
+    final canRequestRide =
+        _fromLocation != null && _toLocation != null && !_isLoading;
 
     return Scaffold(
       appBar: AppBar(
@@ -561,13 +440,15 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            LocationInputCard(
+
+            /// Pickup Location
+            LocationSelector(
               label: 'Pickup Location',
               icon: Icons.my_location,
               controller: _fromController,
               onLocationPicked: (picked) async {
-                final LatLng loc = picked['latLng'];
-                final String desc = picked['description'];
+                final loc = picked['latLng'];
+                final desc = picked['description'];
                 setState(() {
                   _fromLocation = loc;
                   _fromController.text = desc;
@@ -576,21 +457,21 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
                 });
                 await _fetchRouteInfo();
               },
-              onClear: () {
-                setState(() {
-                  _fromController.clear();
-                  _fromLocation = null;
-                });
-              },
+              onClear: () => setState(() {
+                _fromController.clear();
+                _fromLocation = null;
+              }),
             ),
             const SizedBox(height: 16),
-            LocationInputCard(
+
+            /// Destination
+            LocationSelector(
               label: 'Destination',
               icon: Icons.location_on,
               controller: _toController,
               onLocationPicked: (picked) async {
-                final LatLng loc = picked['latLng'];
-                final String desc = picked['description'];
+                final loc = picked['latLng'];
+                final desc = picked['description'];
                 setState(() {
                   _toLocation = loc;
                   _toController.text = desc;
@@ -599,205 +480,53 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
                 });
                 await _fetchRouteInfo();
               },
-              onClear: () {
-                setState(() {
-                  _toController.clear();
-                  _toLocation = null;
-                });
-              },
+              onClear: () => setState(() {
+                _toController.clear();
+                _toLocation = null;
+              }),
             ),
-            // Payment Method Section - Consistent Card Style
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 16,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.grey[50],
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                  border: Border.all(color: Colors.grey[300]!, width: 1),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.payment, color: color.primary, size: 22),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Payment Method',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _simplePaymentOption(
-                          icon: Icons.money,
-                          label: 'Cash',
-                          selected: _selectedPaymentMethod == 'Cash',
-                          onTap: () =>
-                              setState(() => _selectedPaymentMethod = 'Cash'),
-                        ),
-                        _simplePaymentOption(
-                          icon: Icons.credit_card,
-                          label: 'Card',
-                          selected: _selectedPaymentMethod == 'Card',
-                          onTap: () =>
-                              setState(() => _selectedPaymentMethod = 'Card'),
-                        ),
-                        _simplePaymentOption(
-                          icon: Icons.account_balance_wallet,
-                          label: 'Wallet',
-                          selected: _selectedPaymentMethod == 'Wallet',
-                          onTap: () =>
-                              setState(() => _selectedPaymentMethod = 'Wallet'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+            const SizedBox(height: 16),
+
+            /// Payment Method
+            PaymentMethodCard(
+              selectedMethod: _selectedPaymentMethod,
+              onSelect: (method) =>
+                  setState(() => _selectedPaymentMethod = method),
             ),
+
+            /// Route Preview
             if (_fromLocation != null &&
                 _toLocation != null &&
-                totalDistance != null) ...[
-              const SizedBox(height: 32),
-              Text(
-                'Route Preview',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              RideMapPreview(
-                key: ValueKey(
-                  '${_fromLocation!.latitude},${_fromLocation!.longitude}-${_toLocation!.latitude},${_toLocation!.longitude}',
-                ),
-                fromLocation: _fromLocation!,
-                toLocation: _toLocation!,
-                apiKey: googleMapsApiKey,
+                totalDistance != null)
+              RoutePreviewSection(
+                from: _fromLocation!,
+                to: _toLocation!,
+                distance: totalDistance,
+                distanceInMeters: _routeDistanceMeters,
+                durationInSeconds: _routeDurationSeconds,
                 onRouteInfoLoaded: (distance, duration) {
                   setState(() {
-                    _distance = distance; // in km
-                    _duration = duration; // in minutes
+                    _distance = distance;
+                    _duration = duration;
                   });
                 },
               ),
 
-              const SizedBox(height: 12),
-              RouteInfoCard(
-                cost: _getEstimatedCost(totalDistance).toStringAsFixed(2),
-                distanceInMeters: hasRouteInfo
-                    ? _routeDistanceMeters!
-                    : totalDistance * 1000,
-                duration: hasRouteInfo
-                    ? (_routeDurationSeconds! / 60).toStringAsFixed(2)
-                    : _getEstimatedTimeInMinutes(
-                        totalDistance,
-                      ).toStringAsFixed(2),
-              ),
-            ],
             const SizedBox(height: 20),
-            // Modern Driver Search Radius Section
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-                border: Border.all(color: Colors.grey[300]!, width: 1),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.radar, color: color.primary, size: 22),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Driver Search Radius',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: color.primary.withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${_searchRadiusKm.toStringAsFixed(0)} km',
-                          style: TextStyle(
-                            color: color.primary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Slider(
-                    value: _searchRadiusKm,
-                    min: 5,
-                    max: 100,
-                    divisions: 19,
-                    label: _searchRadiusKm.toStringAsFixed(0),
-                    activeColor: color.primary,
-                    inactiveColor: Colors.grey[300],
-                    onChanged: (value) =>
-                        setState(() => _searchRadiusKm = value),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      Text(
-                        '5 km',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      Text(
-                        '100 km',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+
+            /// Search Radius
+            DriverSearchRadiusSlider(
+              radiusKm: _searchRadiusKm,
+              onChanged: (value) => setState(() => _searchRadiusKm = value),
             ),
+
             const SizedBox(height: 30),
+
+            /// Request Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed:
-                    (_fromLocation != null &&
-                        _toLocation != null &&
-                        !_isLoading)
-                    ? _requestRide
-                    : null,
+                onPressed: canRequestRide ? _requestRide : null,
                 icon: _isLoading
                     ? const SizedBox(
                         width: 16,
@@ -827,64 +556,5 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
         ),
       ),
     );
-  }
-
-  // Replace _buildPaymentOption with this simpler version:
-  Widget _simplePaymentOption({
-    required IconData icon,
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    final theme = Theme.of(context);
-    return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: selected
-                ? theme.colorScheme.primary.withOpacity(0.08)
-                : null,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: selected ? theme.colorScheme.primary : Colors.grey[300]!,
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                color: selected ? theme.colorScheme.primary : Colors.grey[600],
-                size: 24,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: selected
-                      ? theme.colorScheme.primary
-                      : Colors.grey[700],
-                  fontSize: 13,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _statusCheckTimer?.cancel();
-    _fromController.dispose();
-    _toController.dispose();
-    super.dispose();
   }
 }

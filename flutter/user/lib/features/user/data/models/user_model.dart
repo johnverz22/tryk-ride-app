@@ -23,24 +23,24 @@ class UserModel extends UserEntity {
   factory UserModel.fromJson({required Map<String, dynamic> json}) {
     return UserModel(
       id: json[kId]?.toString() ?? '',
-      name: json[kName] ?? '',
+      name: json[kName]?.toString() ?? '',
       email: json[kEmail]?.toString() ?? '',
       phone: json[kPhone]?.toString() ?? '',
       profilePhotoUrl: json[kProfilePhotoUrl] as String?,
       role: json[kRole]?.toString() ?? '',
-      isVerified: json[kIsVerified] ?? false,
+      isVerified: json[kIsVerified] is bool
+          ? json[kIsVerified]
+          : json[kIsVerified]?.toString().toLowerCase() == 'true',
       walletBalance: (json[kWalletBalance] as num?)?.toDouble() ?? 0.0,
       defaultPaymentMethod: json[kDefaultPaymentMethod] as String?,
-      createdAt: json[kCreatedAt] != null
-          ? DateTime.parse(json[kCreatedAt])
-          : DateTime.now(),
-      updatedAt: json[kUpdatedAt] != null
-          ? DateTime.parse(json[kUpdatedAt])
-          : DateTime.now(),
-      lastLoginAt: json[kLastLoginAt] != null
-          ? DateTime.parse(json[kLastLoginAt])
-          : null,
-      location: json['location'] as String?,
+      createdAt:
+          DateTime.tryParse(json[kCreatedAt]?.toString() ?? '') ??
+          DateTime.now(),
+      updatedAt:
+          DateTime.tryParse(json[kUpdatedAt]?.toString() ?? '') ??
+          DateTime.now(),
+      lastLoginAt: DateTime.tryParse(json[kLastLoginAt]?.toString() ?? ''),
+      location: json['location']?.toString(),
     );
   }
 

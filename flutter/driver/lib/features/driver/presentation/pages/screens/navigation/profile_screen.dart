@@ -18,7 +18,11 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final driver = ref.watch(driverProvider).driver;
+    final asyncDriver = ref.watch(driverProvider);
+    final driver = asyncDriver.maybeWhen(
+      data: (state) => state.driver,
+      orElse: () => null,
+    );
 
     return Scaffold(
       body: driver == null

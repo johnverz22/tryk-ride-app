@@ -1,115 +1,183 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 
 import '../../data/models/driver_model.dart';
 import '../../data/models/ride_request_model.dart';
-import '../../../../core/config/api_config.dart';
 
-class DriverProvider with ChangeNotifier {
-  DriverModel? _driver;
-  String? _token;
-  bool _isOnline = false;
-  bool _hasIncomingRequest = false;
+class DriverState {
+  final DriverModel? driver;
+  final String? token;
+  final bool isOnline;
+  final List<RideRequest> requestedRides;
+  final List<Map<String, dynamic>> trips;
 
+  const DriverState({
+    this.driver,
+    this.token,
+    this.isOnline = false,
+    this.requestedRides = const [],
+    this.trips = const [],
+  });
+
+  bool get isAuthenticated => driver != null && token != null;
+
+  DriverState copyWith({
+    DriverModel? driver,
+    String? token,
+    bool? isOnline,
+    List<RideRequest>? requestedRides,
+    List<Map<String, dynamic>>? trips,
+  }) {
+    return DriverState(
+      driver: driver ?? this.driver,
+      token: token ?? this.token,
+      isOnline: isOnline ?? this.isOnline,
+      requestedRides: requestedRides ?? this.requestedRides,
+      trips: trips ?? this.trips,
+    );
+  }
+}
+
+class DriverNotifier extends AsyncNotifier<DriverState> {
+  final _storage = const FlutterSecureStorage();
   final Set<int> _rejectedRideIds = {};
-  List<RideRequest> _requestedRides = [];
-  List<Map<String, dynamic>> _trips = []; // ✅ ADDED TRIPS FIELD
-
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
   Timer? _pollingTimer;
 
-  DriverProvider() {
-    loadDriverData();
-  }
+  Position? _lastPosition;
+  DateTime? _lastPositionTime;
 
-  // Getters
-  DriverModel? get driver => _driver;
-  String? get token => _token;
-  bool get isOnline => _isOnline;
-  bool get isAuthenticated => _driver != null && _token != null;
-  bool get hasIncomingRequest => _hasIncomingRequest;
-  List<RideRequest> get requestedRides => _requestedRides;
-  List<Map<String, dynamic>> get trips => _trips; // ✅ ADDED GETTER
+  String? get baseUrl => dotenv.env['BASE_URL'];
 
-  // Authentication & State
-  Future<void> setDriver(DriverModel driver, String token) async {
-    _driver = driver;
-    _token = token;
-    await _storage.write(key: 'token', value: token);
-    await _storage.write(key: 'driver', value: jsonEncode(driver.toJson()));
-    notifyListeners();
-  }
-
-  Future<void> setToken(String token) async {
-    _token = token;
-    await _storage.write(key: 'token', value: token);
-    notifyListeners();
-  }
-
-  Future<void> loadDriverData() async {
+  @override
+  Future<DriverState> build() async {
     final token = await _storage.read(key: 'token');
     final driverJson = await _storage.read(key: 'driver');
     final isOnlineStr = await _storage.read(key: 'isOnline');
 
-    if (token != null) _token = token;
+    DriverModel? driver;
 
     if (driverJson != null) {
       try {
-        final driverMap = jsonDecode(driverJson);
-        _driver = DriverModel.fromJson(json: driverMap);
+        driver = DriverModel.fromJson(json: jsonDecode(driverJson));
       } catch (e) {
-        debugPrint('[DriverProvider] Error decoding driver: $e');
+        debugPrint('[DriverNotifier] Error decoding driver: $e');
       }
     }
 
-    if (isOnlineStr != null) {
-      _isOnline = isOnlineStr.toLowerCase() == 'true';
-      if (_isOnline) _startPolling();
+    final isOnline = isOnlineStr == 'true';
+
+    if (isOnline && token != null) {
+      _startPolling(token);
     }
 
-    notifyListeners();
+    return DriverState(driver: driver, token: token, isOnline: isOnline);
   }
 
-  Future<void> setOnline(bool value) async {
-    _isOnline = value;
-    await _storage.write(key: 'isOnline', value: value.toString());
+  Future<void> updateDriver(DriverModel updatedDriver) async {
+    final current = state.value;
+    if (current?.token == null || baseUrl == null) return;
 
-    if (value) {
-      _startPolling();
-    } else {
-      _stopPolling();
-      _requestedRides.clear();
-      _hasIncomingRequest = false;
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/driver/update'),
+        headers: _authHeaders(current!.token!),
+        body: jsonEncode(updatedDriver.toJson()),
+      );
+
+      if (response.statusCode == 200) {
+        await _storage.write(
+          key: 'driver',
+          value: jsonEncode(updatedDriver.toJson()),
+        );
+
+        state = AsyncData(current.copyWith(driver: updatedDriver));
+      } else {
+        debugPrint('Failed to update driver: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error in updateDriver: $e');
+    }
+  }
+
+  Future<bool> ensureLocationPermission() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return false;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return false;
     }
 
-    notifyListeners();
+    if (permission == LocationPermission.deniedForever) return false;
+
+    return true;
   }
 
-  Future<void> setOnlineStatus(bool value) => setOnline(value);
+  Future<Position> _getFreshPosition({
+    Duration cacheDuration = const Duration(seconds: 15),
+  }) async {
+    final now = DateTime.now();
+    if (_lastPosition != null &&
+        _lastPositionTime != null &&
+        now.difference(_lastPositionTime!) < cacheDuration) {
+      return _lastPosition!;
+    }
 
-  Future<void> logout() async {
-    _driver = null;
-    _token = null;
-    _isOnline = false;
-    _hasIncomingRequest = false;
-    _requestedRides.clear();
-    _trips.clear(); // ✅ CLEAR TRIPS ON LOGOUT
-    _stopPolling();
-    await _storage.deleteAll();
-    notifyListeners();
+    _lastPosition = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+    );
+    _lastPositionTime = now;
+    return _lastPosition!;
   }
 
-  // Polling every 5 seconds
-  void _startPolling() {
+  Future<void> toggleOnline(bool value) async {
+    final current = state.value;
+    if (current?.token == null) return;
+
+    final hasPermission = await ensureLocationPermission();
+    if (!hasPermission) {
+      debugPrint('Location permission denied.');
+      return;
+    }
+
+    try {
+      final position = await _getFreshPosition();
+
+      final res = await http.post(
+        Uri.parse('$baseUrl/driver/update-location'),
+        headers: _authHeaders(current!.token!),
+        body: jsonEncode({
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'is_online': value,
+        }),
+      );
+
+      if (res.statusCode == 200) {
+        await _storage.write(key: 'isOnline', value: value.toString());
+
+        value ? _startPolling(current.token!) : _stopPolling();
+
+        state = AsyncData(current.copyWith(isOnline: value));
+      } else {
+        debugPrint('Failed to set online status: ${res.body}');
+      }
+    } catch (e) {
+      debugPrint('Error setting online status: $e');
+    }
+  }
+
+  void _startPolling(String token) {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (_isOnline && _token != null) fetchRequestedRides();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      fetchRequestedRides(token);
     });
   }
 
@@ -118,295 +186,149 @@ class DriverProvider with ChangeNotifier {
     _pollingTimer = null;
   }
 
-  @override
-  void dispose() {
-    _stopPolling();
-    super.dispose();
-  }
+  Future<void> fetchRequestedRides(String token) async {
+    final current = state.value;
+    if (current == null || !current.isOnline) return;
 
-  Future<RideRequest?> acceptRequest(RideRequest ride) async {
     try {
-      final rideStatusUrl = Uri.parse('${ApiConfig.baseUrl}/rides/${ride.id}');
-      final acceptRideUrl = Uri.parse(
-        '${ApiConfig.baseUrl}/rides/${ride.id}/accept',
+      final position = await _getFreshPosition();
+
+      await http.post(
+        Uri.parse('$baseUrl/driver/update-location'),
+        headers: _authHeaders(token),
+        body: jsonEncode({
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+        }),
       );
 
-      final headers = {
-        'Authorization': 'Bearer $_token',
-        'Content-Type': 'application/json',
-      };
+      final res = await http.get(
+        Uri.parse('$baseUrl/driver/requested-rides'),
+        headers: _authHeaders(token),
+      );
 
-      // 1. Get latest ride info
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as List;
+        final rides = data
+            .map((e) => RideRequest.fromJson(e))
+            .where((r) => !_rejectedRideIds.contains(r.id))
+            .toList();
+
+        if (!_areRideListsEqual(current.requestedRides, rides)) {
+          state = AsyncData(current.copyWith(requestedRides: rides));
+        }
+      }
+    } catch (e) {
+      debugPrint('Fetch rides error: $e');
+    }
+  }
+
+  Future<RideRequest?> acceptRide(RideRequest ride) async {
+    final current = state.value;
+    if (current?.token == null) return null;
+
+    try {
+      final rideStatusUrl = Uri.parse('$baseUrl/rides/${ride.id}');
+      final acceptRideUrl = Uri.parse('$baseUrl/rides/${ride.id}/accept');
+      final headers = _authHeaders(current!.token!);
+
       final statusRes = await http.get(rideStatusUrl, headers: headers);
       if (statusRes.statusCode != 200) return null;
 
-      final rideJson = json.decode(statusRes.body);
+      final rideJson = jsonDecode(statusRes.body);
       final status = rideJson['status']?['name'] ?? '';
-
-      debugPrint(
-        'statusRes Ride Response: ${statusRes.statusCode} - ${statusRes.body}',
-      );
-
       if (status != 'Requested') return null;
 
-      // 2. Accept the ride
       final acceptRes = await http.post(acceptRideUrl, headers: headers);
       if (acceptRes.statusCode != 200) return null;
 
-      // 3. Build updated ride
       final updatedRide = RideRequest.fromJson(rideJson);
 
-      // 4. Remove from local list and notify
-      _requestedRides.removeWhere((r) => r.id == ride.id);
-      notifyListeners();
+      final updatedRides = current.requestedRides
+          .where((r) => r.id != ride.id)
+          .toList();
 
+      state = AsyncData(current.copyWith(requestedRides: updatedRides));
       return updatedRide;
     } catch (e) {
-      debugPrint('Accept error: $e');
+      debugPrint('Accept ride error: $e');
       return null;
     }
   }
 
   Future<void> rejectRide(RideRequest ride) async {
-    if (_token == null) return;
+    final current = state.value;
+    if (current?.token == null) return;
 
-    final response = await http.patch(
-      Uri.parse('${ApiConfig.baseUrl}/rides/${ride.id}/reject'),
-      headers: {
-        'Authorization': 'Bearer $_token',
-        'Content-Type': 'application/json',
-      },
-    );
+    try {
+      await http.patch(
+        Uri.parse('$baseUrl/rides/${ride.id}/reject'),
+        headers: _authHeaders(current!.token!),
+      );
 
-    if (response.statusCode == 200) {
       _rejectedRideIds.add(ride.id);
-      _requestedRides.removeWhere((r) => r.id == ride.id);
-      _hasIncomingRequest = _requestedRides.isNotEmpty;
-      debugPrint('Ride rejected successfully');
-      notifyListeners();
-    } else {
-      debugPrint('Failed to reject ride: ${response.statusCode}');
-      debugPrint('Response body: ${response.body}');
+
+      final updatedRides = current.requestedRides
+          .where((r) => r.id != ride.id)
+          .toList();
+
+      state = AsyncData(current.copyWith(requestedRides: updatedRides));
+    } catch (e) {
+      debugPrint('Reject ride error: $e');
     }
   }
 
-  Future<void> rejectSpecificRide(RideRequest ride) async {
-    _rejectedRideIds.add(ride.id);
-    _requestedRides.removeWhere((r) => r.id == ride.id);
-    _hasIncomingRequest = _requestedRides.isNotEmpty;
-    notifyListeners();
-
-    await fetchRequestedRides();
-  }
-
-  Future<void> fetchRequestedRides() async {
-    if (_token == null) return;
+  Future<void> fetchTrips() async {
+    final current = state.value;
+    if (current?.token == null) return;
 
     try {
-      // 👇 Step 1: Get current location
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+      final res = await http.get(
+        Uri.parse('$baseUrl/driver/trips'),
+        headers: _authHeaders(current!.token!),
       );
 
-      final lat = position.latitude;
-      final lng = position.longitude;
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final trips = data is List
+            ? List<Map<String, dynamic>>.from(data)
+            : List<Map<String, dynamic>>.from(data['data'] ?? []);
 
-      // 👇 Step 2: Send location to backend
-      final locationUrl = Uri.parse(
-        '${ApiConfig.baseUrl}/driver/update-location',
-      );
-      await http.post(
-        locationUrl,
-        headers: {
-          'Authorization': 'Bearer $_token',
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'latitude': lat, 'longitude': lng}),
-      );
-
-      // 👇 Step 3: Fetch requested rides
-      final ridesUrl = Uri.parse('${ApiConfig.baseUrl}/driver/requested-rides');
-      final response = await http.get(
-        ridesUrl,
-        headers: {
-          'Authorization': 'Bearer $_token',
-          'Accept': 'application/json',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final newRides = (data as List)
-            .map((e) => RideRequest.fromJson(e))
-            .where((ride) => !_rejectedRideIds.contains(ride.id))
-            .toList();
-
-        _requestedRides = newRides;
-        _hasIncomingRequest = _requestedRides.isNotEmpty;
-        notifyListeners();
-      } else {
-        debugPrint(
-          'Failed to fetch rides: ${response.statusCode} → ${response.body}',
-        );
+        state = AsyncData(current.copyWith(trips: trips));
       }
     } catch (e) {
-      debugPrint('Error fetching rides or location: $e');
+      debugPrint('Fetch trips error: $e');
     }
   }
 
-  Future<bool> refreshToken() async {
-    try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/auth/refresh'),
-        headers: {'Accept': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final newToken = data['token'];
-        if (newToken != null) {
-          await setToken(newToken);
-          return true;
-        }
-      }
-    } catch (e) {
-      debugPrint('Token refresh failed: $e');
-    }
-
-    return false;
+  Future<void> setDriver(DriverModel driver, String token) async {
+    await _storage.write(key: 'driver', value: jsonEncode(driver.toJson()));
+    await _storage.write(key: 'token', value: token);
+    state = AsyncData(DriverState(driver: driver, token: token));
   }
 
-  Future<http.Response> authenticatedRequest(
-    String url,
-    String method, {
-    Map<String, String>? headers,
-    dynamic body,
-  }) async {
-    headers ??= {};
-    final token = await _storage.read(key: 'token');
-    if (token != null) headers['Authorization'] = 'Bearer $token';
-
-    http.Response response;
-    final uri = Uri.parse(url);
-
-    try {
-      switch (method.toUpperCase()) {
-        case 'PUT':
-          response = await http.put(uri, headers: headers, body: body);
-          break;
-        case 'POST':
-          response = await http.post(uri, headers: headers, body: body);
-          break;
-        case 'GET':
-          response = await http.get(uri, headers: headers);
-          break;
-        case 'DELETE':
-          response = await http.delete(uri, headers: headers);
-          break;
-        default:
-          throw UnimplementedError('Method $method not supported');
-      }
-
-      if (response.statusCode == 401) {
-        final refreshed = await refreshToken();
-        if (refreshed) {
-          final newToken = await _storage.read(key: 'token');
-          if (newToken != null) headers['Authorization'] = 'Bearer $newToken';
-          // Retry original request with new token
-          switch (method.toUpperCase()) {
-            case 'PUT':
-              response = await http.put(uri, headers: headers, body: body);
-              break;
-            case 'POST':
-              response = await http.post(uri, headers: headers, body: body);
-              break;
-            case 'GET':
-              response = await http.get(uri, headers: headers);
-              break;
-            case 'DELETE':
-              response = await http.delete(uri, headers: headers);
-              break;
-          }
-        }
-      }
-
-      return response;
-    } catch (e) {
-      rethrow;
-    }
+  Future<void> logout() async {
+    _stopPolling();
+    await _storage.deleteAll();
+    state = const AsyncData(DriverState());
   }
 
-  Future<void> updateDriver(DriverModel updatedDriver) async {
-    if (_token == null) return;
+  Map<String, String> _authHeaders(String token) => {
+    'Authorization': 'Bearer $token',
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+  };
 
-    final response = await authenticatedRequest(
-      '${ApiConfig.baseUrl}/driver/update',
-      'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(updatedDriver.toJson()),
-    );
-
-    if (response.statusCode == 200) {
-      _driver = updatedDriver;
-      await _storage.write(
-        key: 'driver',
-        value: jsonEncode(updatedDriver.toJson()),
-      );
-      notifyListeners();
-    } else {
-      debugPrint('Failed to update driver: ${response.body}');
+  bool _areRideListsEqual(List<RideRequest> a, List<RideRequest> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
     }
-  }
-
-  /// ✅ UPDATED: Fetch trips and store them locally
-  Future<void> fetchDriverTrips() async {
-    if (_token == null) return;
-
-    final url = Uri.parse('${ApiConfig.baseUrl}/driver/trips');
-    final response = await http.get(
-      url,
-      headers: {
-        'Authorization': 'Bearer $_token',
-        'Accept': 'application/json',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-
-      // Debug: Print the actual response structure
-      debugPrint('API Response type: ${data.runtimeType}');
-      debugPrint('API Response: $data');
-
-      // Handle paginated response
-      if (data is Map<String, dynamic> && data.containsKey('data')) {
-        // Paginated response
-        _trips = List<Map<String, dynamic>>.from(data['data']);
-        debugPrint('Extracted ${_trips.length} trips from paginated response');
-      } else if (data is List) {
-        // Direct array response
-        _trips = List<Map<String, dynamic>>.from(data);
-        debugPrint('Got ${_trips.length} trips from direct array response');
-      } else {
-        debugPrint('Unexpected response format: ${data.runtimeType}');
-        _trips = [];
-      }
-
-      notifyListeners();
-    } else {
-      debugPrint(
-        'Failed to fetch trips: ${response.statusCode} → ${response.body}',
-      );
-      _trips = [];
-      notifyListeners();
-    }
+    return true;
   }
 }
 
-// Riverpod provider wrapping DriverProvider
-final driverProvider = ChangeNotifierProvider<DriverProvider>((ref) {
-  final provider = DriverProvider();
-  ref.onDispose(() => provider.dispose());
-  return provider;
-});
+// ───── Riverpod Provider ─────
+final driverProvider = AsyncNotifierProvider<DriverNotifier, DriverState>(
+  () => DriverNotifier(),
+);

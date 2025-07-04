@@ -3,47 +3,63 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
-use App\Models\User;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 use App\Models\Ride;
 use App\Enums\RideStatus;
 use App\Services\DriverMatchingService;
-use Illuminate\Support\Facades\DB;
 
 class DriverController extends Controller
 {
-    public function update(Request $request)
+    private function getAuthUser()
     {
-        // Get the currently authenticated user via Sanctum
         $user = Auth::user();
 
-        if (!$user) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
+        if (!$user instanceof User) {
+            abort(401, 'Unauthenticated');
         }
 
-        // Validate incoming data
+        return $user;
+    }
+
+    private function getDriverProfile($user)
+    {
+        $profile = $user->loadMissing('profile')->profile;
+
+        if (!$profile) {
+            abort(response()->json(['message' => 'Driver profile not found.'], 404));
+        }
+
+        return $profile;
+    }
+
+    public function update(Request $request)
+    {
+        $user = $this->getAuthUser();
+
         $validated = $request->validate([
-            'name'     => ['sometimes', 'string', 'max:255'],
-            'email'    => ['sometimes', 'email', Rule::unique('users')->ignore($user->id)],
-            'phone'    => ['nullable', 'string', Rule::unique('users')->ignore($user->id)],
+            'name'  => ['sometimes', 'string', 'max:255'],
+            'email' => ['sometimes', 'email', Rule::unique('users')->ignore($user->id)],
+            'phone' => ['nullable', 'string', Rule::unique('users')->ignore($user->id)],
         ]);
 
-        // Log the update attempt
         Log::info('Updating user profile', [
             'user_id' => $user->id,
-            'validated_data' => $validated,
+            'fields' => array_keys($validated),
         ]);
 
-        // Update the user only with provided fields
-        $user->fill($validated);
-        $user->save();
+        $user->update($validated);
 
         return response()->json([
             'message' => 'Profile updated successfully',
-            'user' => $user,
+            'user' => [
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+            ],
         ]);
     }
 
@@ -55,143 +71,105 @@ class DriverController extends Controller
             abort(404, 'Image not found');
         }
 
-        return response()->make(file_get_contents($path), 200, [
-            'Content-Type' => mime_content_type($path),
-            'Content-Length' => filesize($path),
-            'Cache-Control' => 'no-cache',
-        ]);
+        return response()->file($path, ['Cache-Control' => 'no-cache']);
     }
 
     public function getDocuments(Request $request)
     {
-        $user = Auth::user();
-        $profile = $user->profile;
-
-        if (!$profile) {
-            return response()->json([
-                'message' => 'Profile not found.'
-            ], 404);
-        }
+        $user = $this->getAuthUser();
+        $profile = $this->getDriverProfile($user);
 
         return response()->json([
-            'id_document_url' => $profile->id_document_path 
-                ? url("/driver-image/{$user->id}/" . basename($profile->id_document_path)) 
+            'id_document_url' => $profile->id_document_path
+                ? url("/driver-image/{$user->id}/" . basename($profile->id_document_path))
                 : null,
-            'license_document_url' => $profile->license_document_path 
-                ? url("/driver-image/{$user->id}/" . basename($profile->license_document_path)) 
+            'license_document_url' => $profile->license_document_path
+                ? url("/driver-image/{$user->id}/" . basename($profile->license_document_path))
                 : null,
             'submitted' => $profile->driver_status_id === 2,
         ]);
     }
-    
+
     public function uploadDocument(Request $request)
     {
-        $user = Auth::user();
+        $user = $this->getAuthUser();
 
-        if (!$user) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
-        }
-
-        $request->validate([
-            'type'     => 'required|in:id,license',
-            'document' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120', // 5MB limit
+        $validated = $request->validate([
+            'type' => 'required|in:id,license',
+            'document' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
 
-        $file = $request->file('document');
+        $file = $validated['document'];
+        $filename = "{$validated['type']}." . $file->getClientOriginalExtension();
+        $path = $file->storeAs("driver_documents/{$user->id}", $filename, 'public');
 
-        $path = $file->storeAs(
-            "driver_documents/{$user->id}",
-            $request->type . '.' . $file->getClientOriginalExtension(),
-            'public'
-        );
-
-        // Ensure profile() relation exists in User model
         $profile = $user->profile()->firstOrCreate(
             ['user_id' => $user->id],
             ['driver_status_id' => 1]
         );
 
-        if ($request->type === 'id') {
+        // Delete old document if exists
+        if ($validated['type'] === 'id' && $profile->id_document_path) {
+            Storage::disk('public')->delete($profile->id_document_path);
             $profile->id_document_path = $path;
-        } else {
+        } elseif ($validated['type'] === 'license' && $profile->license_document_path) {
+            Storage::disk('public')->delete($profile->license_document_path);
             $profile->license_document_path = $path;
         }
-        
+
         $profile->save();
 
         Log::info('Document uploaded', [
             'user_id' => $user->id,
-            'type'    => $request->type,
-            'path'    => $path,
+            'type' => $validated['type'],
+            'stored_path' => $path,
         ]);
 
         return response()->json([
             'message' => 'Document uploaded successfully',
-            'type'    => $request->type,
-            'path'    => $path,
+            'path' => $path,
         ]);
     }
 
     public function submitVerification(Request $request)
     {
-        $user = Auth::user();
+        $user = $this->getAuthUser();
+        $profile = $this->getDriverProfile($user);
 
-        if (!$user) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
-        }
+        $profile->update(['driver_status_id' => 2]);
 
-        $profile = $user->profile()->first();
-
-        if (!$profile) {
-            return response()->json(['message' => 'Driver profile not found'], 404);
-        }
-
-        $profile->driver_status_id = 2;
-        $profile->save();
-
-        return response()->json([
-            'message' => 'Verification submitted successfully. Status set to pending.',
-            'status' => 'pending',
-        ]);
+        return response()->json(['message' => 'Verification submitted. Status set to pending.']);
     }
 
     public function requestedRides(Request $request)
     {
-        $user = Auth::user();
+        $user = $this->getAuthUser();
+        $profile = $this->getDriverProfile($user)->loadMissing('status');
 
-        $driverProfile = $user->profile;
-        if (
-            !$driverProfile ||
-            (!$driverProfile->relationLoaded('status') && !$driverProfile->load('status')) ||
-            $driverProfile->status->name !== 'approved'
-        ) {
+        if ($profile->status->name !== 'approved') {
             return response()->json([
-                'message' => 'Access denied. Only approved drivers can view ride requests.'
+                'message' => 'Only approved drivers can view ride requests.'
             ], 403);
         }
 
-        $rides = Ride::where('ride_status_id', RideStatus::REQUESTED)
+        $rides = Ride::with(['rejections' => fn($q) => $q->where('driver_id', $user->id)])
+            ->where('ride_status_id', RideStatus::REQUESTED)
             ->where(function ($query) use ($user) {
-                $query->where('driver_id', $user->id) // assigned directly
+                $query->where('driver_id', $user->id)
                     ->orWhere(function ($q) use ($user) {
-                        $q->whereNull('driver_id') // not yet assigned
-                            ->whereDoesntHave('rejections', function ($r) use ($user) {
-                                $r->where('driver_id', $user->id); // rejected by this driver
-                            });
+                        $q->whereNull('driver_id')
+                            ->whereDoesntHave('rejections', fn($r) => $r->where('driver_id', $user->id));
                     });
             })
-            ->get();
+            ->get(['id', 'pickup_latitude', 'pickup_longitude', 'dropoff_latitude', 'dropoff_longitude', 'driver_id']);
 
         return response()->json($rides);
     }
-    
+
     public function updateLocation(Request $request)
     {
-        $user = Auth::user();
-
-        if (!$user) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
-        }
+        $user = $this->getAuthUser();
+        $profile = $this->getDriverProfile($user);
 
         $validated = $request->validate([
             'latitude'  => 'required|numeric|between:-90,90',
@@ -199,24 +177,15 @@ class DriverController extends Controller
             'is_online' => 'sometimes|boolean',
         ]);
 
-        $profile = $user->profile;
-
-        if (!$profile) {
-            return response()->json(['message' => 'Driver profile not found.'], 404);
-        }
-
-        $profile->current_latitude = $validated['latitude'];
-        $profile->current_longitude = $validated['longitude'];
-
-        if (array_key_exists('is_online', $validated)) {
-            $profile->is_online = $validated['is_online'];
-        }
-
-        $profile->save();
+        $profile->update([
+            'current_latitude' => $validated['latitude'],
+            'current_longitude' => $validated['longitude'],
+            'is_online' => $validated['is_online'] ?? $profile->is_online,
+        ]);
 
         return response()->json([
-            'message'   => 'Location updated successfully',
-            'latitude'  => $profile->current_latitude,
+            'message' => 'Location updated',
+            'latitude' => $profile->current_latitude,
             'longitude' => $profile->current_longitude,
             'is_online' => $profile->is_online,
         ]);
@@ -224,37 +193,27 @@ class DriverController extends Controller
 
     public function requestRide(Request $request, DriverMatchingService $matcher)
     {
-        $user = Auth::user();
-
-        // log the user
-        Log::info('Ride request initiated', [
-            'user_id' => $user ? $user->id : null,
-            'request_data' => $request->all(),
-        ]);
-
-        if (!$user) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
-        }
+        $user = $this->getAuthUser();
 
         $validated = $request->validate([
-            'pickup_latitude'  => 'required|numeric|between:-90,90',
+            'pickup_latitude' => 'required|numeric|between:-90,90',
             'pickup_longitude' => 'required|numeric|between:-180,180',
             'dropoff_latitude' => 'required|numeric|between:-90,90',
-            'dropoff_longitude'=> 'required|numeric|between:-180,180',
-            'pickup_address'   => 'required|string|max:255',
-            'dropoff_address'  => 'required|string|max:255',
+            'dropoff_longitude' => 'required|numeric|between:-180,180',
+            'pickup_address' => 'required|string|max:255',
+            'dropoff_address' => 'required|string|max:255',
         ]);
 
-        // Find nearby drivers
         $drivers = $matcher->findNearbyDrivers(
             $validated['pickup_latitude'],
-            $validated['pickup_longitude']
+            $validated['pickup_longitude'],
+            10
         );
 
         if ($drivers->isEmpty()) {
             return response()->json(['message' => 'No drivers available nearby'], 404);
         }
-        
+
         return response()->json([
             'message' => 'Nearby drivers found',
             'drivers' => $drivers->pluck('id'),
@@ -263,19 +222,14 @@ class DriverController extends Controller
 
     public function goOffline(Request $request)
     {
-        $user = $request->user();
+        $user = $this->getAuthUser();
+        $profile = $this->getDriverProfile($user);
 
-        if (!$user || !$user->profile) {
-            return response()->json(['message' => 'Driver profile not found.'], 404);
-        }
-
-        $profile = $user->profile;
-        $profile->is_online = false;
-        $profile->save();
+        $profile->update(['is_online' => false]);
 
         return response()->json(['message' => 'Driver is now offline.']);
     }
-    
+
     public function getLocation(Request $request, $rideId)
     {
         $ride = Ride::with('driver.profile')->findOrFail($rideId);
@@ -287,46 +241,42 @@ class DriverController extends Controller
 
         $profile = $ride->driver->profile;
 
-        $response = [
+        return response()->json([
             'latitude' => $profile->current_latitude,
             'longitude' => $profile->current_longitude,
             'driver' => [
                 'name' => $ride->driver->name,
                 'plate' => $ride->driver->car_plate,
             ],
-        ];
-
-        Log::info("Driver location fetched for ride ID {$rideId}", $response);
-
-        return response()->json($response);
+        ]);
     }
 
     public function trips(Request $request)
     {
-        $driver = Auth::user();
-
-        if (!$driver || !$driver->profile) {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
+        $user = $this->getAuthUser();
 
         try {
-            $trips = Ride::with(['user', 'status'])
-                ->where('driver_id', $driver->id)
-                ->latest('requested_at')
-                ->get(); // Use get() instead of paginate()
+            $trips = Ride::with([
+                'user:id,name,email',
+                'status:id,name',
+            ])
+            ->where('driver_id', $user->id)
+            ->latest('requested_at')
+            ->get([
+                'id', 'user_id', 'status_id', 'pickup_address', 'dropoff_address', 'requested_at'
+            ]);
 
-            Log::info('Driver trips fetched', [
-                'driver_id' => $driver->id,
-                'trips_count' => $trips->count(),
+            Log::info('Fetched driver trips', [
+                'driver_id' => $user->id,
+                'count' => $trips->count(),
             ]);
 
             return response()->json($trips);
         } catch (\Exception $e) {
             Log::error('Failed to fetch driver trips', [
-                'driver_id' => $driver->id,
+                'driver_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
-
             return response()->json(['error' => 'Could not fetch trips'], 500);
         }
     }

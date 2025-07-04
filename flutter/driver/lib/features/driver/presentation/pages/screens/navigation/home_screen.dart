@@ -27,6 +27,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _startAutoAcceptTimer(RideRequest ride) {
     _cancelAutoAcceptTimer();
     _remainingSeconds = 30;
+    _selectedRide = ride;
 
     _autoAcceptTimer = Timer.periodic(const Duration(seconds: 1), (
       timer,
@@ -38,11 +39,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _cancelAutoAcceptTimer();
         if (!mounted) return;
 
-        // Using ref.read to get provider notifier and call method
         final updatedRide = await ref
             .read(driverProvider.notifier)
-            .acceptRequest(ride);
+            .acceptRide(ride);
 
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -55,6 +56,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
 
         setState(() => _selectedRide = null);
+        if (updatedRide != null) {
+          await _showDriverConfirmationDialog(
+            context: context,
+            riderName: updatedRide.riderName ?? 'Rider',
+            profilePicture: updatedRide.riderProfilePicture,
+          );
+        }
       }
     });
   }
@@ -76,14 +84,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (bottomSheetContext) {
+      builder: (context) {
         return PopScope(
           canPop: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const Icon(
                   Icons.emoji_transportation,
@@ -93,29 +100,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 const SizedBox(height: 16),
                 const Text(
                   'Ride Accepted Successfully!',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
-                  ),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   '$riderName is waiting for you to pick up!',
-                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
                   textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
                 ),
                 const SizedBox(height: 24),
                 Row(
                   children: [
                     CircleAvatar(
                       radius: 36,
-                      backgroundImage:
-                          (profilePicture != null && profilePicture.isNotEmpty)
-                          ? NetworkImage(profilePicture)
+                      backgroundImage: (profilePicture?.isNotEmpty ?? false)
+                          ? NetworkImage(profilePicture!)
                           : null,
                       backgroundColor: Colors.grey[300],
-                      child: (profilePicture == null || profilePicture.isEmpty)
+                      child: (profilePicture?.isEmpty ?? true)
                           ? const Icon(
                               Icons.person,
                               size: 36,
@@ -127,23 +129,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                        children: const [
                           Text(
-                            riderName,
-                            style: const TextStyle(
+                            '4.8',
+                            style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          const Row(
+                          SizedBox(height: 4),
+                          Row(
                             children: [
                               Icon(Icons.star, color: Colors.amber, size: 16),
                               SizedBox(width: 4),
-                              Text('4.8'),
+                              Text('Rating'),
                             ],
                           ),
-                          const SizedBox(height: 4),
                         ],
                       ),
                     ),
@@ -155,21 +156,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.verified),
                     label: const Text('Great, thanks!'),
-                    onPressed: () {
-                      Navigator.of(
-                        bottomSheetContext,
-                      ).pop('navigate_to_tracking');
-                    },
+                    onPressed: () =>
+                        Navigator.of(context).pop('navigate_to_tracking'),
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
                       backgroundColor: Colors.green[600],
                       foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       textStyle: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
@@ -182,16 +180,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
 
     if (result == 'navigate_to_tracking') {
-      // TODO: Navigate to your tracking screen
-      // Navigator.pushNamed(context, '/tracking');
+      // TODO: Navigator.pushNamed(context, '/tracking');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Watch the driverProvider to get latest state
     final driverState = ref.watch(driverProvider);
-    final rides = driverState.requestedRides;
+    final rides = driverState.maybeWhen(
+      data: (state) => state.requestedRides,
+      orElse: () => [],
+    );
 
     final nearestRide = rides.isNotEmpty
         ? rides.reduce(
@@ -203,22 +202,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           )
         : null;
 
+    // Start countdown only when nearestRide changes
     if (nearestRide != null &&
         (_selectedRide == null || _selectedRide!.id != nearestRide.id)) {
-      _selectedRide = nearestRide;
       _startAutoAcceptTimer(nearestRide);
     }
 
     return Scaffold(
-      appBar: CustomUserAppBar(
-        isOnline: driverState.isOnline,
-        onToggleOnline: (val) {
-          if (!val) {
-            _cancelAutoAcceptTimer();
-            setState(() => _selectedRide = null);
-          }
-        },
-      ),
+      appBar: CustomUserAppBar(),
       body: rides.isEmpty
           ? const Center(child: Text("No incoming ride requests."))
           : ListView.builder(
@@ -226,12 +217,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               itemCount: rides.length,
               itemBuilder: (context, index) {
                 final ride = rides[index];
-                final isSelected = _selectedRide?.id == ride.id;
                 return _buildRideCard(
                   context,
                   ride,
-                  isSelected,
-                  ref.read(driverProvider.notifier),
+                  ride.id == _selectedRide?.id,
                 );
               },
             ),
@@ -242,8 +231,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     BuildContext context,
     RideRequest ride,
     bool isSelected,
-    DriverProvider provider,
   ) {
+    final provider = ref.read(driverProvider.notifier);
     final theme = Theme.of(context);
 
     return Card(
@@ -287,13 +276,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         _cancelAutoAcceptTimer();
                         setState(() => _selectedRide = null);
                       }
-                      await provider.fetchRequestedRides();
-                      if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text(
-                            'Ride rejected. Refreshed nearby rides.',
-                          ),
+                          content: Text('Ride rejected.'),
                           backgroundColor: Colors.orange,
                         ),
                       );
@@ -311,14 +296,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     icon: const Icon(Icons.check, size: 20),
                     label: const Text("Accept"),
                     onPressed: () async {
-                      final updatedRide = await provider.acceptRequest(ride);
-
+                      final updatedRide = await provider.acceptRide(ride);
                       if (_selectedRide?.id == ride.id) {
                         _cancelAutoAcceptTimer();
                         setState(() => _selectedRide = null);
                       }
-
-                      if (!mounted) return;
 
                       if (updatedRide != null) {
                         await _showDriverConfirmationDialog(

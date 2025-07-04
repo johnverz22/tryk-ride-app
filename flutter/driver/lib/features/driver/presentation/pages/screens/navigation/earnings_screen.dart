@@ -4,22 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../widgets/widgets.dart';
 import 'earnings/withdraw_screen.dart';
 import 'earnings/earnings_history_screen.dart';
-import '../../../providers/driver_provider.dart'; // Make sure this is a Riverpod provider now
 
 class EarningsScreen extends ConsumerWidget {
   const EarningsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final driverState = ref.watch(driverProvider);
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
-      appBar: CustomUserAppBar(
-        isOnline: driverState.isOnline,
-        onToggleOnline: (val) =>
-            ref.read(driverProvider.notifier).setOnlineStatus(val),
-      ),
+      appBar: CustomUserAppBar(),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         children: [

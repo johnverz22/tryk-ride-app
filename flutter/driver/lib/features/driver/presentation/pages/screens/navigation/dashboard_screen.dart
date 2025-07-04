@@ -9,147 +9,148 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final driver = ref.watch(driverProvider);
+    final asyncDriver = ref.watch(driverProvider);
 
     return Scaffold(
-      appBar: CustomUserAppBar(
-        isOnline: driver.isOnline,
-        onToggleOnline: (val) =>
-            ref.read(driverProvider.notifier).setOnlineStatus(val),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 🔹 Today’s Overview
-            Text(
-              'Today’s Overview',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 20,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: const [
-                    TripStatTile(label: 'Trips', value: '7'),
-                    TripStatTile(label: 'Earnings', value: '₱89.50'),
-                    TripStatTile(label: 'Online', value: '4h 32m'),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // 🔹 Performance Section
-            Text(
-              'Performance',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 2,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 20,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: const [
-                    TripStatTile(label: 'Acceptance', value: '95%'),
-                    TripStatTile(label: 'Rating', value: '4.91'),
-                    TripStatTile(label: 'Cancel Rate', value: '2%'),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // 🔹 Weekly Earnings Chart
-            Text(
-              'Weekly Earnings',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              color: Colors.deepPurple.shade50,
-              elevation: 1,
-              child: SizedBox(
-                height: 160,
-                child: Center(
-                  child: Text(
-                    '📊 Chart Coming Soon',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: Colors.deepPurple,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // 🔹 Action Buttons
-            Row(
+      appBar: CustomUserAppBar(),
+      body: asyncDriver.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Error: $err')),
+        data: (driver) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      // TODO: Navigate to earnings screen
-                    },
-                    icon: const Icon(Icons.monetization_on),
-                    label: const Text('Earnings'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                // 🔹 Today’s Overview
+                Text(
+                  'Today’s Overview',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 20,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: const [
+                        TripStatTile(label: 'Trips', value: '7'),
+                        TripStatTile(label: 'Earnings', value: '₱89.50'),
+                        TripStatTile(label: 'Online', value: '4h 32m'),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // 🔹 Performance Section
+                Text(
+                  'Performance',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 20,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: const [
+                        TripStatTile(label: 'Acceptance', value: '95%'),
+                        TripStatTile(label: 'Rating', value: '4.91'),
+                        TripStatTile(label: 'Cancel Rate', value: '2%'),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // 🔹 Weekly Earnings Chart
+                Text(
+                  'Weekly Earnings',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  color: Colors.deepPurple.shade50,
+                  elevation: 1,
+                  child: SizedBox(
+                    height: 160,
+                    child: Center(
+                      child: Text(
+                        '📊 Chart Coming Soon',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: Colors.deepPurple,
+                        ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      // TODO: Navigate to history screen
-                    },
-                    icon: const Icon(Icons.history),
-                    label: const Text('History'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 32),
+
+                // 🔹 Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          // TODO: Navigate to earnings screen
+                        },
+                        icon: const Icon(Icons.monetization_on),
+                        label: const Text('Earnings'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          // TODO: Navigate to history screen
+                        },
+                        icon: const Icon(Icons.history),
+                        label: const Text('History'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 40),
               ],
             ),
-
-            const SizedBox(height: 40),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

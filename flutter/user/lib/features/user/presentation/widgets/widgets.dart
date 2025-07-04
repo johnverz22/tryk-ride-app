@@ -1,4 +1,4 @@
-export 'appbar/custom_app_bar.dart';
+export 'appbar/app_bar.dart';
 
 // Home Screen
 export 'home_screen/location_card.dart';
@@ -34,6 +34,7 @@ export 'wallet_screen/transaction_history.dart';
 export 'wallet_screen/analytics_placeholder.dart';
 
 // Profile Screen
+export 'profile_screen/save_changes_button.dart';
 
 // Ride Booking Screen
 export 'ride_booking_screen/info_tile.dart';

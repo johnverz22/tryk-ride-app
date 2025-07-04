@@ -181,11 +181,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           controller: emailController,
                           inputType: TextInputType.emailAddress,
                           validator: (val) {
-                            if (val == null || val.isEmpty)
+                            if (val == null || val.isEmpty) {
                               return 'Enter a valid email';
+                            }
                             final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-                            if (!emailRegex.hasMatch(val))
+                            if (!emailRegex.hasMatch(val)) {
                               return 'Enter a valid email address';
+                            }
                             return null;
                           },
                         ),

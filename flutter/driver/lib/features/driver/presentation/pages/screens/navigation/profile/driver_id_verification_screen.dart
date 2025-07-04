@@ -7,8 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:mime/mime.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import '../../../../../../../core/config/api_config.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class DriverIdVerificationScreen extends StatefulWidget {
   const DriverIdVerificationScreen({super.key});
@@ -20,6 +19,7 @@ class DriverIdVerificationScreen extends StatefulWidget {
 
 class _DriverIdVerificationScreenState
     extends State<DriverIdVerificationScreen> {
+  final baseUrl = dotenv.env['BASE_URL'];
   bool idUploaded = false;
   bool licenseUploaded = false;
   bool submitted = false;
@@ -45,11 +45,8 @@ class _DriverIdVerificationScreenState
     if (token == null) return;
 
     final response = await http.get(
-      Uri.parse('${ApiConfig.baseUrl}/driver/documents'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      },
+      Uri.parse('$baseUrl/driver/documents'),
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
     );
 
     if (response.statusCode == 200) {
@@ -89,17 +86,20 @@ class _DriverIdVerificationScreenState
       return;
     }
 
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('${ApiConfig.baseUrl}/driver/upload-document'),
-    )
-      ..headers['Authorization'] = 'Bearer $token'
-      ..fields['type'] = type
-      ..files.add(await http.MultipartFile.fromPath(
-        'document',
-        file.path,
-        filename: p.basename(file.path),
-      ));
+    final request =
+        http.MultipartRequest(
+            'POST',
+            Uri.parse('$baseUrl/driver/upload-document'),
+          )
+          ..headers['Authorization'] = 'Bearer $token'
+          ..fields['type'] = type
+          ..files.add(
+            await http.MultipartFile.fromPath(
+              'document',
+              file.path,
+              filename: p.basename(file.path),
+            ),
+          );
 
     final response = await request.send();
     final responseBody = await response.stream.bytesToString();
@@ -133,11 +133,8 @@ class _DriverIdVerificationScreenState
     }
 
     final response = await http.post(
-      Uri.parse('${ApiConfig.baseUrl}/driver/submit-verification'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Accept': 'application/json',
-      },
+      Uri.parse('$baseUrl/driver/submit-verification'),
+      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
     );
 
     if (response.statusCode == 200) {
@@ -190,34 +187,38 @@ class _DriverIdVerificationScreenState
 
     if (localFile != null && isImage) {
       previewWidget = Image.file(
-        localFile, 
-        width: 60, 
-        height: 60, 
+        localFile,
+        width: 60,
+        height: 60,
         fit: BoxFit.cover,
       );
-    } else if (remoteUrl != null && isImage) {        
-        previewWidget = Image.network(
-          remoteUrl,
-          width: 60,
-          height: 60,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return const Center(
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            debugPrint('Failed to load image preview: $remoteUrl');
-            return const Icon(Icons.broken_image, size: 40, color: Colors.grey);
-          },
-        );
-      } else if (isPdf) {
-      previewWidget = const Icon(Icons.picture_as_pdf, size: 40, color: Colors.red);
+    } else if (remoteUrl != null && isImage) {
+      previewWidget = Image.network(
+        remoteUrl,
+        width: 60,
+        height: 60,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          debugPrint('Failed to load image preview: $remoteUrl');
+          return const Icon(Icons.broken_image, size: 40, color: Colors.grey);
+        },
+      );
+    } else if (isPdf) {
+      previewWidget = const Icon(
+        Icons.picture_as_pdf,
+        size: 40,
+        color: Colors.red,
+      );
     }
 
     return Card(
@@ -239,9 +240,11 @@ class _DriverIdVerificationScreenState
         ),
         title: Text(title),
         subtitle: uploaded
-            ? Text(localFile?.path != null
-                ? p.basename(localFile!.path)
-                : (remoteUrl != null ? p.basename(remoteUrl) : ''))
+            ? Text(
+                localFile?.path != null
+                    ? p.basename(localFile!.path)
+                    : (remoteUrl != null ? p.basename(remoteUrl) : ''),
+              )
             : const Text('No file uploaded'),
         trailing: submitted
             ? const Icon(Icons.lock, color: Colors.grey)
@@ -251,7 +254,10 @@ class _DriverIdVerificationScreenState
                 onPressed: onUpload,
               ),
         onTap: !isImage && remoteUrl != null
-            ? () => launchUrl(Uri.parse(remoteUrl), mode: LaunchMode.externalApplication)
+            ? () => launchUrl(
+                Uri.parse(remoteUrl),
+                mode: LaunchMode.externalApplication,
+              )
             : null,
       ),
     );
@@ -262,9 +268,7 @@ class _DriverIdVerificationScreenState
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Driver ID Verification'),
-      ),
+      appBar: AppBar(title: const Text('Driver ID Verification')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: ListView(
@@ -274,12 +278,14 @@ class _DriverIdVerificationScreenState
                 color: Colors.blue.shade50,
                 elevation: 1,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: ListTile(
                   leading: const Icon(Icons.info, color: Colors.blue),
                   title: const Text('Documents submitted'),
-                  subtitle:
-                      const Text('Your documents are under review for verification.'),
+                  subtitle: const Text(
+                    'Your documents are under review for verification.',
+                  ),
                 ),
               ),
             const SizedBox(height: 16),
@@ -316,7 +322,8 @@ class _DriverIdVerificationScreenState
                 backgroundColor: theme.colorScheme.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ],

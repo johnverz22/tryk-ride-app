@@ -11,6 +11,7 @@ class AuthForm extends ConsumerStatefulWidget {
 
 class _AuthFormState extends ConsumerState<AuthForm> {
   final _formKey = GlobalKey<FormState>();
+  bool _obscurePassword = true;
 
   @override
   Widget build(BuildContext context) {
@@ -20,12 +21,18 @@ class _AuthFormState extends ConsumerState<AuthForm> {
     return Form(
       key: _formKey,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            controller.isLogin ? 'Login' : 'Register',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: theme.primaryColor,
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: Text(
+              controller.isLogin ? 'Login' : 'Register',
+              key: ValueKey(controller.isLogin),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -35,7 +42,26 @@ class _AuthFormState extends ConsumerState<AuthForm> {
           const _EmailField(),
           const SizedBox(height: 16),
 
-          const _PasswordField(),
+          TextFormField(
+            controller: controller.passwordController,
+            obscureText: _obscurePassword,
+            decoration: _inputDecoration(
+              context,
+              label: 'Password',
+              icon: Icons.lock,
+              suffix: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  color: theme.colorScheme.primary,
+                ),
+                onPressed: () {
+                  setState(() => _obscurePassword = !_obscurePassword);
+                },
+              ),
+            ),
+            validator: (val) =>
+                val == null || val.length < 8 ? 'Min 8 characters' : null,
+          ),
           const SizedBox(height: 16),
 
           if (controller.error != null)
@@ -43,43 +69,37 @@ class _AuthFormState extends ConsumerState<AuthForm> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 controller.error!,
-                style: const TextStyle(color: Colors.red),
+                style: TextStyle(color: theme.colorScheme.error),
               ),
             ),
 
           controller.loading
-              ? const CircularProgressIndicator()
-              : ElevatedButton(
+              ? const Center(child: CircularProgressIndicator())
+              : FilledButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
                       controller.submit(context);
                     }
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.primaryColor,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 14,
-                    ),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: Text(
                     controller.isLogin ? 'Login' : 'Register',
-                    style: TextStyle(
-                      color: theme.colorScheme.onPrimary,
-                      fontSize: 16,
-                    ),
+                    style: const TextStyle(fontSize: 16),
                   ),
                 ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
+
           TextButton(
             onPressed: controller.toggleMode,
             child: Text(
               controller.isLogin
-                  ? 'Don’t have an account? Register'
-                  : 'Already have an account? Login',
+                  ? 'Don’t have an account? Register here'
+                  : 'Already have an account? Login here',
               style: const TextStyle(color: Colors.grey),
             ),
           ),
@@ -89,20 +109,24 @@ class _AuthFormState extends ConsumerState<AuthForm> {
   }
 }
 
+// --- Name Field ---
 class _NameField extends ConsumerWidget {
   const _NameField();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(authControllerProvider);
-    final theme = Theme.of(context);
     return Column(
       children: [
         TextFormField(
           controller: controller.nameController,
-          decoration: _decoration('Name', Icons.person, theme),
+          decoration: _inputDecoration(
+            context,
+            label: 'Name',
+            icon: Icons.person,
+          ),
           validator: (val) =>
-              val == null || val.isEmpty ? 'Enter your name' : null,
+              val == null || val.trim().isEmpty ? 'Enter your name' : null,
         ),
         const SizedBox(height: 16),
       ],
@@ -110,18 +134,18 @@ class _NameField extends ConsumerWidget {
   }
 }
 
+// --- Email Field ---
 class _EmailField extends ConsumerWidget {
   const _EmailField();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(authControllerProvider);
-    final theme = Theme.of(context);
-    final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+    final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
 
     return TextFormField(
       controller: controller.emailController,
-      decoration: _decoration('Email', Icons.email, theme),
+      decoration: _inputDecoration(context, label: 'Email', icon: Icons.email),
       keyboardType: TextInputType.emailAddress,
       validator: (val) {
         if (val == null || val.isEmpty) return 'Enter a valid email';
@@ -131,36 +155,39 @@ class _EmailField extends ConsumerWidget {
   }
 }
 
-class _PasswordField extends ConsumerWidget {
-  const _PasswordField();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.read(authControllerProvider);
-    final theme = Theme.of(context);
-
-    return TextFormField(
-      controller: controller.passwordController,
-      decoration: _decoration('Password', Icons.lock, theme),
-      obscureText: true,
-      validator: (val) =>
-          val == null || val.length < 6 ? 'Min 6 characters' : null,
-    );
-  }
-}
-
-InputDecoration _decoration(String label, IconData icon, ThemeData theme) {
+// --- Input Decoration Helper ---
+InputDecoration _inputDecoration(
+  BuildContext context, {
+  required String label,
+  required IconData icon,
+  Widget? suffix,
+}) {
+  final theme = Theme.of(context);
   return InputDecoration(
-    prefixIcon: Icon(icon, color: theme.primaryColor),
     labelText: label,
-    labelStyle: TextStyle(color: theme.primaryColor),
-    enabledBorder: OutlineInputBorder(
-      borderSide: BorderSide(color: theme.primaryColor),
+    prefixIcon: Icon(icon, color: theme.colorScheme.primary),
+    suffixIcon: suffix,
+    filled: true,
+    fillColor: Colors.grey.shade100,
+    labelStyle: TextStyle(color: theme.colorScheme.primary),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(
+        color: theme.colorScheme.primary.withValues(alpha: 0.5),
+      ),
     ),
     focusedBorder: OutlineInputBorder(
-      borderSide: BorderSide(color: theme.primaryColor, width: 2),
       borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Colors.red),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Colors.red, width: 2),
     ),
   );
 }

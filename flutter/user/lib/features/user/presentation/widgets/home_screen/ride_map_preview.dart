@@ -15,13 +15,13 @@ class RideMapPreview extends StatefulWidget {
   onRouteInfoLoaded;
 
   const RideMapPreview({
-    Key? key,
+    super.key,
     required this.fromLocation,
     required this.toLocation,
     required this.apiKey,
     this.routeColor = Colors.blue,
     this.onRouteInfoLoaded,
-  }) : super(key: key);
+  });
 
   @override
   State<RideMapPreview> createState() => _RideMapPreviewState();

@@ -59,8 +59,9 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
   Future<void> _fetchRouteInfo() async {
     if (_fromLocation == null ||
         _toLocation == null ||
-        googleMapsApiKey == null)
+        googleMapsApiKey == null) {
       return;
+    }
 
     final url =
         'https://maps.googleapis.com/maps/api/directions/json?origin=${_fromLocation!.latitude},${_fromLocation!.longitude}&destination=${_toLocation!.latitude},${_toLocation!.longitude}&key=$googleMapsApiKey';

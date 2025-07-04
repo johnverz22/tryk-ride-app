@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../providers/driver_provider.dart';
 
-class PersonalInfoScreen extends StatefulWidget {
+class PersonalInfoScreen extends ConsumerStatefulWidget {
   const PersonalInfoScreen({super.key});
 
   @override
-  State<PersonalInfoScreen> createState() => _PersonalInfoScreenState();
+  ConsumerState<PersonalInfoScreen> createState() => _PersonalInfoScreenState();
 }
 
-class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
+class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
@@ -20,20 +21,20 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final user = Provider.of<DriverProvider>(context).driver;
+    final driverState = ref.read(driverProvider);
+    final user = driverState.value?.driver;
     if (user != null) {
       _nameController.text = user.name;
       _emailController.text = user.email;
       _phoneController.text = user.phone;
-      // _dobController.text = user.lastLoginAt?.toIso8601String().split("T").first ?? "1990-01-01";
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final userProvider = Provider.of<DriverProvider>(context, listen: false);
-    final user = userProvider.driver;
+    final driverState = ref.watch(driverProvider);
+    final user = driverState.value?.driver;
 
     return Scaffold(
       appBar: AppBar(
@@ -41,20 +42,20 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
         centerTitle: true,
         elevation: 0,
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            _buildEditableField("Full Name", _nameController),
-            _buildEditableField("Email Address", _emailController),
-            _buildEditableField("Phone Number", _phoneController),
-            // _buildEditableField("Date of Birth", _dobController),
-            // _buildEditableField("Location", _locationController),
-            const SizedBox(height: 100),
-          ],
-        ),
-      ),
+      body: user == null
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  _buildEditableField("Full Name", _nameController),
+                  _buildEditableField("Email Address", _emailController),
+                  _buildEditableField("Phone Number", _phoneController),
+                  const SizedBox(height: 100),
+                ],
+              ),
+            ),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -68,12 +69,13 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
                     name: _nameController.text.trim(),
                     email: _emailController.text.trim(),
                     phone: _phoneController.text.trim(),
-                    // location: _locationController.text.trim(),
                     updatedAt: DateTime.now(),
                   );
 
                   try {
-                    await userProvider.updateDriver(updatedUser);
+                    await ref
+                        .read(driverProvider.notifier)
+                        .updateDriver(updatedUser);
 
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -91,8 +93,13 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: theme.colorScheme.primary,
                 foregroundColor: Colors.white,
-                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
@@ -123,10 +130,13 @@ class _PersonalInfoScreenState extends State<PersonalInfoScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
-        validator: (value) => value == null || value.isEmpty ? 'Please enter $label' : null,
+        validator: (value) =>
+            value == null || value.isEmpty ? 'Please enter $label' : null,
       ),
     );
   }

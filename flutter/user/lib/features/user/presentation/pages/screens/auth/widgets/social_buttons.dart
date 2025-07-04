@@ -8,28 +8,15 @@ class SocialButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const Divider(height: 32),
         Text(
           'Or continue with',
           style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 4),
         const _SocialBtn(
           icon: FontAwesomeIcons.google,
           text: 'Continue with Google',
           color: Color(0xFFDB4437),
-        ),
-        const SizedBox(height: 12),
-        const _SocialBtn(
-          icon: FontAwesomeIcons.facebookF,
-          text: 'Continue with Facebook',
-          color: Color(0xFF1877F2),
-        ),
-        const SizedBox(height: 12),
-        const _SocialBtn(
-          icon: FontAwesomeIcons.xTwitter,
-          text: 'Continue with X',
-          color: Colors.black,
         ),
       ],
     );
@@ -56,6 +43,8 @@ class _SocialBtn extends StatelessWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
+        elevation: 2,
+        splashFactory: InkSplash.splashFactory,
         minimumSize: const Size(double.infinity, 48),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),

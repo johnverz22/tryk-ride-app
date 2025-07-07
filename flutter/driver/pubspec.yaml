@@ -31,6 +31,7 @@ dependencies:
   smooth_page_indicator: ^1.2.1
   go_router: ^15.2.4
   flutter_dotenv: ^5.2.1
+  equatable: ^2.0.7
 
 dev_dependencies:
   flutter_test:

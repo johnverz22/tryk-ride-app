@@ -1,10 +1,10 @@
+import 'package:driver/presentation/providers/driver_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/driver/presentation/pages/screens/auth/auth_screen.dart';
-import '../../features/skeleton/skeleton.dart';
-import '../../features/driver/presentation/providers/driver_provider.dart';
+import '../../presentation/screens/auth_screen.dart';
+import '../../skeleton.dart';
 
 /// Notifies GoRouter when driverProvider changes (auth/login/logout)
 class GoRouterRefreshNotifier extends ChangeNotifier {
@@ -26,15 +26,24 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final driver = ref.read(driverProvider);
 
-      final loggedIn = driver.isAuthenticated;
-      final loggingIn = state.matchedLocation == '/auth';
+      final loggedIn = driver.driver != null && driver.token != null;
+      final isAtAuth = state.matchedLocation == '/auth';
+      final isAtHome = state.matchedLocation == '/home';
 
-      // Redirect to /auth if not logged in
-      if (!loggedIn && !loggingIn) return '/auth';
+      // If not logged in and trying to access anything other than /auth, redirect to /auth
+      if (!loggedIn && !isAtAuth) {
+        return '/auth';
+      }
 
-      // Redirect to /home if logged in but on /auth
-      if (loggedIn && loggingIn) return '/home';
+    // If logged in and trying to access /auth, redirect to /home
+      if (loggedIn && isAtAuth) {
+        return '/home';
+      }
 
+      // If logged out and currently at /home, redirect to /auth
+      if (!loggedIn && isAtHome) {
+        return '/auth';
+      }
       return null; // no redirect needed
     },
     routes: [

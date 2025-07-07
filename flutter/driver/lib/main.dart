@@ -1,9 +1,9 @@
 import 'package:driver/core/router/router.dart';
+import 'package:driver/presentation/providers/driver_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'features/driver/presentation/providers/driver_provider.dart';
 
 void main() async {
   await dotenv.load();

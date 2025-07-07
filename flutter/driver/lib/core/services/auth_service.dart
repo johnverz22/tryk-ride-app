@@ -1,19 +1,14 @@
 import 'dart:convert';
+import 'package:driver/presentation/providers/driver_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:driver/features/driver/presentation/providers/driver_provider.dart';
-import '../../features/driver/data/models/driver_model.dart';
+import '../../data/models/driver_model.dart';
 import '../config/api_config.dart';
 
 final storage = FlutterSecureStorage();
 final baseUrl = ApiConfig.baseUrl;
-
-final driverNotifierProvider = StateNotifierProvider<DriverNotifier, DriverState>(
-  (ref) => DriverNotifier(),
-);
-
 class AuthService {
   final client = http.Client();
 
@@ -39,7 +34,7 @@ class AuthService {
         await storage.write(key: 'token', value: token);
         await storage.write(key: 'user', value: jsonEncode(data['user']));
 
-        ref.read(driverNotifierProvider.notifier).setDriver(driver, token);
+        ref.read(driverProvider.notifier).setDriver(driver, token);
         return true;
       } else {
         debugPrint('[AuthService] Register failed: ${res.body}');
@@ -71,7 +66,7 @@ class AuthService {
         await storage.write(key: 'token', value: token);
         await storage.write(key: 'user', value: jsonEncode(data['user']));
 
-        ref.read(driverNotifierProvider.notifier).setDriver(driver, token);
+        ref.read(driverProvider.notifier).setDriver(driver, token);
         return true;
       } else {
         print('[AuthService] Login failed: ${res.body}');
@@ -97,13 +92,13 @@ class AuthService {
         );
       }
     } catch (e) {
-      print('[AuthService] Network error (logout): $e');
+      debugPrint('[AuthService] Network error (logout): $e');
     }
 
     await storage.delete(key: 'token');
     await storage.delete(key: 'user');
-    ref.read(driverNotifierProvider.notifier).logout();
-    print('[AuthService] Logged out');
+    ref.read(driverProvider.notifier).logout();
+    debugPrint('[AuthService] Logged out');
   }
 
   // Get access token

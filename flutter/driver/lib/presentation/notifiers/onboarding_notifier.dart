@@ -15,9 +15,3 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     // You might want to persist this status in local storage/shared prefs here
   }
 }
-
-// Provider for onboarding state
-final onboardingProvider =
-    StateNotifierProvider<OnboardingNotifier, OnboardingState>(
-      (ref) => OnboardingNotifier(),
-    );

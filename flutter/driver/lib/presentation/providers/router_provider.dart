@@ -1,34 +1,34 @@
+import 'package:driver/presentation/notifiers/router_notifier.dart';
+import 'package:driver/presentation/providers/auth_provider.dart';
 import 'package:driver/presentation/providers/driver_provider.dart';
-import 'package:flutter/material.dart';
+import 'package:driver/presentation/screens/onboarding_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../presentation/screens/auth_screen.dart';
+import '../screens/auth_screen.dart';
 import '../../skeleton.dart';
-
-/// Notifies GoRouter when driverProvider changes (auth/login/logout)
-class GoRouterRefreshNotifier extends ChangeNotifier {
-  GoRouterRefreshNotifier(this.ref) {
-    ref.listen(driverProvider, (_, _) => notifyListeners());
-  }
-
-  final Ref ref;
-}
 
 /// The main app router provider
 final routerProvider = Provider<GoRouter>((ref) {
   final refreshNotifier = GoRouterRefreshNotifier(ref);
+  final onboardingState = ref.watch(onboardingProvider);
+  final isOnboardingComplete = onboardingState.isComplete;
 
   return GoRouter(
     debugLogDiagnostics: true,
-    initialLocation: '/auth',
+    initialLocation: '/onboarding',
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final driver = ref.read(driverProvider);
-
+      final goingToOnboarding = state.uri.path == '/onboarding';
       final loggedIn = driver.driver != null && driver.token != null;
       final isAtAuth = state.matchedLocation == '/auth';
       final isAtHome = state.matchedLocation == '/home';
+
+      // 1. Force onboarding if not complete
+      if (!isOnboardingComplete) {
+        return goingToOnboarding ? null : '/onboarding';
+      }
 
       // If not logged in and trying to access anything other than /auth, redirect to /auth
       if (!loggedIn && !isAtAuth) {
@@ -47,6 +47,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null; // no redirect needed
     },
     routes: [
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
+      ),
       GoRoute(
         path: '/auth',
         builder: (context, state) => const AuthScreen(),

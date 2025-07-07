@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/driver/presentation/pages/screens/auth/auth_screen.dart';
 import '../../features/driver/presentation/pages/screens/main_navigation_screen.dart';
-import '../../features/driver/presentation/pages/screens/onboarding/onboarding_screen.dart';
+import '../presentation/screens/onboarding_screen.dart';
 import '../../features/driver/presentation/providers/driver_provider.dart';
 import '../../features/driver/presentation/providers/onboarding_provider.dart';
 

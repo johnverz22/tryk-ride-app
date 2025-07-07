@@ -1,4 +1,4 @@
-import 'package:driver/core/router/router.dart';
+import 'package:driver/presentation/providers/router_provider.dart';
 import 'package:driver/presentation/providers/driver_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

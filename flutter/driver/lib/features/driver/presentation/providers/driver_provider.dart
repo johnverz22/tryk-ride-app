@@ -44,7 +44,7 @@ class DriverState {
   }
 }
 
-class DriverNotifier extends AsyncNotifier<DriverState> {
+class DriverNotifier extends AsyncNotifier<DriverState?> {
   final _storage = const FlutterSecureStorage();
   final Set<int> _rejectedRideIds = {};
   Timer? _pollingTimer;
@@ -301,9 +301,16 @@ class DriverNotifier extends AsyncNotifier<DriverState> {
     }
   }
 
-  Future<void> setDriver(DriverModel driver, String token) async {
-    await _storage.write(key: 'driver', value: jsonEncode(driver.toJson()));
+  Future<void> setDriver(DriverModel? driver, String? token) async {
+    if (driver == null || token == null) {
+      await _storage.delete(key: 'token');
+      await _storage.delete(key: 'driver');
+      state = AsyncData(null);
+      return;
+    }
+
     await _storage.write(key: 'token', value: token);
+    await _storage.write(key: 'driver', value: jsonEncode(driver.toJson()));
     state = AsyncData(DriverState(driver: driver, token: token));
   }
 
@@ -329,6 +336,6 @@ class DriverNotifier extends AsyncNotifier<DriverState> {
 }
 
 // ───── Riverpod Provider ─────
-final driverProvider = AsyncNotifierProvider<DriverNotifier, DriverState>(
+final driverProvider = AsyncNotifierProvider<DriverNotifier, DriverState?>(
   () => DriverNotifier(),
 );

@@ -18,7 +18,7 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
     return asyncDriverState.maybeWhen(
       data: (driverState) {
-        final userName = driverState.driver?.name ?? 'Driver';
+        final userName = driverState!.driver?.name ?? 'Driver';
         final profilePhoto = driverState.driver?.profilePhotoUrl ?? '';
         final isOnline = driverState.isOnline;
         final currentDate = DateFormat.yMMMMEEEEd().format(DateTime.now());

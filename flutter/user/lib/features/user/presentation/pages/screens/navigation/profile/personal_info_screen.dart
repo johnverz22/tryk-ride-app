@@ -135,7 +135,7 @@ class _PersonalInfoScreenState extends ConsumerState<PersonalInfoScreen> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (state) {
-                final user = state.user;
+                final user = state?.user;
                 if (user == null) {
                   return const Center(child: Text("User not found"));
                 }

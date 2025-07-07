@@ -20,7 +20,7 @@ class ProfileScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final asyncDriver = ref.watch(driverProvider);
     final driver = asyncDriver.maybeWhen(
-      data: (state) => state.driver,
+      data: (state) => state!.driver,
       orElse: () => null,
     );
 

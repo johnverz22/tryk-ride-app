@@ -70,7 +70,7 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => Center(child: Text('Error: $error')),
       data: (driverState) {
-        final trips = driverState.trips;
+        final trips = driverState!.trips;
 
         final filteredTrips = trips
             .where((trip) {

@@ -8,7 +8,7 @@ import '../../features/user/presentation/providers/user_provider.dart';
 import '../../features/user/presentation/providers/onboarding_provider.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
-  final user = ref.watch(userProvider).value;
+  final userAsync = ref.watch(userProvider);
   final onboardingState = ref.watch(onboardingProvider);
   final isOnboardingComplete = onboardingState.isComplete;
 
@@ -30,17 +30,25 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       final goingToOnboarding = state.uri.path == '/onboarding';
       final goingToAuth = state.uri.path == '/auth';
 
+      // ⛔ Wait for userProvider to load
+      if (userAsync.isLoading) return null;
+
+      final userState = userAsync.value;
+
+      // 1. Force onboarding if not complete
       if (!isOnboardingComplete) {
         return goingToOnboarding ? null : '/onboarding';
       }
 
-      if (user == null) {
+      // 2. If user is not logged in, go to auth
+      if (userState == null || !userState.isAuthenticated) {
         return goingToAuth ? null : '/auth';
       }
 
-      // If user is authenticated, redirect to /auth instead of /home
-      if (goingToAuth) return null; // allow /auth route
-      return '/auth';
+      // 3. User is authenticated, prevent access to auth/onboarding
+      if (goingToAuth || goingToOnboarding) return '/home';
+
+      return null;
     },
   );
 });

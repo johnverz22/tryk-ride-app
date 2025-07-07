@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../../../../core/services/auth_service.dart';
 import '../../../../providers/driver_provider.dart';
-import '../../auth/auth_screen.dart';
 
 Future<void> showLogoutDialog(BuildContext context, WidgetRef ref) async {
-  final authService = AuthService();
+  final authService = ref.read(authServiceProvider);
 
   return showDialog<void>(
     context: context,
@@ -22,19 +23,18 @@ Future<void> showLogoutDialog(BuildContext context, WidgetRef ref) async {
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.of(dialogContext).pop(); // Close dialog first
+              Navigator.of(dialogContext).pop(); // Close the dialog first
 
               try {
-                await authService.logout(ref);
-                await ref.read(driverProvider.notifier).logout();
+                await authService.logout();
+
+                // Clear user state so GoRouter redirect logic works
+                await ref.read(driverProvider.notifier).setDriver(null, null);
 
                 if (!context.mounted) return;
 
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AuthScreen()),
-                  (route) => false,
-                );
+                // Redirect using GoRouter (recommended)
+                context.go('/auth');
               } catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(
@@ -72,7 +72,7 @@ Future<void> showDeleteAccountDialog(
             onPressed: () async {
               Navigator.of(dialogContext).pop();
 
-              // TODO: Add delete account logic here
+              // TODO: Replace with actual delete account logic
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text("Account deletion not implemented."),

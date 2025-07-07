@@ -15,7 +15,7 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
     return userAsync.when(
       data: (userState) {
-        final user = userState.user;
+        final user = userState?.user;
         if (user == null) return const SizedBox.shrink();
 
         final photoUrl = user.profilePhotoUrl;

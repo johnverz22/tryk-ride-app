@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../../../../core/services/auth_service.dart';
-import '../../auth/auth_screen.dart';
+import '../../../../providers/user_provider.dart';
 
 Future<void> showLogoutDialog(BuildContext context, WidgetRef ref) async {
   final authService = ref.read(authServiceProvider);
@@ -21,18 +23,18 @@ Future<void> showLogoutDialog(BuildContext context, WidgetRef ref) async {
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.of(dialogContext).pop(); // Close dialog first
+              Navigator.of(dialogContext).pop(); // Close the dialog first
 
               try {
                 await authService.logout();
 
+                // Clear user state so GoRouter redirect logic works
+                await ref.read(userProvider.notifier).setUser(null, null);
+
                 if (!context.mounted) return;
 
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AuthScreen()),
-                  (route) => false,
-                );
+                // Redirect using GoRouter (recommended)
+                context.go('/auth');
               } catch (e) {
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(
@@ -70,7 +72,7 @@ Future<void> showDeleteAccountDialog(
             onPressed: () async {
               Navigator.of(dialogContext).pop();
 
-              // TODO: Implement deleteAccount logic in AuthService and call it here
+              // TODO: Replace with actual delete account logic
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text("Account deletion not implemented."),

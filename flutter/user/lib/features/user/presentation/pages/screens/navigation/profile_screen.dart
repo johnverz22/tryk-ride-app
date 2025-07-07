@@ -25,7 +25,7 @@ class ProfileScreen extends ConsumerWidget {
           const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, st) => Scaffold(body: Center(child: Text('Error: $e'))),
       data: (state) {
-        final user = state.user;
+        final user = state?.user;
         if (user == null) {
           return const Scaffold(body: Center(child: Text('User not found')));
         }
@@ -117,13 +117,9 @@ class ProfileScreen extends ConsumerWidget {
                     label: 'Logout',
                     icon: Icons.logout,
                     color: theme.colorScheme.primary,
-                    onPressed: () async {
-                      await ref.read(userProvider.notifier).logout();
-                      if (context.mounted) {
-                        Navigator.pushReplacementNamed(context, '/login');
-                      }
-                    },
+                    onPressed: () => showLogoutDialog(context, ref),
                   ),
+
                   const SizedBox(height: 12),
                   _buildActionButton(
                     context,

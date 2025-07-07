@@ -25,7 +25,7 @@ class UserState {
   }
 }
 
-class UserNotifier extends AsyncNotifier<UserState> {
+class UserNotifier extends AsyncNotifier<UserState?> {
   final _storage = const FlutterSecureStorage();
   String? get baseUrl => dotenv.env['BASE_URL'];
 
@@ -46,7 +46,14 @@ class UserNotifier extends AsyncNotifier<UserState> {
     return UserState(user: user, token: token);
   }
 
-  Future<void> setUser(UserModel user, String token) async {
+  Future<void> setUser(UserModel? user, String? token) async {
+    if (user == null || token == null) {
+      await _storage.delete(key: 'token');
+      await _storage.delete(key: 'user');
+      state = AsyncData(null);
+      return;
+    }
+
     await _storage.write(key: 'token', value: token);
     await _storage.write(key: 'user', value: jsonEncode(user.toJson()));
     state = AsyncData(UserState(user: user, token: token));
@@ -151,6 +158,6 @@ class UserNotifier extends AsyncNotifier<UserState> {
   }
 }
 
-final userProvider = AsyncNotifierProvider<UserNotifier, UserState>(
+final userProvider = AsyncNotifierProvider<UserNotifier, UserState?>(
   () => UserNotifier(),
 );

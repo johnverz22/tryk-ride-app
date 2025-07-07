@@ -188,7 +188,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final driverState = ref.watch(driverProvider);
     final rides = driverState.maybeWhen(
-      data: (state) => state.requestedRides,
+      data: (state) => state!.requestedRides,
       orElse: () => [],
     );
 

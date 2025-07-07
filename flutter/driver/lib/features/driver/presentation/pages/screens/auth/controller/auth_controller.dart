@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../../../core/services/auth_service.dart';
-import '../../../../providers/user_provider.dart';
+import '../../../../providers/driver_provider.dart';
 
 /// Provide AuthService for better testability
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -51,10 +51,12 @@ class AuthController extends ChangeNotifier {
           ? await authService.login(email, password)
           : await authService.register(name, email, password);
 
-      if (response.success && response.token != null && response.user != null) {
+      if (response.success &&
+          response.token != null &&
+          response.driver != null) {
         await ref
-            .read(userProvider.notifier)
-            .setUser(response.user!, response.token!);
+            .read(driverProvider.notifier)
+            .setDriver(response.driver, response.token);
       } else {
         _setError('Authentication failed. Try again.');
       }

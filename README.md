@@ -31,16 +31,10 @@ php artisan key:generate
 php artisan jwt:secret
 ```
 
-## Create Tables by Migration
+## Create Tables by Migration and run Seeders
 
 ```
-php artisan migrate
-```
-
-## Seed the Roles Table
-
-```
-php artisan db:seed
+php artisan migrate --seed
 ```
 
 ## Create a Filament User

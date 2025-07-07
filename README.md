@@ -32,54 +32,34 @@ composer install
 npm install
 copy .env.example .env
 php artisan key:generate
-php artisan migrate
-php artisan db:seed
+```
+
+## Generate JWT Secret
+
+```
+php artisan jwt:secret
+```
+
+## Create Tables by Migration and run Seeders
+
+```
+php artisan migrate --seed
+```
+
+## Create a Filament User
+
+```
 php artisan make:filament-user
-php artisan serve --host=0.0.0.0 --port=8000
 ```
 
-- Visit the admin panel at [http://127.0.0.1:8000/admin](http://127.0.0.1:8000/admin)
+## Run the Server
 
-#### Requirements
-
-- PHP 8.2+
-- Node.js & npm
-- MySQL or SQLite
-
----
-
-### 2. Flutter Apps
-
-Each app (`driver` and `user`) is a separate Flutter project.
-
-#### Setup (example for user app)
-
-```sh
-cd flutter/user
-flutter pub get
-flutter run
+```
+php artisan serve --host=192.168.0.0 --port=8000
 ```
 
-- Repeat for `flutter/driver` as needed.
+## Visit the Admin Panel
 
-#### Platforms Supported
-
-- Android
-- iOS
-- Windows
-- macOS
-- Linux
-
----
-
-## Development Notes
-
-- Laravel uses [Filament](https://filamentphp.com/) for the admin panel.
-- Flutter apps are configured for multi-platform builds.
-- See individual `README.md` files in each subproject for more details.
-
----
-
-## License
-
-This project is licensed under the MIT License.
+```
+http://127.0.0.1:8000/admin
+```

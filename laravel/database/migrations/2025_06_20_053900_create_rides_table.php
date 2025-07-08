@@ -43,7 +43,6 @@ return new class extends Migration
 
             $table->tinyInteger('rider_rating')->nullable();
             $table->text('rider_review')->nullable();
-
             $table->tinyInteger('driver_rating')->nullable();
             $table->text('driver_review')->nullable();
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../screens/navigation/home_screen.dart';
 import '../screens/navigation/trips_screen.dart';
 import '../screens/navigation/earnings_screen.dart';
@@ -6,14 +7,16 @@ import '../screens/navigation/dashboard_screen.dart';
 import '../screens/navigation/profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
-  const MainNavigationScreen({super.key});
+  final int initialIndex;
+
+  const MainNavigationScreen({super.key, this.initialIndex = 0});
 
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
-  int _currentIndex = 0;
+  late int _currentIndex;
 
   final List<Widget> _pages = const [
     HomeScreen(),
@@ -34,10 +37,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+  }
+
   void _onTap(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
+    final routeNames = ['home', 'trips', 'earnings', 'dashboard', 'profile'];
+    context.goNamed(routeNames[index]);
   }
 
   @override

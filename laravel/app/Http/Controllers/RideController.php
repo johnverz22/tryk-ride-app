@@ -160,31 +160,21 @@ class RideController extends Controller
             'status:id,name',
         ])->findOrFail($id);
 
-        Log::info('Ride fetched', ['ride_id' => $ride->id]);
-
         return response()->json($ride);
     }
 
     public function ongoing()
     {
-        $userId = Auth::id();
+        $user = Auth::user();
 
-        $rides = Ride::with([
-            'driver:id,name',
-            'user:id,name',
-            'status:id,name',
-        ])
-        ->select([
-            'id', 'user_id', 'driver_id', 'status_id',
-            'pickup_address', 'dropoff_address', 'requested_at',
-        ])
-        ->where('user_id', $userId)
-        ->whereIn('ride_status_id', [
-            RideStatus::ACCEPTED,
-            RideStatus::DRIVER_EN_ROUTE,
-            RideStatus::RIDE_IN_PROGRESS,
-        ])
-        ->get();
+        $rides = Ride::with(['driver', 'user', 'status'])
+                    ->whereIn('ride_status_id', [
+                        RideStatus::ACCEPTED,
+                        RideStatus::DRIVER_EN_ROUTE,
+                        RideStatus::RIDE_IN_PROGRESS,
+                    ])
+                    ->where('user_id', '=', $user->id)
+                    ->get();
 
         return response()->json(['rides' => $rides]);
     }
@@ -239,5 +229,30 @@ class RideController extends Controller
             'message' => 'Ride completed successfully.',
             'ride' => $ride,
         ]);
+    }
+
+    public function rateRide(Request $request, Ride $ride)
+    {
+        $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+            'review' => 'nullable|string|max:1000',
+        ]);
+
+        // Optional: Check if the user is authorized to rate this ride
+        if ($ride->user_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // Prevent duplicate rating
+        if ($ride->rider_rating !== null) {
+            return response()->json(['message' => 'You have already rated this ride.'], 400);
+        }
+
+        $ride->update([
+            'rider_rating' => $request->input('rating'),
+            'rider_review' => $request->input('review'),
+        ]);
+
+        return response()->json(['message' => 'Rating submitted successfully.']);
     }
 }

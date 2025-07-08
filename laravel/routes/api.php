@@ -28,6 +28,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/driver/documents', [Controllers\DriverController::class, 'getDocuments']);
     Route::post('/driver/upload-document', [Controllers\DriverController::class, 'uploadDocument']);
     Route::post('/driver/submit-verification', [Controllers\DriverController::class, 'submitVerification']);
+    Route::get('/driver/earnings', [Controllers\DriverController::class, 'earningsSummary']);
     
     // ── Ride Routes ──
     Route::post('/rides/cancel', [Controllers\RideController::class, 'cancel']);
@@ -41,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/rides/{id}/driver-location', [Controllers\DriverController::class, 'getLocation']);
     Route::post('/rides/{id}/start', [Controllers\RideController::class, 'start']);
     Route::patch('/rides/{ride}/reject', [Controllers\RideController::class, 'reject']);
+    Route::post('/rides/{ride}/rate', [Controllers\RideController::class, 'rateRide']);
 
     // ── Saved Locations ──
     Route::get('/user/saved-locations', [Controllers\SavedLocationController::class, 'index']);

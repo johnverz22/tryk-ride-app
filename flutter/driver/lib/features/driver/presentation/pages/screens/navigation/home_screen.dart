@@ -187,10 +187,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final driverState = ref.watch(driverProvider);
-    final rides = driverState.maybeWhen(
-      data: (state) => state!.requestedRides,
-      orElse: () => [],
-    );
+    final rides = driverState.asData?.value?.requestedRides ?? [];
 
     final nearestRide = rides.isNotEmpty
         ? rides.reduce(

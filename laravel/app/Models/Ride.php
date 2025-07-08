@@ -14,6 +14,7 @@ class Ride extends Model
         'user_id',
         'driver_id',
         'ride_status_id',
+        'assigned_driver_id',
 
         'pickup_address',
         'pickup_latitude',

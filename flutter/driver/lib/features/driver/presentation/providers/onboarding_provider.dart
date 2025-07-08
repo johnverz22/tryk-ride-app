@@ -1,23 +1,39 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// State class to track onboarding completion
 class OnboardingState {
   final bool isComplete;
   OnboardingState({this.isComplete = false});
 }
 
-// Notifier to update onboarding state
 class OnboardingNotifier extends StateNotifier<OnboardingState> {
   OnboardingNotifier() : super(OnboardingState());
 
+  static const _onboardingKey = 'onboarding_complete';
+
+  bool _loaded = false;
+  bool get isLoaded => _loaded;
+
+  Future<void> ensureLoaded() async {
+    if (_loaded) return;
+    final prefs = await SharedPreferences.getInstance();
+    final complete = prefs.getBool(_onboardingKey) ?? false;
+    state = OnboardingState(isComplete: complete);
+    _loaded = true;
+  }
+
   Future<void> completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_onboardingKey, true);
     state = OnboardingState(isComplete: true);
-    // You might want to persist this status in local storage/shared prefs here
   }
 }
 
-// Provider for onboarding state
 final onboardingProvider =
     StateNotifierProvider<OnboardingNotifier, OnboardingState>(
       (ref) => OnboardingNotifier(),
     );
+
+final onboardingLoadedProvider = FutureProvider<void>((ref) async {
+  await ref.read(onboardingProvider.notifier).ensureLoaded();
+});

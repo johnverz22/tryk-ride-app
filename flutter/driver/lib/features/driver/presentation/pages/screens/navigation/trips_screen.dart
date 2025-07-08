@@ -332,7 +332,7 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
                       children: tripCategories
                           .map(
                             (category) =>
-                                _buildTripList(context, ref, 'Completed'),
+                                _buildTripList(context, ref, category),
                           )
                           .toList(),
                     ),

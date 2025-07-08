@@ -1,8 +1,7 @@
+import 'package:driver/features/driver/presentation/providers/shared_preferences_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
-import '../../../providers/onboarding_provider.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -13,7 +12,6 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final PageController _pageController = PageController();
-
   int _currentPage = 0;
 
   static const List<Widget> _pages = [
@@ -41,7 +39,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _onDonePressed() async {
-    await ref.read(onboardingProvider.notifier).completeOnboarding();
+    final sharedPrefs = ref.read(sharedPreferencesProvider);
+    await sharedPrefs.setOnboarding();
+
+    ref.invalidate(onboardingProvider);
+
+    await Future.delayed(Duration.zero);
     if (!mounted) return;
     context.go('/auth');
   }

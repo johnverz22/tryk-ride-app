@@ -12,7 +12,7 @@ class RideStatusSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('ride_statuses')->truncate(); // Clears existing data
+        DB::table('ride_statuses')->truncate();
 
         $statuses = [
             ['id' => 1, 'name' => 'Requested'],

@@ -13,6 +13,8 @@ class DriverProfile extends Model
         'driver_status_id',
         'id_document_path',
         'license_document_path',
+        'current_latitude',
+        'current_longitude',
         'is_online',
     ];
 

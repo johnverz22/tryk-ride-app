@@ -1,14 +1,22 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Load key.properties
+val keyProperties = Properties()
+val keyPropertiesFile = rootProject.file("key.properties")
+if (keyPropertiesFile.exists()) {
+    keyProperties.load(FileInputStream(keyPropertiesFile))
 }
 
 android {
     namespace = "com.amrol.tryk_rider"
     compileSdk = flutter.compileSdkVersion
-    // ndkVersion = flutter.ndkVersion
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -21,38 +29,26 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.amrol.tryk_rider"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // minSdk = flutter.minSdkVersion
         minSdk = 21
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Inject Google Maps API Key
+        manifestPlaceholders["googleMapsApiKey"] =
+            keyProperties.getProperty("GOOGLE_MAPS_API_KEY") ?: ""
     }
 
     buildTypes {
         getByName("debug") {
             signingConfig = signingConfigs.getByName("debug")
-            manifestPlaceholders.put("googleMapsApiKey",
-                if (project.hasProperty("GOOGLE_MAPS_API_KEY")) {
-                    project.property("GOOGLE_MAPS_API_KEY") as String
-                } else {
-                    ""
-                }
-            )
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
 
         getByName("release") {
-            signingConfig = signingConfigs.getByName("debug") // Replace with "release" if needed
-            manifestPlaceholders.put("googleMapsApiKey",
-                if (project.hasProperty("GOOGLE_MAPS_API_KEY")) {
-                    project.property("GOOGLE_MAPS_API_KEY") as String
-                } else {
-                    ""
-                }
-            )
+            signingConfig = signingConfigs.getByName("debug") // Change if needed
             isMinifyEnabled = false
             isShrinkResources = false
         }

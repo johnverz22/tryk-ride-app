@@ -1,21 +1,22 @@
+import 'package:user/features/user/presentation/providers/shared_preferences_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/user/presentation/pages/screens/auth/auth_screen.dart';
 import '../../features/user/presentation/pages/screens/main_navigation_screen.dart';
-import '../../features/user/presentation/pages/screens/onboarding/onboarding_screen.dart';
+import '../features/user/presentation/pages/screens/onboarding_screen.dart';
+import '../features/user/presentation/pages/screens/splash_screen.dart';
 import '../../features/user/presentation/providers/user_provider.dart';
-import '../../features/user/presentation/providers/onboarding_provider.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final userAsync = ref.watch(userProvider);
-  final onboardingState = ref.watch(onboardingProvider);
-  final isOnboardingComplete = onboardingState.isComplete;
+  final onboardingAsync = ref.watch(onboardingProvider);
 
   return GoRouter(
     debugLogDiagnostics: true,
-    initialLocation: '/onboarding',
+    initialLocation: '/',
     routes: [
+      GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
@@ -27,27 +28,37 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
-      final goingToOnboarding = state.uri.path == '/onboarding';
-      final goingToAuth = state.uri.path == '/auth';
+      final location = state.uri.path;
 
-      // ⛔ Wait for userProvider to load
-      if (userAsync.isLoading) return null;
+      final goingToAuth = location == '/auth';
+      final goingToOnboarding = location == '/onboarding';
+      final isSplash = location == '/';
+
+      // Wait until both async values are ready
+      if (userAsync.isLoading || onboardingAsync.isLoading) return null;
 
       final userState = userAsync.value;
+      final onboardingComplete = onboardingAsync.value ?? false;
 
-      // 1. Force onboarding if not complete
-      if (!isOnboardingComplete) {
-        return goingToOnboarding ? null : '/onboarding';
+      // 1. Go to onboarding if not completed
+      if (!onboardingComplete && !goingToOnboarding) {
+        return '/onboarding';
       }
 
-      // 2. If user is not logged in, go to auth
-      if (userState == null || !userState.isAuthenticated) {
-        return goingToAuth ? null : '/auth';
+      // 2. Onboarding done but user not logged in
+      if (onboardingComplete &&
+          (userState == null || !userState.isAuthenticated)) {
+        if (!goingToAuth) return '/auth';
       }
 
-      // 3. User is authenticated, prevent access to auth/onboarding
-      if (goingToAuth || goingToOnboarding) return '/home';
+      // 3. Authenticated users should not access auth/onboarding/splash
+      if (userState?.isAuthenticated == true) {
+        if (goingToAuth || goingToOnboarding || isSplash) {
+          return '/home';
+        }
+      }
 
+      // 4. If everything matches, stay
       return null;
     },
   );

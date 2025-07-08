@@ -150,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             elevation: 3,
-            shadowColor: theme.primaryColor.withOpacity(0.2),
+            shadowColor: theme.primaryColor.withValues(alpha: 0.2),
           ),
         ),
       ),

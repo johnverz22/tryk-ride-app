@@ -73,7 +73,7 @@ class DriverNotifier extends AsyncNotifier<DriverState?> {
     final isOnline = isOnlineStr == 'true';
 
     if (isOnline && token != null) {
-      _startPolling(token);
+      _startPolling();
     }
 
     return DriverState(driver: driver, token: token, isOnline: isOnline);
@@ -163,7 +163,7 @@ class DriverNotifier extends AsyncNotifier<DriverState?> {
       if (res.statusCode == 200) {
         await _storage.write(key: 'isOnline', value: value.toString());
 
-        value ? _startPolling(current.token!) : _stopPolling();
+        value ? _startPolling() : _stopPolling();
 
         state = AsyncData(current.copyWith(isOnline: value));
       } else {
@@ -174,10 +174,10 @@ class DriverNotifier extends AsyncNotifier<DriverState?> {
     }
   }
 
-  void _startPolling(String token) {
+  void _startPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      fetchRequestedRides(token);
+      fetchRequestedRides();
     });
   }
 
@@ -186,7 +186,8 @@ class DriverNotifier extends AsyncNotifier<DriverState?> {
     _pollingTimer = null;
   }
 
-  Future<void> fetchRequestedRides(String token) async {
+  Future<void> fetchRequestedRides() async {
+    debugPrint('Fetching requested rides...');
     final current = state.value;
     if (current == null || !current.isOnline) return;
 
@@ -195,7 +196,7 @@ class DriverNotifier extends AsyncNotifier<DriverState?> {
 
       await http.post(
         Uri.parse('$baseUrl/driver/update-location'),
-        headers: _authHeaders(token),
+        headers: _authHeaders(current.token!),
         body: jsonEncode({
           'latitude': position.latitude,
           'longitude': position.longitude,
@@ -204,19 +205,29 @@ class DriverNotifier extends AsyncNotifier<DriverState?> {
 
       final res = await http.get(
         Uri.parse('$baseUrl/driver/requested-rides'),
-        headers: _authHeaders(token),
+        headers: _authHeaders(current.token!),
       );
 
+      debugPrint(res.body);
+
       if (res.statusCode == 200) {
-        final data = jsonDecode(res.body) as List;
+        final json = jsonDecode(res.body);
+        final data = json['rides'] as List<dynamic>;
+        debugPrint('Fetched rides from server: ${data.length}');
+
         final rides = data
             .map((e) => RideRequest.fromJson(e))
             .where((r) => !_rejectedRideIds.contains(r.id))
             .toList();
 
         if (!_areRideListsEqual(current.requestedRides, rides)) {
+          debugPrint('Updating state with new rides...');
           state = AsyncData(current.copyWith(requestedRides: rides));
+        } else {
+          debugPrint('No change in ride list, skipping update.');
         }
+      } else {
+        debugPrint('Server error: ${res.statusCode} ${res.body}');
       }
     } catch (e) {
       debugPrint('Fetch rides error: $e');
@@ -280,6 +291,7 @@ class DriverNotifier extends AsyncNotifier<DriverState?> {
 
   Future<void> fetchTrips() async {
     final current = state.value;
+
     if (current?.token == null) return;
 
     try {
@@ -294,10 +306,12 @@ class DriverNotifier extends AsyncNotifier<DriverState?> {
             ? List<Map<String, dynamic>>.from(data)
             : List<Map<String, dynamic>>.from(data['data'] ?? []);
 
-        state = AsyncData(current.copyWith(trips: trips));
+        final updated = current.copyWith(trips: trips);
+
+        state = AsyncData(updated);
       }
     } catch (e) {
-      debugPrint('Fetch trips error: $e');
+      debugPrint('❌ Fetch trips error: $e');
     }
   }
 

@@ -32,6 +32,12 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
   bool _isLoading = false;
   bool _initialLoading = true;
 
+  double _selectedRating = 0;
+  bool _showSubmittedRating = false;
+  bool _showRatingForm = false;
+  bool _hasSubmittedRating = false;
+  final TextEditingController _reviewController = TextEditingController();
+
   String? googleMapsApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
 
   Set<Polyline> _polylines = {};
@@ -51,12 +57,9 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
 
   Future<void> _fetchRideDetails() async {
     if (widget.rideId == null) return;
-
     setState(() => _initialLoading = true);
-
     try {
       final token = await AuthService().getToken();
-
       final response = await http.get(
         Uri.parse('$baseUrl/rides/${widget.rideId}'),
         headers: {
@@ -64,13 +67,13 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
           'Content-Type': 'application/json',
         },
       );
-
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
-        final ride = data;
-        final driver = ride['driver'] ?? {};
-
+        final Map<String, dynamic> ride = (jsonDecode(response.body) as Map)
+            .cast<String, dynamic>();
+        // Log ride details
+        debugPrint('Ride Details: ${ride.toString()}');
+        final Map<String, dynamic> driver = (ride['driver'] ?? {})
+            .cast<String, dynamic>();
         final pickup = LatLng(
           double.tryParse(ride['pickup_latitude'].toString()) ?? 0.0,
           double.tryParse(ride['pickup_longitude'].toString()) ?? 0.0,
@@ -79,7 +82,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
           double.tryParse(ride['dropoff_latitude'].toString()) ?? 0.0,
           double.tryParse(ride['dropoff_longitude'].toString()) ?? 0.0,
         );
-
         setState(() {
           _ride = ride;
           _driver = driver;
@@ -87,14 +89,13 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
           _destination = destination;
           _initialLoading = false;
         });
-
         final status = ride['status']?['name']?.toString().toLowerCase();
         if (status != 'completed') {
           _fetchDriverLocation();
           _startPolling();
         } else {
           setState(() {
-            _pickup = _pickup; // set these again from _ride
+            _pickup = _pickup;
             _destination = _destination;
           });
           await _updatePolylines();
@@ -314,6 +315,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     final rideStatus = _ride?['status']?['name'];
 
     if (rideStatus == 'Ride in Progress' ||
+        rideStatus == 'Ride Completed Awaiting User Confirmations' ||
         rideStatus == 'Completed' ||
         rideStatus == 'Cancelled') {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -420,33 +422,83 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     return markers;
   }
 
-  Future<void> _launchGoogleMapsNavigation() async {
-    final status = _ride?['status']?['name']?.toLowerCase();
-    final origin = _driverLocation;
-    final destination = (status == 'accepted' || status == 'driver en route')
-        ? _pickup
-        : (status == 'ride in progress')
-        ? _destination
-        : null;
-
-    if (origin == null || destination == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to get navigation route')),
-      );
+  Future<void> _submitRating() async {
+    if (_selectedRating == 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a rating.')));
       return;
     }
 
-    final url =
-        'https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&travelmode=driving';
+    final rideId = widget.rideId;
+    final token = await AuthService().getToken();
 
-    if (await canLaunchUrl(Uri.parse(url))) {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    } else {
+    final response = await http.post(
+      Uri.parse('$baseUrl/rides/$rideId/rate'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'rating': _selectedRating.toInt(),
+        'review': _reviewController.text.trim(),
+      }),
+    );
+
+    if (!mounted) return;
+
+    if (response.statusCode == 200) {
+      setState(() {
+        _hasSubmittedRating = true;
+        _showRatingForm = false;
+        _ride?['rider_rating'] = _selectedRating;
+        _ride?['rider_review'] = _reviewController.text.trim();
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open Google Maps')),
+        const SnackBar(
+          content: Text('Rating submitted!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      debugPrint('Failed to submit rating: ${response.body}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to submit rating. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
+
+  // Future<void> _launchGoogleMapsNavigation() async {
+  //   final status = _ride?['status']?['name']?.toLowerCase();
+  //   final origin = _driverLocation;
+  //   final destination = (status == 'accepted' || status == 'driver en route')
+  //       ? _pickup
+  //       : (status == 'ride in progress')
+  //       ? _destination
+  //       : null;
+
+  //   if (origin == null || destination == null) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Unable to get navigation route')),
+  //     );
+  //     return;
+  //   }
+
+  //   final url =
+  //       'https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&travelmode=driving';
+
+  //   if (await canLaunchUrl(Uri.parse(url))) {
+  //     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  //   } else {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Could not open Google Maps')),
+  //     );
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -497,174 +549,476 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     );
   }
 
-  Widget _buildBottomInfo() {
-    try {
-      final driverName = _driver?['name']?.toString() ?? 'Unknown Driver';
-      final driverVehicle = _driver?['plate']?.toString() ?? 'No vehicle info';
-      final rideStatus = _ride?['status']['name'].toString() ?? 'In Progress';
-      final distanceKm = _ride?['distance_km'];
-      final durationMin = _ride?['duration_minutes'];
-      final fareAmount = _ride?['fare_amount'];
-      final photoUrl = _driver?['photo_url'];
-      final isPhotoValid = photoUrl is String && photoUrl.isNotEmpty;
+  Widget _buildRatingCard() {
+    final rating = _ride?['rider_rating'] ?? 0;
+    final comment = _ride?['rider_review']?.toString().trim();
+    final hasComment = comment != null && comment.isNotEmpty;
 
-      return Positioned(
-        bottom: 0,
-        left: 0,
-        right: 0,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 12)],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag indicator
+            Center(
+              child: Container(
                 width: 40,
                 height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
+                margin: const EdgeInsets.only(bottom: 20),
                 decoration: BoxDecoration(
                   color: Colors.grey[300],
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundImage: isPhotoValid
-                        ? NetworkImage(photoUrl)
-                        : null,
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    child: !isPhotoValid
-                        ? const Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 28,
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          driverName,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          driverVehicle,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "Status: $rideStatus",
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        onPressed: () async {
-                          final phoneNumber = _driver?['phone'];
-                          if (phoneNumber is String && phoneNumber.isNotEmpty) {
-                            final uri = Uri.parse('tel:$phoneNumber');
-                            if (await canLaunchUrl(uri)) {
-                              await launchUrl(uri);
-                            }
-                          }
-                        },
-                        icon: Icon(
-                          Icons.phone,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        tooltip: 'Call Driver',
-                      ),
-                      IconButton(
-                        onPressed: () async {
-                          final phoneNumber = _driver?['phone'];
-                          if (phoneNumber is String && phoneNumber.isNotEmpty) {
-                            final uri = Uri.parse('sms:$phoneNumber');
-                            if (await canLaunchUrl(uri)) {
-                              await launchUrl(uri);
-                            }
-                          }
-                        },
-                        icon: Icon(
-                          Icons.message,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        tooltip: 'Message Driver',
-                      ),
-                    ],
-                  ),
-                ],
+            ),
+
+            // Title
+            const Center(
+              child: Text(
+                'Your Rating',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  if (distanceKm != null)
-                    _infoTile(
-                      Icons.route,
-                      '${distanceKm.toStringAsFixed(2)} km',
-                      'Distance',
-                    ),
-                  if (durationMin != null)
-                    _infoTile(
-                      Icons.timer,
-                      '${durationMin.toStringAsFixed(0)} min',
-                      'ETA',
-                    ),
-                  if (fareAmount != null)
-                    _infoTile(
-                      Icons.payment,
-                      '₱${fareAmount.toStringAsFixed(2)}',
-                      'Fare',
-                    ),
-                ],
+            ),
+            const SizedBox(height: 20),
+
+            // Star display
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  final starIndex = index + 1;
+                  return Icon(
+                    rating >= starIndex
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    size: 34,
+                    color: Colors.amber[600],
+                  );
+                }),
               ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _launchGoogleMapsNavigation,
-                  icon: const Icon(Icons.navigation, color: Colors.white),
-                  label: const Text(
-                    'Open in Google Maps',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                  ),
+            ),
+
+            if (hasComment) ...[
+              const SizedBox(height: 24),
+              const Text(
+                'Comment',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '"$comment"',
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.black87,
+                  height: 1.5,
                 ),
               ),
             ],
-          ),
+            const SizedBox(height: 20),
+            _buildToggleRatingButton(isVisible: _showSubmittedRating),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRatingForm() {
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 12)],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag indicator
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+
+            // Title
+            const Center(
+              child: Text(
+                'Rate Your Driver',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Star rating
+            Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  final starIndex = index + 1;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedRating = starIndex.toDouble());
+                    },
+                    child: Icon(
+                      _selectedRating >= starIndex
+                          ? Icons.star_rounded
+                          : Icons.star_border_rounded,
+                      size: 34,
+                      color: Colors.amber[600],
+                    ),
+                  );
+                }),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Comment input
+            TextField(
+              controller: _reviewController,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Leave a comment (optional)',
+                hintText: 'Share your experience...',
+                labelStyle: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                hintStyle: TextStyle(color: Colors.grey[500]),
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 16,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 20),
+
+            // Submit button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _submitRating,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.send, color: Colors.white),
+                label: const Text(
+                  'Submit Rating',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 5),
+
+            // Cancel button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  setState(() => _showRatingForm = false);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                icon: const Icon(Icons.cancel, color: Colors.redAccent),
+                label: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.redAccent, fontSize: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomInfo() {
+    try {
+      final rideStatus =
+          _ride?['status']?['name']?.toString().toLowerCase() ?? '';
+      final alreadyRated = _ride?['rider_rating'] != null;
+
+      final showRateButton =
+          rideStatus == 'completed' && !alreadyRated && !_hasSubmittedRating;
+
+      final driverName = (_driver != null && _driver!['name'] != null)
+          ? _driver!['name'].toString()
+          : 'Unknown Driver';
+      final driverVehicle = (_driver != null && _driver!['plate'] != null)
+          ? _driver!['plate'].toString()
+          : 'No vehicle info';
+      final distanceKm = _ride?['distance_km'];
+      final durationMin = _ride?['duration_minutes'];
+      final fareAmount = _ride?['fare_amount'];
+      final photoUrl = _driver?['photo_url'];
+      final isPhotoValid = photoUrl is String && photoUrl.trim().isNotEmpty;
+
+      return Stack(
+        children: [
+          // Ride Info Panel - always visible
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundImage: isPhotoValid
+                            ? NetworkImage(photoUrl)
+                            : null,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        child: !isPhotoValid
+                            ? const Icon(Icons.person, color: Colors.white)
+                            : null,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              driverName,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              driverVehicle,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "Status: ${_ride?['status']['name'] ?? 'Unknown'}",
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () async {
+                              final phoneNumber = _driver?['phone'];
+                              if (phoneNumber is String &&
+                                  phoneNumber.isNotEmpty) {
+                                final uri = Uri.parse('tel:$phoneNumber');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri);
+                                }
+                              }
+                            },
+                            icon: Icon(
+                              Icons.phone,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () async {
+                              final phoneNumber = _driver?['phone'];
+                              if (phoneNumber is String &&
+                                  phoneNumber.isNotEmpty) {
+                                final uri = Uri.parse('sms:$phoneNumber');
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri);
+                                }
+                              }
+                            },
+                            icon: Icon(
+                              Icons.message,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      if (distanceKm != null)
+                        _infoTile(
+                          Icons.route,
+                          '${distanceKm.toStringAsFixed(2)} km',
+                          'Distance',
+                        ),
+                      if (durationMin != null)
+                        _infoTile(
+                          Icons.timer,
+                          '${durationMin.toStringAsFixed(0)} min',
+                          'ETA',
+                        ),
+                      if (fareAmount != null)
+                        _infoTile(
+                          Icons.payment,
+                          '₱${fareAmount.toStringAsFixed(2)}',
+                          'Fare',
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (_showRatingForm)
+                    const SizedBox.shrink()
+                  else if (showRateButton)
+                    // Submit button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _showRatingForm = true;
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.star, color: Colors.white),
+                        label: const Text(
+                          'Rate Driver',
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  SizedBox(height: 10),
+                  if (rideStatus == 'completed' && alreadyRated)
+                    _buildToggleRatingButton(isVisible: _showSubmittedRating),
+                ],
+              ),
+            ),
+          ),
+          // Overlays (Positioned allowed here!)
+          if (_showRatingForm) _buildRatingForm(),
+          if (_showSubmittedRating) _buildRatingCard(),
+        ],
       );
     } catch (e) {
-      debugPrint('Error building driver info: $e');
+      debugPrint('Error building bottom info: $e');
       return const SizedBox.shrink();
     }
+  }
+
+  Widget _buildToggleRatingButton({required bool isVisible}) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () {
+            setState(() {
+              _showSubmittedRating = !_showSubmittedRating;
+            });
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          icon: Icon(
+            isVisible ? Icons.visibility_off : Icons.visibility,
+            color: Colors.white,
+          ),
+          label: Text(
+            isVisible ? 'Hide Rating' : 'Show Rating',
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _infoTile(IconData icon, String value, String label) {

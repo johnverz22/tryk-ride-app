@@ -11,18 +11,14 @@ use App\Models\User;
 use App\Models\Ride;
 use App\Enums\RideStatus;
 use App\Services\DriverMatchingService;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class DriverController extends Controller
 {
-    private function getAuthUser()
+    private function getAuthUser(): User
     {
-        $user = Auth::user();
-
-        if (!$user instanceof User) {
-            abort(401, 'Unauthenticated');
-        }
-
-        return $user;
+        return Auth::user();
     }
 
     private function getDriverProfile($user)
@@ -143,6 +139,8 @@ class DriverController extends Controller
 
     public function requestedRides(Request $request)
     {
+        Log::info('Auth Header', ['token' => $request->header('Authorization')]);
+        Log::info('User', ['user' => Auth::user()]);
         $user = $this->getAuthUser();
         $profile = $this->getDriverProfile($user)->loadMissing('status');
 
@@ -161,9 +159,11 @@ class DriverController extends Controller
                             ->whereDoesntHave('rejections', fn($r) => $r->where('driver_id', $user->id));
                     });
             })
-            ->get(['id', 'pickup_latitude', 'pickup_longitude', 'dropoff_latitude', 'dropoff_longitude', 'driver_id']);
+            ->get();
 
-        return response()->json($rides);
+        return response()->json([
+            'rides' => $rides,
+        ]);
     }
 
     public function updateLocation(Request $request)
@@ -263,7 +263,7 @@ class DriverController extends Controller
             ->where('driver_id', $user->id)
             ->latest('requested_at')
             ->get([
-                'id', 'user_id', 'status_id', 'pickup_address', 'dropoff_address', 'requested_at'
+                'id', 'user_id', 'ride_status_id', 'pickup_address', 'dropoff_address', 'requested_at'
             ]);
 
             Log::info('Fetched driver trips', [
@@ -280,4 +280,43 @@ class DriverController extends Controller
             return response()->json(['error' => 'Could not fetch trips'], 500);
         }
     }
+
+    public function earningsSummary(Request $request)
+{
+    $driver = $request->user();
+
+    // Validate query param
+    $range = $request->query('range', 'day'); // default: day
+    if (!in_array($range, ['day', 'week', 'month'])) {
+        return response()->json(['error' => 'Invalid range. Use day, week, or month.'], 400);
+    }
+
+    // Define date range
+    $startDate = match ($range) {
+        'day' => Carbon::today(),
+        'week' => Carbon::now()->startOfWeek(),
+        'month' => Carbon::now()->startOfMonth(),
+    };
+    $endDate = Carbon::now();
+
+    // Get completed, paid rides
+    $rides = DB::table('rides')
+        ->where('driver_id', $driver->id)
+        ->where('is_paid', true)
+        ->whereNotNull('completed_at')
+        ->whereBetween('completed_at', [$startDate, $endDate])
+        ->get();
+
+    // Calculate stats
+    $totalTrips = $rides->count();
+    $totalEarnings = $rides->sum('fare_amount');
+    $averageFare = $totalTrips > 0 ? round($totalEarnings / $totalTrips, 2) : 0;
+
+    return response()->json([
+        'range' => $range,
+        'total_trips' => $totalTrips,
+        'average_fare' => $averageFare,
+        'total_earnings' => $totalEarnings,
+    ]);
+}
 }

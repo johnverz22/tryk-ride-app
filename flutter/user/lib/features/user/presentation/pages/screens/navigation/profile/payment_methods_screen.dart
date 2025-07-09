@@ -9,14 +9,14 @@ class PaymentMethodsScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     final appWallet = {
-      'type': 'MyApp Wallet',
+      'type': 'Tryk Wallet',
       'balance': '₱42.50',
       'default': true,
     };
 
     final digitalWallets = [
-      {'type': 'PayPal', 'email': 'alex@example.com', 'default': false},
-      {'type': 'Google Pay', 'email': 'alex@gmail.com', 'default': false},
+      {'type': 'Gcash', 'email': 'alex@example.com', 'default': false},
+      {'type': 'Maya', 'email': 'alex@gmail.com', 'default': false},
     ];
 
     final cards = [

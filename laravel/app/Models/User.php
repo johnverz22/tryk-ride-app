@@ -8,7 +8,8 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
-// use Tymon\JWTAuth\Contracts\JWTSubject;
+use App\Models\Wallet;
+use App\Models\PaymentMethods;
 
 class User extends Authenticatable implements FilamentUser
 // , JWTSubject
@@ -67,4 +68,13 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(DriverProfile::class, 'user_id');
     }
 
+    public function wallet()
+    {
+        return $this->hasOne(Wallet::class);
+    }
+
+    public function paymentMethods()
+    {
+        return $this->hasMany(PaymentMethod::class);
+    }
 }

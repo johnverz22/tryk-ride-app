@@ -26,7 +26,6 @@ class RideController extends Controller
             'requested_at' => 'required|date',
             'distance_km' => 'required|numeric|min:0',
             'duration_minutes' => 'required|numeric|min:0',
-            // 'fare_amount' => 'required|numeric|min:0',
             'ride_status_id' => 'required|exists:ride_statuses,id',
             'payment_method' => 'nullable|string|max:50',
             'search_radius_km' => 'nullable|integer|min:1|max:100',
@@ -59,22 +58,54 @@ class RideController extends Controller
             return response()->json(['message' => "No drivers available within {$maxUserRadius} km."], 202);
         }
 
-        $ride = Ride::create([
-            ...$validated,
-            'user_id' => $request->user()->id,
-            'search_radius_km' => $matchingRadiusUsed,
-            'assigned_driver_id' => $drivers->first()->id,
-        ]);
+        $user = $request->user();
 
-        $ride->fare_amount = $ride->computeFare();
+        DB::beginTransaction();
 
-        event(new RideRequested($ride, $drivers->first()));
+        try {
+            // Create ride
+            $ride = Ride::create([
+                ...$validated,
+                'user_id' => $user->id,
+                'search_radius_km' => $matchingRadiusUsed,
+                'assigned_driver_id' => $drivers->first()->id,
+            ]);
 
-        return response()->json([
-            'message' => 'Ride created and driver notified.',
-            'ride' => $ride,
-            'notified_drivers' => $drivers->pluck('id'),
-        ], 201);
+            // Compute and assign fare
+            $ride->fare_amount = $ride->computeFare();
+            $ride->save();
+
+            // Deduct wallet if applicable
+            if (strtolower($ride->payment_method) === 'wallet') {
+                $wallet = $user->wallet;
+
+                if (!$wallet || $wallet->balance < $ride->fare_amount) {
+                    DB::rollBack();
+                    return response()->json(['message' => 'Insufficient wallet balance.'], 402);
+                }
+
+                $wallet->balance -= $ride->fare_amount;
+                $wallet->save();
+
+                $ride->is_paid = true;
+                $ride->save();
+            }
+
+            DB::commit();
+
+            event(new RideRequested($ride, $drivers->first()));
+
+            return response()->json([
+                'message' => 'Ride created and driver notified.',
+                'ride' => $ride,
+                'notified_drivers' => $drivers->pluck('id'),
+            ], 201);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Ride creation failed: ' . $e->getMessage());
+            return response()->json(['message' => 'Ride creation failed.'], 500);
+        }
     }
 
     public function cancel(Request $request)

@@ -2,21 +2,24 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:user/features/user/presentation/providers/payment_info_provider.dart';
+
 import '../../../../../../../core/services/auth_service.dart';
 import '../../../../widgets/widgets.dart';
 
-class RideBookingScreen extends StatefulWidget {
+class RideBookingScreen extends ConsumerStatefulWidget {
   const RideBookingScreen({super.key});
 
   @override
-  State<RideBookingScreen> createState() => _RideBookingScreenState();
+  ConsumerState<RideBookingScreen> createState() => _RideBookingScreenState();
 }
 
-class _RideBookingScreenState extends State<RideBookingScreen> {
+class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
   final TextEditingController _fromController = TextEditingController();
   final TextEditingController _toController = TextEditingController();
   String? baseUrl = dotenv.env['BASE_URL'];
@@ -401,8 +404,53 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
 
   double _getEstimatedCost(double km) => _baseFare + (_perKmRate * km);
 
+  void _handlePayment() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Simulated ride fare amount
+      final double fareAmount = 150.0;
+
+      // Step 1: Authorize payment (simulate Maya Vault + wallet interaction)
+      final bool paymentAuthorized = await _simulatePaymentAuthorization(
+        fareAmount,
+      );
+
+      if (paymentAuthorized) {
+        // Payment frozen, proceed with ride request
+        _requestRide();
+      } else {
+        // Show error - failed to authorize
+        _showError('Payment authorization failed. Please try again.');
+      }
+    } catch (e) {
+      _showError('Something went wrong. Please try again.');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<bool> _simulatePaymentAuthorization(double amount) async {
+    // Simulate a network/API call delay
+    await Future.delayed(const Duration(seconds: 2));
+
+    // Simulate a successful payment authorization
+    return true;
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final walletAsync = ref.watch(paymentInfoProvider);
     final theme = Theme.of(context);
     final color = theme.colorScheme;
 
@@ -489,10 +537,15 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
             const SizedBox(height: 16),
 
             /// Payment Method
-            PaymentMethodCard(
-              selectedMethod: _selectedPaymentMethod,
-              onSelect: (method) =>
-                  setState(() => _selectedPaymentMethod = method),
+            walletAsync.when(
+              data: (paymentInfo) => PaymentMethodCard(
+                selectedMethod: _selectedPaymentMethod,
+                onSelect: (method) =>
+                    setState(() => _selectedPaymentMethod = method),
+                walletBalance: paymentInfo.wallet.balance,
+              ),
+              loading: () => const CircularProgressIndicator(),
+              error: (error, stack) => Text('Failed to load wallet'),
             ),
 
             /// Route Preview
@@ -527,7 +580,7 @@ class _RideBookingScreenState extends State<RideBookingScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: canRequestRide ? _requestRide : null,
+                onPressed: canRequestRide ? _handlePayment : null,
                 icon: _isLoading
                     ? const SizedBox(
                         width: 16,

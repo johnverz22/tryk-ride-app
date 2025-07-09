@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Models\DriverStatus;
 use App\Models\DriverProfile;
 
@@ -41,6 +42,11 @@ class AuthController extends Controller
                 'driver_status_id' => $pendingStatus,
             ]);
         }
+
+        Wallet::create([
+            'user_id' => $user->id,
+            'balance' => 0.00, // or any default value you want
+        ]);
 
         DB::commit();
 

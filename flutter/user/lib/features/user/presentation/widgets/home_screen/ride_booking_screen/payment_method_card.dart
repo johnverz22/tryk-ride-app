@@ -4,10 +4,12 @@ import '../../widgets.dart';
 class PaymentMethodCard extends StatelessWidget {
   final String selectedMethod;
   final void Function(String) onSelect;
+  final double walletBalance;
 
   const PaymentMethodCard({
     required this.selectedMethod,
     required this.onSelect,
+    required this.walletBalance,
     super.key,
   });
 
@@ -23,7 +25,7 @@ class PaymentMethodCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -68,6 +70,25 @@ class PaymentMethodCard extends StatelessWidget {
               ),
             ],
           ),
+          if (selectedMethod == 'Wallet') ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Icons.account_balance_wallet_outlined,
+                  color: color.primary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Wallet Balance: ₱${walletBalance.toStringAsFixed(2)}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

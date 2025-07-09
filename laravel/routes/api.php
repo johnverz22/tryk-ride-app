@@ -44,6 +44,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/rides/{ride}/reject', [Controllers\RideController::class, 'reject']);
     Route::post('/rides/{ride}/rate', [Controllers\RideController::class, 'rateRide']);
 
+    // ── Payment Methods ──
+    Route::get('/payment-info', [Controllers\PaymentController::class, 'index']);
+    Route::post('/wallet/top-up', [Controllers\PaymentController::class, 'topUp']);
+    Route::post('/payment-methods', [Controllers\PaymentController::class, 'store']);
+    Route::put('/payment-methods/{id}', [Controllers\PaymentController::class, 'update']);
+    Route::delete('/payment-methods/{id}', [Controllers\PaymentController::class, 'destroy']);
+
     // ── Saved Locations ──
     Route::get('/user/saved-locations', [Controllers\SavedLocationController::class, 'index']);
     Route::post('/user/saved-locations', [Controllers\SavedLocationController::class, 'store']);

@@ -65,7 +65,6 @@ class Ride extends Model
     ];
 
     // Relationships
-
     public function user()
     {
         return $this->belongsTo(User::class);
@@ -84,5 +83,14 @@ class Ride extends Model
     public function rejections()
     {
         return $this->hasMany(RideRejection::class);
+    }
+
+    // Functions
+    public function computeFare(): float
+    {
+        $baseFare = 15; // PHP
+        $perKmRate = 5; // PHP per km
+
+        return round($baseFare + ($this->distance_km * $perKmRate), 2);
     }
 }

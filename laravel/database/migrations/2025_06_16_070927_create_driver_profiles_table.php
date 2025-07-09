@@ -20,6 +20,7 @@ return new class extends Migration
             $table->decimal('current_latitude', 11, 8)->nullable();
             $table->decimal('current_longitude', 11, 8)->nullable();
             $table->boolean('is_online')->default(false);
+            $table->float('average_rating')->nullable();
             $table->timestamps();
 
             $table->index(['current_latitude', 'current_longitude'], 'driver_location_index');

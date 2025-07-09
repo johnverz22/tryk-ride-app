@@ -26,7 +26,7 @@ class RideController extends Controller
             'requested_at' => 'required|date',
             'distance_km' => 'required|numeric|min:0',
             'duration_minutes' => 'required|numeric|min:0',
-            'fare_amount' => 'required|numeric|min:0',
+            // 'fare_amount' => 'required|numeric|min:0',
             'ride_status_id' => 'required|exists:ride_statuses,id',
             'payment_method' => 'nullable|string|max:50',
             'search_radius_km' => 'nullable|integer|min:1|max:100',
@@ -65,6 +65,8 @@ class RideController extends Controller
             'search_radius_km' => $matchingRadiusUsed,
             'assigned_driver_id' => $drivers->first()->id,
         ]);
+
+        $ride->fare_amount = $ride->computeFare();
 
         event(new RideRequested($ride, $drivers->first()));
 
@@ -252,6 +254,8 @@ class RideController extends Controller
             'rider_rating' => $request->input('rating'),
             'rider_review' => $request->input('review'),
         ]);
+
+        $ride->driver?->profile?->updateAverageRating();
 
         return response()->json(['message' => 'Rating submitted successfully.']);
     }

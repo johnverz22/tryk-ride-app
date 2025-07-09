@@ -16,6 +16,7 @@ class DriverProfile extends Model
         'current_latitude',
         'current_longitude',
         'is_online',
+        'average_rating',
     ];
 
     public function user(): BelongsTo
@@ -26,6 +27,11 @@ class DriverProfile extends Model
     public function status(): BelongsTo
     {
         return $this->belongsTo(DriverStatus::class, 'driver_status_id');
+    }
+
+    public function rides()
+    {
+        return $this->user->rides();
     }
 
     // ✅ Add these accessors:
@@ -61,5 +67,29 @@ class DriverProfile extends Model
     protected function getDocumentMimeType(?string $path): ?string
     {
         return $path && Storage::exists($path) ? Storage::mimeType($path) : null;
+    }
+
+    public function getAverageRatingAttribute($value)
+    {
+        return $value !== null ? round($value, 1) : null;
+    }
+
+    public function updateAverageRating(): void
+    {
+        $average = $this->user?->rides()
+            ->whereNotNull('rider_rating')
+            ->avg('rider_rating');
+
+        $this->average_rating = $average;
+        $this->save();
+    }
+
+    public function dailyEarnings($date = null): float
+    {
+        $date = $date ?? now()->toDateString();
+
+        return $this->user?->rides()
+            ->whereDate('completed_at', $date)
+            ->sum('fare_amount');
     }
 }

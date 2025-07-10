@@ -66,7 +66,7 @@ class RoutePreviewSection extends StatelessWidget {
         const SizedBox(height: 12),
         if (fare != null)
           RouteInfoCard(
-            cost: fare.toStringAsFixed(2),
+            fare: fare,
             distanceInMeters: distanceInKm! * 1000,
             duration: effectiveDuration,
           ),

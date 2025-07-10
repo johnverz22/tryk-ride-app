@@ -479,59 +479,89 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Plan Your Trip',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.route,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Plan Your Trip',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  /// Pickup Location
+                  LocationSelector(
+                    label: 'Pickup Location',
+                    icon: Icons.my_location,
+                    controller: _fromController,
+                    onLocationPicked: (picked) async {
+                      final loc = picked['latLng'];
+                      final desc = picked['description'];
+                      setState(() {
+                        _fromLocation = loc;
+                        _fromController.text = desc;
+                        _routeDistanceMeters = null;
+                        _routeDurationSeconds = null;
+                      });
+                      await _fetchRouteInfo();
+                    },
+                    onClear: () => setState(() {
+                      _fromController.clear();
+                      _fromLocation = null;
+                    }),
+                  ),
+                  const SizedBox(height: 16),
+
+                  /// Destination
+                  LocationSelector(
+                    label: 'Destination',
+                    icon: Icons.location_on,
+                    controller: _toController,
+                    onLocationPicked: (picked) async {
+                      final loc = picked['latLng'];
+                      final desc = picked['description'];
+                      setState(() {
+                        _toLocation = loc;
+                        _toController.text = desc;
+                        _routeDistanceMeters = null;
+                        _routeDurationSeconds = null;
+                      });
+                      await _fetchRouteInfo();
+                    },
+                    onClear: () => setState(() {
+                      _toController.clear();
+                      _toLocation = null;
+                    }),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
 
-            /// Pickup Location
-            LocationSelector(
-              label: 'Pickup Location',
-              icon: Icons.my_location,
-              controller: _fromController,
-              onLocationPicked: (picked) async {
-                final loc = picked['latLng'];
-                final desc = picked['description'];
-                setState(() {
-                  _fromLocation = loc;
-                  _fromController.text = desc;
-                  _routeDistanceMeters = null;
-                  _routeDurationSeconds = null;
-                });
-                await _fetchRouteInfo();
-              },
-              onClear: () => setState(() {
-                _fromController.clear();
-                _fromLocation = null;
-              }),
-            ),
-            const SizedBox(height: 16),
-
-            /// Destination
-            LocationSelector(
-              label: 'Destination',
-              icon: Icons.location_on,
-              controller: _toController,
-              onLocationPicked: (picked) async {
-                final loc = picked['latLng'];
-                final desc = picked['description'];
-                setState(() {
-                  _toLocation = loc;
-                  _toController.text = desc;
-                  _routeDistanceMeters = null;
-                  _routeDurationSeconds = null;
-                });
-                await _fetchRouteInfo();
-              },
-              onClear: () => setState(() {
-                _toController.clear();
-                _toLocation = null;
-              }),
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
             /// Payment Method
             walletAsync.when(
@@ -539,7 +569,6 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
                 selectedMethod: _selectedPaymentMethod,
                 onSelect: (method) =>
                     setState(() => _selectedPaymentMethod = method),
-                walletBalance: paymentInfo.wallet.balance,
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) =>
@@ -576,7 +605,7 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
               onChanged: (value) => setState(() => _searchRadiusKm = value),
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
 
             /// Request Button
             SizedBox(

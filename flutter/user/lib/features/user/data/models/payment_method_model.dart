@@ -3,6 +3,8 @@ class PaymentMethod {
   final String type;
   final String provider;
   final String lastFour;
+  final String expiryMonth;
+  final String expiryYear;
   final String? label;
 
   PaymentMethod({
@@ -10,6 +12,8 @@ class PaymentMethod {
     required this.type,
     required this.provider,
     required this.lastFour,
+    required this.expiryMonth,
+    required this.expiryYear,
     this.label,
   });
 
@@ -19,6 +23,8 @@ class PaymentMethod {
       type: json['type'].toString(),
       provider: json['provider'].toString(),
       lastFour: (json['last_four'] ?? '').toString(),
+      expiryMonth: json['expiry_month'].toString(),
+      expiryYear: json['expiry_year'].toString(),
       label: json['label']?.toString(),
     );
   }
@@ -29,6 +35,8 @@ class PaymentMethod {
       'type': type,
       'provider': provider,
       'lastFour': lastFour,
+      'expiryMonth': expiryMonth,
+      'expiryYear': expiryYear,
       if (label != null) 'label': label,
     };
   }

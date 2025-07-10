@@ -26,10 +26,14 @@ class RideController extends Controller
             'requested_at' => 'required|date',
             'distance_km' => 'required|numeric|min:0',
             'duration_minutes' => 'required|numeric|min:0',
+            'fare_amount' => 'required|numeric|min:0',
             'ride_status_id' => 'required|exists:ride_statuses,id',
             'payment_method' => 'nullable|string|max:50',
             'search_radius_km' => 'nullable|integer|min:1|max:100',
         ]);
+
+            Log::info('Validated ride request data:', $validated);
+
 
         $pickupLat = $validated['pickup_latitude'];
         $pickupLng = $validated['pickup_longitude'];
@@ -70,10 +74,6 @@ class RideController extends Controller
                 'search_radius_km' => $matchingRadiusUsed,
                 'assigned_driver_id' => $drivers->first()->id,
             ]);
-
-            // Compute and assign fare
-            $ride->fare_amount = $ride->computeFare();
-            $ride->save();
 
             // Deduct wallet if applicable
             if (strtolower($ride->payment_method) === 'wallet') {

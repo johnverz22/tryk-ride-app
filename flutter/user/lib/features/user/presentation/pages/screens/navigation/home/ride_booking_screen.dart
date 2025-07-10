@@ -37,9 +37,8 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
   int? _routeDurationSeconds;
   int? _rideId;
   double? _distance;
-  int? _duration;
-  final double _baseFare = 5.0;
-  final double _perKmRate = 2.0;
+  double? _fare;
+  double? _duration;
   static const int requestedStatusId = 1;
 
   @override
@@ -344,7 +343,7 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
           'requested_at': now,
           'distance_km': _distance,
           'duration_minutes': _duration,
-          'fare_amount': _getEstimatedCost(_distance!),
+          'fare_amount': _fare,
           'ride_status_id': requestedStatusId,
           'payment_method': _selectedPaymentMethod,
           'search_radius_km': _searchRadiusKm.round(),
@@ -402,8 +401,6 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
 
   double _degToRad(double deg) => deg * pi / 180;
 
-  double _getEstimatedCost(double km) => _baseFare + (_perKmRate * km);
-
   void _handlePayment() async {
     setState(() {
       _isLoading = true;
@@ -411,7 +408,7 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
 
     try {
       // Simulated ride fare amount
-      final double fareAmount = 150.0;
+      final double fareAmount = _fare ?? 0;
 
       // Step 1: Authorize payment (simulate Maya Vault + wallet interaction)
       final bool paymentAuthorized = await _simulatePaymentAuthorization(
@@ -555,13 +552,17 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
               RoutePreviewSection(
                 from: _fromLocation!,
                 to: _toLocation!,
-                distance: totalDistance,
-                distanceInMeters: _routeDistanceMeters,
-                durationInSeconds: _routeDurationSeconds,
-                onRouteInfoLoaded: (distance, duration) {
+                distanceInKm: _routeDistanceMeters != null
+                    ? _routeDistanceMeters! / 1000
+                    : null,
+                durationInMinutes: _routeDurationSeconds != null
+                    ? _routeDurationSeconds! / 60
+                    : null,
+                onRouteInfoLoaded: (distanceKm, durationMin, fare) {
                   setState(() {
-                    _distance = distance;
-                    _duration = duration;
+                    _distance = distanceKm;
+                    _duration = durationMin;
+                    _fare = fare;
                   });
                 },
               ),
@@ -610,5 +611,13 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _statusCheckTimer?.cancel();
+    _fromController.dispose();
+    _toController.dispose();
+    super.dispose();
   }
 }

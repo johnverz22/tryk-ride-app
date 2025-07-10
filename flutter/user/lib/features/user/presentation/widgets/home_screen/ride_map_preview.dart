@@ -10,8 +10,7 @@ class RideMapPreview extends StatefulWidget {
   final LatLng toLocation;
   final String? apiKey;
   final Color routeColor;
-
-  final void Function(double distanceKm, int durationMinutes)?
+  final void Function(double distanceKm, double durationMinutes)?
   onRouteInfoLoaded;
 
   const RideMapPreview({
@@ -68,10 +67,9 @@ class _RideMapPreviewState extends State<RideMapPreview> {
         final points = route['overview_polyline']['points'];
         final decoded = PolylinePoints().decodePolyline(points);
 
-        // 🚀 Get distance and duration
         final leg = route['legs'][0];
-        final distanceMeters = leg['distance']['value']; // meters
-        final durationSeconds = leg['duration']['value']; // seconds
+        final distanceKm = leg['distance']['value'] / 1000;
+        final durationMinutes = leg['duration']['value'] / 60;
 
         setState(() {
           _routePoints = decoded
@@ -80,13 +78,16 @@ class _RideMapPreviewState extends State<RideMapPreview> {
           _isLoading = false;
         });
 
-        // 🔔 Notify parent
+        // Notify parent with meters + seconds
         if (widget.onRouteInfoLoaded != null) {
-          widget.onRouteInfoLoaded!(
-            distanceMeters / 1000.0,
-            (durationSeconds / 60).round(),
-          );
+          widget.onRouteInfoLoaded!(distanceKm, durationMinutes);
         }
+      } else {
+        setState(() {
+          _hasError = true;
+          _isLoading = false;
+        });
+        debugPrint('Directions API error: ${data['status']}');
       }
     } catch (e) {
       debugPrint('Failed to fetch route: $e');
@@ -105,16 +106,16 @@ class _RideMapPreviewState extends State<RideMapPreview> {
     );
 
     if (_isLoading) {
-      return SizedBox(
+      return const SizedBox(
         height: 220,
-        child: const Center(child: CircularProgressIndicator()),
+        child: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_hasError) {
-      return SizedBox(
+      return const SizedBox(
         height: 220,
-        child: const Center(child: Text('Unable to load route preview')),
+        child: Center(child: Text('Unable to load route preview')),
       );
     }
 
@@ -155,7 +156,6 @@ class _RideMapPreviewState extends State<RideMapPreview> {
           onMapCreated: (controller) => _mapController = controller,
           myLocationButtonEnabled: true,
           zoomControlsEnabled: true,
-          // liteModeEnabled: true,
         ),
       ),
     );

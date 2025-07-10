@@ -6,41 +6,39 @@ import '../../widgets.dart';
 class RoutePreviewSection extends StatelessWidget {
   final LatLng from;
   final LatLng to;
-  final double distance; // in km
-  final double? distanceInMeters;
-  final int? durationInSeconds;
-  final void Function(double distance, int duration) onRouteInfoLoaded;
+  final double? distanceInKm;
+  final double? durationInMinutes;
+  final void Function(double distanceKm, double durationMinutes, double fare)
+  onRouteInfoLoaded;
 
   final String? googleMapsApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
 
   static const double _baseFare = 5.0;
   static const double _perKmRate = 2.0;
-  static const double _averageSpeedKmh = 40.0;
 
   RoutePreviewSection({
     required this.from,
     required this.to,
-    required this.distance,
     required this.onRouteInfoLoaded,
-    this.distanceInMeters,
-    this.durationInSeconds,
+    this.distanceInKm,
+    this.durationInMinutes,
     super.key,
   });
 
-  double _getEstimatedCost(double km) => _baseFare + (_perKmRate * km);
-
-  double _getEstimatedTimeInMinutes(double km) => km / _averageSpeedKmh * 60;
+  double _getEstimatedFareFromKm(double km) {
+    return _baseFare + (_perKmRate * km);
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasRouteInfo = distanceInMeters != null && durationInSeconds != null;
 
-    final double effectiveDistanceMeters =
-        distanceInMeters ?? (distance * 1000);
-    final String effectiveDurationMinutes = hasRouteInfo
-        ? (durationInSeconds! / 60).toStringAsFixed(2)
-        : _getEstimatedTimeInMinutes(distance).toStringAsFixed(2);
+    final String effectiveDuration =
+        durationInMinutes?.toStringAsFixed(2) ?? '--';
+
+    final double? fare = distanceInKm != null
+        ? _getEstimatedFareFromKm(distanceInKm!)
+        : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,15 +58,18 @@ class RoutePreviewSection extends StatelessWidget {
           fromLocation: from,
           toLocation: to,
           apiKey: googleMapsApiKey,
-          onRouteInfoLoaded: (distance, duration) =>
-              onRouteInfoLoaded(distance.toDouble(), duration),
+          onRouteInfoLoaded: (distanceKm, durationMin) {
+            final fare = _getEstimatedFareFromKm(distanceKm);
+            onRouteInfoLoaded(distanceKm, durationMin, fare);
+          },
         ),
         const SizedBox(height: 12),
-        RouteInfoCard(
-          cost: _getEstimatedCost(distance).toStringAsFixed(2),
-          distanceInMeters: effectiveDistanceMeters,
-          duration: effectiveDurationMinutes,
-        ),
+        if (fare != null)
+          RouteInfoCard(
+            cost: fare.toStringAsFixed(2),
+            distanceInMeters: distanceInKm! * 1000,
+            duration: effectiveDuration,
+          ),
       ],
     );
   }

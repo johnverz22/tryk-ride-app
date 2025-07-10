@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:user/config/currency.dart';
 import '../../widgets.dart';
 
 class PaymentMethodCard extends StatelessWidget {
@@ -80,7 +81,7 @@ class PaymentMethodCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Wallet Balance: ₱${walletBalance.toStringAsFixed(2)}',
+                  'Wallet Balance: ${currencyFormatter.format(walletBalance)}',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
                     color: Colors.black87,

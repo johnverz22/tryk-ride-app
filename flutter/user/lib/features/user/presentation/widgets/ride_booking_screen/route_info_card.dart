@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:user/config/currency.dart';
 import 'info_tile.dart';
 
 class RouteInfoCard extends StatelessWidget {
@@ -52,7 +53,7 @@ class RouteInfoCard extends StatelessWidget {
                 ),
                 InfoTile(
                   icon: Icons.attach_money,
-                  label: '₱$cost',
+                  label: currencyFormatter.format(cost),
                   color: Colors.green,
                 ),
               ],

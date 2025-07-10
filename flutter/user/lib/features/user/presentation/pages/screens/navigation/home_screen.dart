@@ -17,18 +17,21 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final PageController _pageController = PageController();
   final List<String> _bannerImages = [
-    'assets/images/ads.png',
-    'assets/images/ads.png',
-    'assets/images/ads.png',
+    'assets/images/promotion_travel_fiesta.png',
+    'assets/images/promotion_malaysia.png',
+    'assets/images/promotion_inhouse_fair.png',
   ];
   final List<Map<String, String>> _promotions = [
     {
-      'image': 'assets/images/promotions.png',
-      'title': '20% Off Your First Ride!',
+      'image': 'assets/images/ad_black_friday.png',
+      'title': '20% Off On Black Friday!',
     },
-    {'image': 'assets/images/promotions.png', 'title': 'Refer & Earn Credits'},
     {
-      'image': 'assets/images/promotions.png',
+      'image': 'assets/images/ad_september_sale.png',
+      'title': 'Refer & Earn Credits',
+    },
+    {
+      'image': 'assets/images/ad_travel_sale.png',
       'title': 'Weekend Special Discounts',
     },
   ];
@@ -111,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            const SectionTitle('Promotions'),
+            const SectionTitle('Recommended for You'),
             const SizedBox(height: 12),
             SizedBox(
               height: 190,

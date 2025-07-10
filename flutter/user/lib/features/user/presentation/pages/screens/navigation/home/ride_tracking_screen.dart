@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:user/config/currency.dart';
 import '../../../../../../../core/services/auth_service.dart';
 
 class RideTrackingScreen extends StatefulWidget {
@@ -938,7 +939,9 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                       if (fareAmount != null)
                         _infoTile(
                           Icons.payment,
-                          '₱${fareAmount.toStringAsFixed(2)}',
+                          currencyFormatter.format({
+                            fareAmount.toStringAsFixed(2),
+                          }),
                           'Fare',
                         ),
                     ],

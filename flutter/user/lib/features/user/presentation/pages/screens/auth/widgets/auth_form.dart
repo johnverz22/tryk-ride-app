@@ -12,6 +12,7 @@ class AuthForm extends ConsumerStatefulWidget {
 class _AuthFormState extends ConsumerState<AuthForm> {
   final _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
+  bool _agreedToTerms = false;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +42,7 @@ class _AuthFormState extends ConsumerState<AuthForm> {
 
           const _EmailField(),
           const SizedBox(height: 16),
+          if (!controller.isLogin) const _PhoneField(),
 
           TextFormField(
             controller: controller.passwordController,
@@ -73,6 +75,21 @@ class _AuthFormState extends ConsumerState<AuthForm> {
               ),
             ),
 
+          if (!controller.isLogin)
+            CheckboxListTile(
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _agreedToTerms,
+              onChanged: (value) {
+                setState(() {
+                  _agreedToTerms = value ?? false;
+                });
+              },
+              title: const Text(
+                'By signing up, you agree to our Terms of Service and Privacy Policy.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+
           controller.loading
               ? const Center(child: CircularProgressIndicator())
               : FilledButton(
@@ -96,11 +113,21 @@ class _AuthFormState extends ConsumerState<AuthForm> {
 
           TextButton(
             onPressed: controller.toggleMode,
-            child: Text(
-              controller.isLogin
-                  ? 'Don’t have an account? Register here'
-                  : 'Already have an account? Login here',
-              style: const TextStyle(color: Colors.grey),
+            child: Text.rich(
+              TextSpan(
+                style: const TextStyle(color: Colors.grey),
+                children: [
+                  TextSpan(
+                    text: controller.isLogin
+                        ? 'Don’t have an account yet? '
+                        : 'Already have an account? ',
+                  ),
+                  TextSpan(
+                    text: controller.isLogin ? 'Sign up' : 'Sign in',
+                    style: TextStyle(color: Theme.of(context).primaryColor),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -151,6 +178,39 @@ class _EmailField extends ConsumerWidget {
         if (val == null || val.isEmpty) return 'Enter a valid email';
         return regex.hasMatch(val) ? null : 'Invalid email address';
       },
+    );
+  }
+}
+
+class _PhoneField extends ConsumerWidget {
+  const _PhoneField();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(authControllerProvider);
+    final phoneRegex = RegExp(r'^\+?[0-9]{7,15}$');
+
+    return Column(
+      children: [
+        TextFormField(
+          controller: controller.phoneController,
+          keyboardType: TextInputType.phone,
+          decoration: _inputDecoration(
+            context,
+            label: 'Phone Number',
+            icon: Icons.phone,
+          ),
+          validator: (val) {
+            if (val == null || val.trim().isEmpty) {
+              return 'Enter your phone number';
+            } else if (!phoneRegex.hasMatch(val)) {
+              return 'Invalid phone number';
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+      ],
     );
   }
 }

@@ -19,6 +19,7 @@ class AuthController extends ChangeNotifier {
 
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
   bool _isLogin = true;

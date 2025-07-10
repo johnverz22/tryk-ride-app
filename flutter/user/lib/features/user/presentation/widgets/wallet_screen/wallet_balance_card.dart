@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:user/config/currency.dart';
 
 class WalletBalanceCard extends StatelessWidget {
   const WalletBalanceCard({super.key});
@@ -7,7 +7,6 @@ class WalletBalanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final currencyFormatter = NumberFormat.simpleCurrency();
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -17,14 +16,16 @@ class WalletBalanceCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Available Balance',
+            Text(
+              'Available Balance',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 8),
-            Text(currencyFormatter.format(150),
+            Text(
+              currencyFormatter.format(150),
               style: theme.textTheme.displaySmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: theme.colorScheme.onSurface,
@@ -33,9 +34,19 @@ class WalletBalanceCard extends StatelessWidget {
             const SizedBox(height: 24),
             Row(
               children: const [
-                Expanded(child: WalletActionButton(icon: Icons.add_circle_outline, label: 'Add Money')),
+                Expanded(
+                  child: WalletActionButton(
+                    icon: Icons.add_circle_outline,
+                    label: 'Add Money',
+                  ),
+                ),
                 SizedBox(width: 12),
-                Expanded(child: WalletActionButton(icon: Icons.money_off, label: 'Withdraw')),
+                Expanded(
+                  child: WalletActionButton(
+                    icon: Icons.money_off,
+                    label: 'Withdraw',
+                  ),
+                ),
               ],
             ),
           ],
@@ -49,7 +60,11 @@ class WalletActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const WalletActionButton({super.key, required this.icon, required this.label});
+  const WalletActionButton({
+    super.key,
+    required this.icon,
+    required this.label,
+  });
 
   @override
   Widget build(BuildContext context) {

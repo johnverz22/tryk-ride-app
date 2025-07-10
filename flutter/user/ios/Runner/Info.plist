@@ -51,5 +51,9 @@
 	<string>${GOOGLE_MAPS_API_KEY}</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs access to your location to pick your current position.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to your location.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs access to your location even when running in the background.</string>
 </dict>
 </plist>

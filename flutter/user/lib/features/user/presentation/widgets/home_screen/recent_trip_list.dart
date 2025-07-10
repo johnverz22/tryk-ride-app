@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:user/config/currency.dart';
 import '../../pages/screens/navigation/home/ride_booking_screen.dart';
 import '../../pages/screens/navigation/home/ride_tracking_screen.dart';
 import '../../providers/trip_provider.dart';
@@ -86,7 +87,7 @@ class RecentTripList extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      '₱${trip.price.toStringAsFixed(2)}',
+                      currencyFormatter.format({trip.price.toStringAsFixed(2)}),
                       style: const TextStyle(
                         color: Colors.green,
                         fontWeight: FontWeight.w600,

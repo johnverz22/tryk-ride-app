@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:user/config/currency.dart';
 
 class TripCard extends StatelessWidget {
   final Map<String, dynamic> trip;
@@ -127,7 +128,7 @@ class TripCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Fare: ₱${price.toStringAsFixed(2)}',
+                    'Fare: ${currencyFormatter.format(price.toStringAsFixed(2))})',
                     style: theme.textTheme.bodyMedium,
                   ),
                   Text('Paid via $payment', style: theme.textTheme.bodyMedium),

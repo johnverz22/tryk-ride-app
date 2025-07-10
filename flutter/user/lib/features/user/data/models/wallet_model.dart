@@ -1,4 +1,4 @@
-import 'package:intl/intl.dart';
+import 'package:user/config/currency.dart';
 
 class Wallet {
   final String id;
@@ -18,7 +18,6 @@ class Wallet {
   }
 
   String get formattedBalance {
-    final currencyFormat = NumberFormat.currency(locale: 'en_PH', symbol: '₱');
-    return currencyFormat.format(balance);
+    return currencyFormatter.format(balance);
   }
 }

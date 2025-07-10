@@ -83,10 +83,10 @@ final paymentMethodsProvider = Provider<List<PaymentMethod>>((ref) {
   return paymentInfo?.paymentMethods ?? [];
 });
 
-/// Wallet formatted balance (e.g. ₱0.00)
+/// Wallet formatted balance (e.g. 0.00)
 final walletFormattedBalanceProvider = Provider<String>((ref) {
   final wallet = ref.watch(walletProvider);
-  return wallet?.formattedBalance ?? '₱0.00';
+  return wallet!.formattedBalance;
 });
 
 /// Filtered digital wallets (e.g., GCash, Maya)

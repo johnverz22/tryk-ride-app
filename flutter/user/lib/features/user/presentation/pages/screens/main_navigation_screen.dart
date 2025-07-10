@@ -37,21 +37,31 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         selectedItemColor: Colors.pink,
         unselectedItemColor: Colors.black,
         type: BottomNavigationBarType.fixed,
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+            icon: Icon(_currentIndex == 0 ? Icons.home : Icons.home_outlined),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.card_travel),
+            icon: Icon(
+              _currentIndex == 1
+                  ? Icons.card_travel
+                  : Icons.card_travel_outlined,
+            ),
             label: 'Trips',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.account_balance_wallet),
+            icon: Icon(
+              _currentIndex == 2
+                  ? Icons.account_balance_wallet
+                  : Icons.account_balance_wallet_outlined,
+            ),
             label: 'Wallet',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
+            icon: Icon(
+              _currentIndex == 3 ? Icons.person : Icons.person_outlined,
+            ),
             label: 'Profile',
           ),
         ],

@@ -37,20 +37,29 @@ class _TripsScreenState extends State<TripsScreen>
   }
 
   Future<void> _loadTrips() async {
+    if (!mounted) return;
+
     setState(() => isLoading = true);
+
     final token = await _getUserToken();
+
+    if (!mounted) return;
+
     if (token != null) {
       final trips = await fetchUserTrips(token);
 
       // Log the fetched trips
       debugPrint("Fetched user trips: $trips");
 
+      if (!mounted) return;
       setState(() {
         allTrips = trips;
         isLoading = false;
       });
     } else {
       debugPrint("User token not found. Unable to load trips.");
+
+      if (!mounted) return;
       setState(() => isLoading = false);
     }
   }
@@ -178,53 +187,91 @@ class _TripsScreenState extends State<TripsScreen>
       backgroundColor: Colors.grey[50],
       appBar: const CustomUserAppBar(),
       body: SafeArea(
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TripSearchBar(
-                    onChanged: (value) => setState(() => searchQuery = value),
-                    onFilterPressed: _showDateRangePicker,
-                  ),
-                ),
-                if (selectedDateRange != null)
-                  IconButton(
-                    icon: const Icon(Icons.clear),
-                    tooltip: 'Clear date filter',
-                    onPressed: () {
-                      setState(() {
-                        selectedDateRange = null;
-                      });
-                    },
-                  ),
-              ],
-            ),
-            TabBar(
-              controller: _tabController,
-              labelColor: theme.primaryColor,
-              unselectedLabelColor: Colors.grey,
-              labelStyle: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-              indicatorColor: theme.primaryColor,
-              tabs: tripCategories
-                  .map((category) => Tab(text: category))
-                  .toList(),
-            ),
-            isLoading
-                ? const Expanded(
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: tripCategories
-                          .map((category) => _buildTripList(category))
-                          .toList(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              /// --- Search Bar + Filter ---
+              Row(
+                children: [
+                  Expanded(
+                    child: TripSearchBar(
+                      onChanged: (value) => setState(() => searchQuery = value),
+                      onFilterPressed: _showDateRangePicker,
                     ),
                   ),
-          ],
+                  if (selectedDateRange != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: IconButton(
+                        icon: const Icon(Icons.clear),
+                        tooltip: 'Clear date filter',
+                        onPressed: () {
+                          setState(() {
+                            selectedDateRange = null;
+                          });
+                        },
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(),
+
+              Container(
+                height: 48,
+                margin: const EdgeInsets.only(top: 2),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  isScrollable: false,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: theme.colorScheme.primary,
+                  labelStyle: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+
+                  /// Ensures indicator fills the tab height
+                  indicatorSize: TabBarIndicatorSize.tab,
+
+                  indicator: BoxDecoration(
+                    color: theme.primaryColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  overlayColor: WidgetStateProperty.all(Colors.transparent),
+                  tabs: tripCategories
+                      .map(
+                        (category) => Tab(
+                          child: Center(
+                            child: Text(category, textAlign: TextAlign.center),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              /// --- TabBar Content ---
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : TabBarView(
+                          controller: _tabController,
+                          children: tripCategories
+                              .map((category) => _buildTripList(category))
+                              .toList(),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

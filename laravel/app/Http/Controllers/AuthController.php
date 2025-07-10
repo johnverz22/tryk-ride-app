@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\DriverStatus;
@@ -45,7 +45,7 @@ class AuthController extends Controller
 
         Wallet::create([
             'user_id' => $user->id,
-            'balance' => 0.00, // or any default value you want
+            'balance' => 0.00,
         ]);
 
         DB::commit();
@@ -89,6 +89,18 @@ class AuthController extends Controller
         $user->refresh_token = Hash::make($refreshToken);
         $user->save();
 
+        if (!$user->wallet) {
+            \App\Models\Wallet::create([
+                'user_id' => $user->id,
+                'balance' => 0.00,
+            ]);
+            $user->load('wallet');
+        }
+        $user->load('wallet');
+        Log::info('User Wallet:', [
+            'user_id' => $user->id,
+            'wallet' => $user->wallet
+        ]);
         return response()->json([
             'token' => $accessToken,
             'user'  => $user,

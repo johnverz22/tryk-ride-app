@@ -23,14 +23,14 @@ class User extends Authenticatable implements FilamentUser
         'role_id',
         'phone',
         'profile_picture',
-        'refresh_token', // ✅ Add this to store refresh token hash
+        'refresh_token',
         'location',
     ];
 
     protected $hidden = [
         'password',
         'remember_token',
-        'refresh_token', // ✅ Hide it from serialization
+        'refresh_token',
     ];
 
     protected function casts(): array

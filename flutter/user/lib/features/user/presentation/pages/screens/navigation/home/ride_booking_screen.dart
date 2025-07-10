@@ -106,7 +106,7 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
         );
 
         if (response.statusCode == 200) {
-          final ride = jsonDecode(response.body); // FIXED
+          final ride = jsonDecode(response.body);
           final statusId = ride['ride_status_id'];
 
           if (statusId == 2 && ride['driver'] != null) {
@@ -471,8 +471,8 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Book a Ride'),
-        backgroundColor: color.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onPrimary,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -541,8 +541,9 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
                     setState(() => _selectedPaymentMethod = method),
                 walletBalance: paymentInfo.wallet.balance,
               ),
-              loading: () => const CircularProgressIndicator(),
-              error: (error, stack) => Text('Failed to load wallet'),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stack) =>
+                  const Center(child: Text('Failed to load wallet')),
             ),
 
             /// Route Preview

@@ -19,12 +19,27 @@ class LocationSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LocationInputCard(
-      label: label,
-      icon: icon,
-      controller: controller,
-      onLocationPicked: (location) async => onLocationPicked(location),
-      onClear: onClear,
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+          ),
+        ),
+        const SizedBox(height: 8),
+        LocationInputCard(
+          label: label,
+          icon: icon,
+          controller: controller,
+          onLocationPicked: (location) async => onLocationPicked(location),
+          onClear: onClear,
+        ),
+      ],
     );
   }
 }

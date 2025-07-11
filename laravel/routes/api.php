@@ -55,4 +55,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/saved-locations', [Controllers\SavedLocationController::class, 'index']);
     Route::post('/user/saved-locations', [Controllers\SavedLocationController::class, 'store']);
     Route::put('/user/saved-locations/{id}', [Controllers\SavedLocationController::class, 'update']);
+
+    
+    // ── Message Methods ──
+    Route::get('/conversations/{id}/messages', [Controllers\MessageController::class, 'index']);
+    Route::post('/conversations/{id}/messages', [Controllers\MessageController::class, 'store']);
+    Route::get('/conversations', [Controllers\MessageController::class, 'userConversations']);
 });

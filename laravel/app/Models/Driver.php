@@ -38,4 +38,9 @@ class Driver extends Model
     {
         return $this->hasOne(DriverProfile::class, 'user_id');
     }
+
+        public function rides()
+    {
+        return $this->hasMany(Ride::class);
+    }
 }

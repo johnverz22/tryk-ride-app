@@ -9,9 +9,14 @@ class Message {
 }
 
 class ConversationScreen extends StatefulWidget {
+  final int conversationId;
   final String name;
 
-  const ConversationScreen({super.key, required this.name});
+  const ConversationScreen({
+    super.key,
+    required this.conversationId,
+    required this.name,
+  });
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();

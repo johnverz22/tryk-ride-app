@@ -71,8 +71,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       if (response.statusCode == 200) {
         final Map<String, dynamic> ride = (jsonDecode(response.body) as Map)
             .cast<String, dynamic>();
-        // Log ride details
-        debugPrint('Ride Details: ${ride.toString()}');
         final Map<String, dynamic> driver = (ride['driver'] ?? {})
             .cast<String, dynamic>();
         final pickup = LatLng(
@@ -289,21 +287,19 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
         body: jsonEncode({'ride_id': widget.rideId}),
       );
 
+      if (!mounted) return;
       if (response.statusCode == 200) {
-        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Ride cancelled successfully.')),
         );
 
         Navigator.pop(context);
       } else {
-        if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Failed to cancel ride.')));
       }
     } catch (e) {
-      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('An error occurred.')));
@@ -447,7 +443,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     );
 
     if (!mounted) return;
-
     if (response.statusCode == 200) {
       setState(() {
         _hasSubmittedRating = true;
@@ -925,23 +920,17 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       if (distanceKm != null)
-                        _infoTile(
-                          Icons.route,
-                          '${distanceKm.toStringAsFixed(2)} km',
-                          'Distance',
-                        ),
+                        _infoTile(Icons.route, '$distanceKm km', 'Distance'),
                       if (durationMin != null)
                         _infoTile(
                           Icons.timer,
-                          '${durationMin.toStringAsFixed(0)} min',
+                          '${durationMin.ceil()} min',
                           'ETA',
                         ),
                       if (fareAmount != null)
                         _infoTile(
                           Icons.payment,
-                          currencyFormatter.format({
-                            fareAmount.toStringAsFixed(2),
-                          }),
+                          currencyFormatter.format(fareAmount),
                           'Fare',
                         ),
                     ],

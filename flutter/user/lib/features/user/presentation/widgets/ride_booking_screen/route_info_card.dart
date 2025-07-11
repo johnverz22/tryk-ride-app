@@ -16,50 +16,65 @@ class RouteInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
-
     final distanceInKm = distanceInMeters / 1000;
 
-    return Card(
-      elevation: 3,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 15, 20, 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: Colors.grey[200]!),
+      ),
       margin: const EdgeInsets.only(top: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Trip Summary',
-              style: textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.receipt_long,
+                color: Theme.of(context).colorScheme.primary,
+                size: 24,
               ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                InfoTile(
-                  icon: Icons.route,
-                  label: '${distanceInKm.toStringAsFixed(1)} km',
-                  color: Colors.blueAccent,
-                ),
-                InfoTile(
-                  icon: Icons.schedule,
-                  label:
-                      '${double.tryParse(duration)?.toStringAsFixed(0) ?? duration} min',
-                  color: Colors.deepOrange,
-                ),
-                InfoTile(
-                  icon: Icons.attach_money,
-                  label: currencyFormatter.format(fare),
-                  color: Colors.green,
-                ),
-              ],
-            ),
-          ],
-        ),
+              const SizedBox(width: 10),
+              Text(
+                'Trip Summary',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              InfoTile(
+                icon: Icons.route,
+                label: '${distanceInKm.toStringAsFixed(1)} km',
+                color: Colors.blueAccent,
+              ),
+              InfoTile(
+                icon: Icons.schedule,
+                label:
+                    '${double.tryParse(duration)?.toStringAsFixed(0) ?? duration} min',
+                color: Colors.deepOrange,
+              ),
+              InfoTile(
+                icon: Icons.attach_money,
+                label: currencyFormatter.format(fare),
+                color: Colors.green,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

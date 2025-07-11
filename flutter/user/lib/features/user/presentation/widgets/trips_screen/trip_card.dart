@@ -128,7 +128,7 @@ class TripCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Fare: ${currencyFormatter.format(price.toStringAsFixed(2))})',
+                    'Fare: ${currencyFormatter.format(price)})',
                     style: theme.textTheme.bodyMedium,
                   ),
                   Text('Paid via $payment', style: theme.textTheme.bodyMedium),

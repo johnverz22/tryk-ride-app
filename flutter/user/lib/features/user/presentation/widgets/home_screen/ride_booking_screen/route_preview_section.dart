@@ -31,8 +31,6 @@ class RoutePreviewSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     final String effectiveDuration =
         durationInMinutes?.toStringAsFixed(2) ?? '--';
 
@@ -44,25 +42,56 @@ class RoutePreviewSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 32),
-        Text(
-          'Route Preview',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 15, 20, 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+            border: Border.all(color: Colors.grey[200]!),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.map,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Route Preview',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              RideMapPreview(
+                key: ValueKey(
+                  '${from.latitude},${from.longitude}-${to.latitude},${to.longitude}',
+                ),
+                fromLocation: from,
+                toLocation: to,
+                apiKey: googleMapsApiKey,
+                onRouteInfoLoaded: (distanceKm, durationMin) {
+                  final fare = _getEstimatedFareFromKm(distanceKm);
+                  onRouteInfoLoaded(distanceKm, durationMin, fare);
+                },
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
-        RideMapPreview(
-          key: ValueKey(
-            '${from.latitude},${from.longitude}-${to.latitude},${to.longitude}',
-          ),
-          fromLocation: from,
-          toLocation: to,
-          apiKey: googleMapsApiKey,
-          onRouteInfoLoaded: (distanceKm, durationMin) {
-            final fare = _getEstimatedFareFromKm(distanceKm);
-            onRouteInfoLoaded(distanceKm, durationMin, fare);
-          },
-        ),
+
         const SizedBox(height: 12),
         if (fare != null)
           RouteInfoCard(

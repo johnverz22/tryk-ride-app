@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:user/features/user/presentation/pages/screens/navigation/messages_screen.dart';
 import 'navigation/home_screen.dart';
 import 'navigation/trips_screen.dart';
-import 'navigation/wallet_screen.dart';
 import 'navigation/profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -17,7 +17,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _pages = const [
     HomeScreen(),
     TripsScreen(),
-    WalletScreen(),
+    // MessagesScreen(),
+    // SavedPlacesScreen(),
+    MessagesScreen(),
     ProfileScreen(),
   ];
 
@@ -51,18 +53,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             label: 'Trips',
           ),
           BottomNavigationBarItem(
-            icon: Icon(
-              _currentIndex == 2
-                  ? Icons.account_balance_wallet
-                  : Icons.account_balance_wallet_outlined,
-            ),
-            label: 'Wallet',
+            icon: Icon(_currentIndex == 2 ? Icons.chat : Icons.chat_outlined),
+            label: 'Messages',
           ),
           BottomNavigationBarItem(
-            icon: Icon(
-              _currentIndex == 3 ? Icons.person : Icons.person_outlined,
-            ),
-            label: 'Profile',
+            icon: Icon(_currentIndex == 3 ? Icons.menu : Icons.menu_outlined),
+            label: 'Menu',
           ),
         ],
       ),

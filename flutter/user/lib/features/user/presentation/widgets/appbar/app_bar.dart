@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/user_provider.dart';
+import '../../pages/screens/appbar/wallet_screen.dart';
+import '../../pages/screens/appbar/notifications_screen.dart';
 
 class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const CustomUserAppBar({super.key});
 
   @override
-  Size get preferredSize => const Size.fromHeight(90);
+  Size get preferredSize => const Size.fromHeight(70);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -39,12 +41,12 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withValues(alpha: .5),
                       width: 2,
                     ),
                   ),
                   child: CircleAvatar(
-                    radius: 26,
+                    radius: 24,
                     backgroundImage: imageProvider,
                     backgroundColor: Colors.grey[300],
                   ),
@@ -60,7 +62,9 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
                       Text(
                         _greeting(),
                         style: theme.textTheme.labelMedium?.copyWith(
-                          color: theme.colorScheme.onPrimary.withOpacity(0.8),
+                          color: theme.colorScheme.onPrimary.withValues(
+                            alpha: .8,
+                          ),
                         ),
                       ),
                       Text(
@@ -77,17 +81,29 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
                 ),
 
                 /// ─── Action Buttons ───
+                _RoundedIconButton(
+                  icon: Icons.monetization_on_outlined,
+                  tooltip: 'Wallet',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => WalletScreen()),
+                    );
+                  },
+                ),
+
                 const SizedBox(width: 12),
                 _RoundedIconButton(
                   icon: Icons.notifications_outlined,
                   tooltip: 'Notifications',
-                  onPressed: () {},
-                ),
-                const SizedBox(width: 8),
-                _RoundedIconButton(
-                  icon: Icons.chat_outlined,
-                  tooltip: 'Messages',
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen(),
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -117,7 +133,7 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
           ),
         ),
       ),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
     );
   }
 
@@ -146,7 +162,7 @@ class _RoundedIconButton extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: .1),
         shape: BoxShape.circle,
       ),
       child: IconButton(

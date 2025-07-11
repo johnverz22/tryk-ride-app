@@ -6,8 +6,17 @@ class WalletScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: const CustomUserAppBar(),
+      appBar: AppBar(
+        leading: const BackButton(color: Colors.white),
+        title: const Text('Wallet'),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: Colors.white,
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

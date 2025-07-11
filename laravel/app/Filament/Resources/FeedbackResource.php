@@ -18,8 +18,14 @@ class FeedbackResource extends Resource
     protected static ?string $model = Ride::class;
     protected static ?string $navigationIcon = 'heroicon-o-star';
     protected static ?string $navigationLabel = 'Rider Feedback';
+    protected static ?string $navigationBadgeTooltip = 'Number of feedbacks';
     protected static ?string $navigationGroup = 'Feedback';
+    protected static ?int $navigationSort = 5;
 
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::whereNotNull('rider_rating')->count();
+    }
     // public static function getEloquentQuery(): Builder
     // {
     //     return parent::getEloquentQuery()

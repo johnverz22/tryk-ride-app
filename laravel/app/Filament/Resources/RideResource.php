@@ -94,6 +94,20 @@ class RideResource extends Resource
                 Tables\Filters\SelectFilter::make('ride_status_id')
                     ->label('Ride Status')
                     ->relationship('status', 'name'),
+                Tables\Filters\SelectFilter::make('payment_method')
+                    ->label('Payment Method')
+                    ->options([
+                        'Wallet' => 'Wallet',
+                        'Digital Wallet' => 'Digital Wallet',
+                        'Credit/Debit Card' => 'Credit/Debit Card',
+                        'Cash' => 'Cash',
+                    ]),
+                Tables\Filters\SelectFilter::make('is_paid')
+                    ->label('Paid')
+                    ->options([
+                        '1' => 'Yes',
+                        '0' => 'No',
+                    ]),
             ])
             ->actions([
                 // Tables\Actions\EditAction::make(),

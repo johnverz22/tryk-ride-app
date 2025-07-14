@@ -48,17 +48,12 @@ class _TripsScreenState extends State<TripsScreen>
     if (token != null) {
       final trips = await fetchUserTrips(token);
 
-      // Log the fetched trips
-      debugPrint("Fetched user trips: $trips");
-
       if (!mounted) return;
       setState(() {
         allTrips = trips;
         isLoading = false;
       });
     } else {
-      debugPrint("User token not found. Unable to load trips.");
-
       if (!mounted) return;
       setState(() => isLoading = false);
     }

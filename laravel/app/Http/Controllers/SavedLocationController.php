@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\SavedLocation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class SavedLocationController extends Controller
 {
@@ -19,10 +20,11 @@ class SavedLocationController extends Controller
 
         $locations = SavedLocation::where('user_id', $user->id)->get();
 
-        return response()->json($locations);
+        return response()->json([
+            'locations' => $locations,
+        ]);
     }
 
-    // POST /user/saved-locations
     public function store(Request $request)
     {
         $user = Auth::user();
@@ -50,12 +52,13 @@ class SavedLocationController extends Controller
         ], 201);
     }
 
-    // PUT /user/saved-locations/{id}
     public function update(Request $request, $id)
     {
         $user = Auth::user();
 
-        $location = SavedLocation::where('id', $id)->where('user_id', $user->id)->firstOrFail();
+        $location = SavedLocation::where('id', $id)
+            ->where('user_id', $user->id)
+            ->firstOrFail();
 
         $validated = $request->validate([
             'location_name' => 'required|string|max:255',
@@ -63,8 +66,33 @@ class SavedLocationController extends Controller
             'longitude' => 'required|numeric|between:-180,180',
         ]);
 
-        $location->update($validated);
+        $location->location_name = $validated['location_name'];
+        $location->latitude = $validated['latitude'];
+        $location->longitude = $validated['longitude'];
+        $location->save();
 
-        return response()->json(['message' => 'Location updated', 'location' => $location]);
+        Log::info('Saved updated location:', $location->toArray());
+
+        return response()->json([
+            'message' => 'Location updated',
+            'location' => $location,
+        ]);
+    }
+    
+    public function destroy($id)
+    {
+        $user = Auth::user();
+
+        $location = SavedLocation::where('id', $id)
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        $location->delete();
+
+        Log::info('Deleted location:', ['id' => $id, 'user_id' => $user->id]);
+
+        return response()->json([
+            'message' => 'Location deleted successfully',
+        ]);
     }
 }

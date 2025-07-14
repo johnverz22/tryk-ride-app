@@ -6,7 +6,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Log;
-use App\Models\User;
 use App\Models\SavedLocation;
 use App\Models\Ride;
 
@@ -82,7 +81,6 @@ class UserController extends Controller
                     'requested_at' => $ride->requested_at,
                 ];
 
-                Log::debug('Ride details:', $formatted);
                 return $formatted;
             });
             

@@ -1,12 +1,12 @@
-import 'package:user/features/user/presentation/providers/shared_preferences_provider.dart';
+import 'package:user/features/profile/presentation/providers/shared_preferences_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/user/presentation/pages/screens/auth/auth_screen.dart';
-import '../../features/user/presentation/pages/screens/main_navigation_screen.dart';
-import '../features/user/presentation/pages/screens/onboarding_screen.dart';
-import '../features/user/presentation/pages/screens/splash_screen.dart';
-import '../../features/user/presentation/providers/user_provider.dart';
+import '../features/profile/presentation/pages/screens/auth/auth_screen.dart';
+import '../features/profile/presentation/pages/screens/main_navigation_screen.dart';
+import '../features/profile/presentation/pages/screens/onboarding_screen.dart';
+import '../features/profile/presentation/pages/screens/splash_screen.dart';
+import '../features/profile/presentation/providers/user_provider.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final userAsync = ref.watch(userProvider);

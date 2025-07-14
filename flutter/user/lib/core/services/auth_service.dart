@@ -5,7 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/user/data/models/user_model.dart';
+import '../../features/profile/data/models/user_model.dart';
 
 final baseUrl = dotenv.env['BASE_URL'];
 

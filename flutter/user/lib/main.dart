@@ -1,5 +1,5 @@
 import 'package:user/core/services/shared_preferences_service.dart';
-import 'package:user/features/user/presentation/providers/shared_preferences_provider.dart';
+import 'package:user/features/profile/presentation/providers/shared_preferences_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';

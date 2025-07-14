@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'config/theme.dart';
 import 'routes/app_router.dart';
-import 'features/user/presentation/providers/user_provider.dart';
+import 'features/profile/presentation/providers/user_provider.dart';
 
 class MainApp extends ConsumerWidget {
   const MainApp({super.key});

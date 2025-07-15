@@ -7,7 +7,15 @@ final dioProvider = Provider<Dio>((ref) {
   final baseUrl = dotenv.env['BASE_URL']!;
   final storage = const FlutterSecureStorage();
 
-  final dio = Dio(BaseOptions(baseUrl: baseUrl));
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: baseUrl,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    ),
+  );
 
   dio.interceptors.add(
     InterceptorsWrapper(
@@ -18,6 +26,17 @@ final dioProvider = Provider<Dio>((ref) {
         }
         handler.next(options);
       },
+    ),
+  );
+
+  // Optional: Log all requests/responses
+  dio.interceptors.add(
+    LogInterceptor(
+      request: true,
+      requestBody: true,
+      responseBody: true,
+      responseHeader: false,
+      error: true,
     ),
   );
 

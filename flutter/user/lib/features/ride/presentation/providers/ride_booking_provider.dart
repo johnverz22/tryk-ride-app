@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:user/features/core/network/dio_provider.dart';
-import 'package:user/features/ride/domain/entities/ride_request.dart';
+import 'package:user/features/ride/domain/entities/ride.dart';
 import 'package:user/features/ride/domain/repositories/ride_repository.dart';
 import 'package:user/features/ride/data/repositories/ride_repository_impl.dart';
 import 'package:user/features/ride/data/datasources/ride_remote_datasource.dart';
@@ -31,7 +31,7 @@ class RideBookingNotifier extends StateNotifier<AsyncValue<void>> {
 
   RideBookingNotifier(this._repo) : super(const AsyncData(null));
 
-  Future<void> bookRide(RideRequest request) async {
+  Future<void> bookRide(Ride request) async {
     state = const AsyncLoading();
     try {
       await _repo.requestRide(

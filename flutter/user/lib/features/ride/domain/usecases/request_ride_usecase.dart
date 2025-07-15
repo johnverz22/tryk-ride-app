@@ -1,6 +1,4 @@
-// domain/usecases/request_ride.dart
-
-import '../entities/ride_request.dart';
+import '../entities/ride.dart';
 import '../repositories/ride_repository.dart';
 
 class RequestRide {
@@ -8,7 +6,7 @@ class RequestRide {
 
   RequestRide(this.repository);
 
-  Future<void> call(RideRequest request) {
+  Future<int> call(Ride request) {
     return repository.requestRide(request);
   }
 }

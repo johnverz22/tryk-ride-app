@@ -1,6 +1,6 @@
-import 'package:user/features/ride/domain/entities/ride_request.dart';
+import 'package:user/features/ride/domain/entities/ride.dart';
 
-class RideRequestModel {
+class RideModel {
   final String pickupAddress;
   final double pickupLatitude;
   final double pickupLongitude;
@@ -10,8 +10,11 @@ class RideRequestModel {
   final String paymentMethod;
   final int searchRadiusKm;
   final DateTime requestedAt;
+  final double distanceKm;
+  final double durationMinutes;
+  final double fareAmount;
 
-  RideRequestModel({
+  RideModel({
     required this.pickupAddress,
     required this.pickupLatitude,
     required this.pickupLongitude,
@@ -21,11 +24,13 @@ class RideRequestModel {
     required this.paymentMethod,
     required this.searchRadiusKm,
     required this.requestedAt,
+    required this.distanceKm,
+    required this.durationMinutes,
+    required this.fareAmount,
   });
 
-  /// Converts a domain entity to model
-  factory RideRequestModel.fromEntity(RideRequest e) {
-    return RideRequestModel(
+  factory RideModel.fromEntity(Ride e) {
+    return RideModel(
       pickupAddress: e.pickupAddress,
       pickupLatitude: e.pickupLatitude,
       pickupLongitude: e.pickupLongitude,
@@ -35,25 +40,12 @@ class RideRequestModel {
       paymentMethod: e.paymentMethod,
       searchRadiusKm: e.searchRadiusKm,
       requestedAt: e.requestedAt,
+      distanceKm: e.distanceKm,
+      durationMinutes: e.durationMinutes,
+      fareAmount: e.fareAmount,
     );
   }
 
-  /// Converts a JSON response to model
-  factory RideRequestModel.fromJson(Map<String, dynamic> json) {
-    return RideRequestModel(
-      pickupAddress: json['pickup_address'] as String,
-      pickupLatitude: (json['pickup_latitude'] as num).toDouble(),
-      pickupLongitude: (json['pickup_longitude'] as num).toDouble(),
-      dropoffAddress: json['dropoff_address'] as String,
-      dropoffLatitude: (json['dropoff_latitude'] as num).toDouble(),
-      dropoffLongitude: (json['dropoff_longitude'] as num).toDouble(),
-      paymentMethod: json['payment_method'] as String,
-      searchRadiusKm: json['search_radius_km'] as int,
-      requestedAt: DateTime.parse(json['requested_at'] as String),
-    );
-  }
-
-  /// Converts model to JSON for API request
   Map<String, dynamic> toJson() {
     return {
       "pickup_address": pickupAddress,
@@ -65,6 +57,9 @@ class RideRequestModel {
       "payment_method": paymentMethod,
       "search_radius_km": searchRadiusKm,
       "requested_at": requestedAt.toIso8601String(),
+      "distance_km": distanceKm,
+      "duration_minutes": durationMinutes,
+      "fare_amount": fareAmount,
     };
   }
 }

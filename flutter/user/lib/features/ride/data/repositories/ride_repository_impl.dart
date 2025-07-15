@@ -1,7 +1,7 @@
-import '../../domain/entities/ride_request.dart';
-import '../../domain/repositories/ride_repository.dart';
-import '../datasources/ride_remote_datasource.dart';
-import '../models/ride_request_model.dart';
+import 'package:user/features/ride/data/datasources/ride_remote_datasource.dart';
+import 'package:user/features/ride/data/models/ride_model.dart';
+import 'package:user/features/ride/domain/repositories/ride_repository.dart';
+import 'package:user/features/ride/domain/entities/ride.dart';
 
 class RideRepositoryImpl implements RideRepository {
   final RideRemoteDatasource remote;
@@ -9,8 +9,13 @@ class RideRepositoryImpl implements RideRepository {
   RideRepositoryImpl(this.remote);
 
   @override
-  Future<void> requestRide(RideRequest request) {
-    final model = RideRequestModel.fromEntity(request);
-    return remote.requestRide(model);
+  Future<int> requestRide(Ride request) {
+    final model = RideModel.fromEntity(request);
+    return remote.requestRide(model); // model stays in data layer
+  }
+
+  @override
+  Future<void> cancelRide(int rideId) {
+    return remote.cancelRide(rideId);
   }
 }

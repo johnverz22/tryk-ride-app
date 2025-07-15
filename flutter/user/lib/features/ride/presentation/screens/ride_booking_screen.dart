@@ -6,10 +6,11 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:user/features/profile/presentation/providers/payment_info_provider.dart';
 import 'package:user/features/profile/presentation/widgets/widgets.dart';
-import 'package:user/features/ride/domain/entities/ride_request.dart';
-import 'package:user/features/ride/presentation/providers/ride_booking_provider.dart';
+import 'package:user/features/ride/domain/entities/ride.dart';
 
 import 'package:user/core/utils/geo_utils.dart';
+import 'package:user/features/ride/presentation/providers/usecases.dart';
+import 'package:user/features/ride/presentation/widgets/widgets.dart';
 
 class RideBookingScreen extends ConsumerStatefulWidget {
   const RideBookingScreen({super.key});
@@ -81,19 +82,44 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
       _isLoading = true;
     });
 
-    try {
-      final request = RideRequest(
-        pickupAddress: _fromController.text,
-        pickupLatitude: _fromLocation!.latitude,
-        pickupLongitude: _fromLocation!.longitude,
-        dropoffAddress: _toController.text,
-        dropoffLatitude: _toLocation!.latitude,
-        dropoffLongitude: _toLocation!.longitude,
-        paymentMethod: _selectedPaymentMethod,
-        searchRadiusKm: _searchRadiusKm.toInt(),
-      );
+    final rideRequest = Ride(
+      pickupAddress: _fromController.text,
+      pickupLatitude: _fromLocation!.latitude,
+      pickupLongitude: _fromLocation!.longitude,
+      dropoffAddress: _toController.text,
+      dropoffLatitude: _toLocation!.latitude,
+      dropoffLongitude: _toLocation!.longitude,
+      requestedAt: DateTime.now(),
+      distanceKm: _distance!,
+      durationMinutes: _duration!,
+      fareAmount: _fare!,
+      paymentMethod: _selectedPaymentMethod,
+      searchRadiusKm: _searchRadiusKm.round(),
+    );
 
-      await ref.read(rideBookingProvider.notifier).bookRide(request);
+    final requestRide = ref.read(requestRideUseCaseProvider);
+
+    try {
+      final rideId = await requestRide(rideRequest);
+
+      if (!mounted) return;
+
+      // Show searching driver bottom sheet
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) {
+          return SearchingDriverBottomSheet(
+            rideId: rideId,
+            onCancelled: () {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Ride cancelled.')));
+            },
+          );
+        },
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -1,31 +1,26 @@
-import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:user/features/ride/presentation/providers/ride_cancellation_provider.dart';
 
-import '../../../../../../core/services/auth_service.dart';
-
-class SearchingDriverBottomSheet extends StatefulWidget {
-  final String? baseUrl;
-  final int? rideId;
+class SearchingDriverBottomSheet extends ConsumerStatefulWidget {
+  final int rideId;
   final VoidCallback? onCancelled;
   final VoidCallback? cancelStatusCheck;
 
   const SearchingDriverBottomSheet({
     super.key,
-    this.baseUrl,
-    this.rideId,
+    required this.rideId,
     this.onCancelled,
     this.cancelStatusCheck,
   });
 
   @override
-  State<SearchingDriverBottomSheet> createState() =>
+  ConsumerState<SearchingDriverBottomSheet> createState() =>
       _SearchingDriverBottomSheetState();
 }
 
 class _SearchingDriverBottomSheetState
-    extends State<SearchingDriverBottomSheet> {
+    extends ConsumerState<SearchingDriverBottomSheet> {
   final DraggableScrollableController _controller =
       DraggableScrollableController();
   bool _rideCancelled = false;
@@ -34,6 +29,7 @@ class _SearchingDriverBottomSheetState
   @override
   void initState() {
     super.initState();
+
     // Update text after 5 seconds
     Future.delayed(const Duration(seconds: 5), () {
       if (!mounted || _rideCancelled) return;
@@ -49,28 +45,26 @@ class _SearchingDriverBottomSheetState
       _statusText = 'Cancelling ride...';
     });
 
-    // Cancel the ride
-    final token = await AuthService().getToken();
-    if (token != null && widget.rideId != null && widget.baseUrl != null) {
-      final uri = Uri.parse('${widget.baseUrl}/rides/cancel');
-      await http.post(
-        uri,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'ride_id': widget.rideId}),
-      );
-    }
-
     widget.cancelStatusCheck?.call();
 
-    if (mounted) {
+    try {
+      await ref.read(rideCancellationProvider.notifier).cancel(widget.rideId);
+
+      if (!mounted) return;
+
       Navigator.of(context, rootNavigator: true).pop();
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Ride request cancelled.')));
+
       widget.onCancelled?.call();
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to cancel ride.')));
     }
   }
 
@@ -89,7 +83,7 @@ class _SearchingDriverBottomSheetState
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 12,
                 offset: const Offset(0, -3),
               ),

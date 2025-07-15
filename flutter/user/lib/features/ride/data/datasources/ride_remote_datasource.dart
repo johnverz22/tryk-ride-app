@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
-import '../models/ride_request_model.dart';
+import '../models/ride_model.dart';
 
 abstract class RideRemoteDatasource {
-  Future<void> requestRide(RideRequestModel model);
+  Future<int> requestRide(RideModel model);
+
+  Future<void> cancelRide(int rideId) async {}
 }
 
 class RideRemoteDatasourceImpl implements RideRemoteDatasource {
@@ -11,7 +13,26 @@ class RideRemoteDatasourceImpl implements RideRemoteDatasource {
   RideRemoteDatasourceImpl(this.dio);
 
   @override
-  Future<void> requestRide(RideRequestModel model) async {
-    await dio.post('/rides/request', data: model.toJson());
+  Future<int> requestRide(RideModel model) async {
+    final payload = model.toJson();
+
+    final response = await dio.post('/rides/request', data: payload);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = response.data;
+
+      if (data != null && data['ride']['id'] != null) {
+        return data['ride']['id'] as int;
+      } else {
+        throw Exception('Ride ID not found in response');
+      }
+    } else {
+      throw Exception('Failed to request ride: ${response.statusCode}');
+    }
+  }
+
+  @override
+  Future<void> cancelRide(int rideId) async {
+    await dio.post('/rides/cancel', data: {'ride_id': rideId});
   }
 }

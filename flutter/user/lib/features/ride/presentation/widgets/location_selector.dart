@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../widgets.dart';
+import '../../../profile/presentation/widgets/widgets.dart';
 
 class LocationSelector extends StatelessWidget {
   final String label;

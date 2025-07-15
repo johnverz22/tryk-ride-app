@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:user/features/core/network/dio_provider.dart';
+import 'package:user/features/ride/data/services/ride_socket_service.dart';
 import 'package:user/features/ride/presentation/providers/ride_cancellation_provider.dart';
 
 class SearchingDriverBottomSheet extends ConsumerStatefulWidget {
@@ -26,16 +30,50 @@ class _SearchingDriverBottomSheetState
   bool _rideCancelled = false;
   String _statusText = 'Looking for a nearby driver...';
 
+  late final RideSocketService _socketService;
+
   @override
   void initState() {
     super.initState();
 
-    // Update text after 5 seconds
+    final dio = ref.read(dioProvider);
+    _socketService = RideSocketService(dio);
+
+    _listenToRideStatus();
+
     Future.delayed(const Duration(seconds: 5), () {
       if (!mounted || _rideCancelled) return;
       setState(() {
         _statusText = 'Matching you with the best driver...';
       });
+    });
+  }
+
+  void _listenToRideStatus() {
+    _socketService.init(widget.rideId, (eventData) {
+      final decoded = eventData is String ? jsonDecode(eventData) : eventData;
+      final status = decoded['status'];
+
+      if (!mounted || _rideCancelled) return;
+
+      switch (status) {
+        case 'accepted':
+          Navigator.of(context, rootNavigator: true).pop();
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Driver found!')));
+          break;
+        case 'cancelled':
+          setState(() {
+            _rideCancelled = true;
+            _statusText = 'Ride was cancelled.';
+          });
+          break;
+        default:
+          setState(() {
+            _statusText = 'Status updated: $status';
+          });
+      }
     });
   }
 
@@ -69,6 +107,12 @@ class _SearchingDriverBottomSheetState
   }
 
   @override
+  void dispose() {
+    _socketService.disconnect();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
       controller: _controller,
@@ -83,7 +127,7 @@ class _SearchingDriverBottomSheetState
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
+                color: Colors.black.withAlpha(25),
                 blurRadius: 12,
                 offset: const Offset(0, -3),
               ),

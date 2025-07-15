@@ -300,7 +300,7 @@ class PaymentMethodsScreen extends ConsumerWidget {
 
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/payment-methods/$id'),
+        Uri.parse('$baseUrl/api/payment-methods/$id'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',

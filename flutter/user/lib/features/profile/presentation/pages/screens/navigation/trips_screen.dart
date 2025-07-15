@@ -62,7 +62,7 @@ class _TripsScreenState extends State<TripsScreen>
   Future<List<Map<String, dynamic>>> fetchUserTrips(String token) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/user/trips'),
+        Uri.parse('$baseUrl/api/user/trips'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',

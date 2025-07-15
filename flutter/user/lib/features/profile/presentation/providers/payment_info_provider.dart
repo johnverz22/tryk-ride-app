@@ -40,7 +40,7 @@ class PaymentInfoNotifier extends AsyncNotifier<PaymentInfo> {
     }
 
     final response = await http.get(
-      Uri.parse('$baseUrl/payment-info'),
+      Uri.parse('$baseUrl/api/payment-info'),
       headers: {
         'Authorization': 'Bearer $token',
         'Accept': 'application/json',

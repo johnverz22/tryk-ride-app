@@ -76,7 +76,7 @@ class UserNotifier extends AsyncNotifier<UserState?> {
   Future<bool> refreshToken() async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/refresh'),
+        Uri.parse('$baseUrl/api/auth/refresh'),
         headers: {'Accept': 'application/json'},
       );
 
@@ -137,7 +137,7 @@ class UserNotifier extends AsyncNotifier<UserState?> {
     if (token == null) return;
 
     final response = await authenticatedRequest(
-      '$baseUrl/user/update',
+      '$baseUrl/api/user/update',
       'PUT',
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode(updatedUser.toJson()),

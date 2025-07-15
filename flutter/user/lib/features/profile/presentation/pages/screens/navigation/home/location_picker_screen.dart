@@ -53,7 +53,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
 
   Future<void> _loadFavoriteLocations() async {
     final token = await AuthService().getToken();
-    final url = Uri.parse('$baseUrl/user/saved-locations');
+    final url = Uri.parse('$baseUrl/api/user/saved-locations');
 
     try {
       final response = await http.get(
@@ -375,7 +375,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                 if (name.isNotEmpty && selectedLatLng != null) {
                   final token = await AuthService().getToken();
 
-                  final url = Uri.parse('$baseUrl/user/saved-locations');
+                  final url = Uri.parse('$baseUrl/api/user/saved-locations');
 
                   try {
                     final response = await http.post(
@@ -570,7 +570,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                   final locationId = _favoriteLocations[index]['id'];
                   final LatLng? selectedLatLng = _selectedPoint;
                   final url = Uri.parse(
-                    '$baseUrl/user/saved-locations/$locationId',
+                    '$baseUrl/api/user/saved-locations/$locationId',
                   );
                   debugPrint(
                     'Sending updated values: $name, ${latLng.latitude}, ${latLng.longitude}',
@@ -655,7 +655,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     final locationId = _favoriteLocations[index]['id'];
     final token = await AuthService().getToken();
 
-    final url = Uri.parse('$baseUrl/user/saved-locations/$locationId');
+    final url = Uri.parse('$baseUrl/api/user/saved-locations/$locationId');
 
     try {
       final response = await http.delete(

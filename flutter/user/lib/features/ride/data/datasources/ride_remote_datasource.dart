@@ -16,7 +16,7 @@ class RideRemoteDatasourceImpl implements RideRemoteDatasource {
   Future<int> requestRide(RideModel model) async {
     final payload = model.toJson();
 
-    final response = await dio.post('/rides/request', data: payload);
+    final response = await dio.post('/api/rides/request', data: payload);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       final data = response.data;
@@ -33,6 +33,6 @@ class RideRemoteDatasourceImpl implements RideRemoteDatasource {
 
   @override
   Future<void> cancelRide(int rideId) async {
-    await dio.post('/rides/cancel', data: {'ride_id': rideId});
+    await dio.post('/api/rides/cancel', data: {'ride_id': rideId});
   }
 }

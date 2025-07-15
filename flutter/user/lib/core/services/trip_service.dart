@@ -6,7 +6,7 @@ class TripService {
   static Future<List<Map<String, dynamic>>> fetchUserTrips(String token) async {
     final baseUrl = dotenv.env['BASE_URL'];
     final response = await http.get(
-      Uri.parse('$baseUrl/user/trips'),
+      Uri.parse('$baseUrl/api/user/trips'),
       headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
     );
 

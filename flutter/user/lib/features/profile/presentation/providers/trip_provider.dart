@@ -50,7 +50,7 @@ class Trip {
     String baseUrl,
   ) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/rides/ongoing'),
+      Uri.parse('$baseUrl/api/rides/ongoing'),
       headers: {
         'Accept': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',

@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Ride;
 use App\Models\RideRejection;
-use App\Events\RideRequested;
+use App\Events\RideStatusUpdated;
 use App\Enums\RideStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -89,8 +89,6 @@ class RideController extends Controller
 
             DB::commit();
 
-            event(new RideRequested($ride, $drivers->first()));
-
             return response()->json([
                 'message' => 'Ride created and driver notified.',
                 'ride' => $ride,
@@ -138,6 +136,8 @@ class RideController extends Controller
             'accepted_at' => now(),
         ]);
 
+        event(new RideStatusUpdated($ride));
+
         return response()->json([
             'message' => 'Ride accepted.',
             'ride' => $ride->load(['driver:id,name', 'user:id,name', 'status:id,name']),
@@ -169,10 +169,6 @@ class RideController extends Controller
             $ride->pickup_longitude,
             $ride->search_radius_km
         )->reject(fn($driver) => $ride->rejections->pluck('driver_id')->contains($driver->id));
-
-        foreach ($nearbyDrivers as $driver) {
-            event(new RideRequested($ride, $driver));
-        }
 
         return response()->json(['message' => 'Ride rejected and reassigned to nearby drivers.']);
     }
@@ -235,6 +231,8 @@ class RideController extends Controller
         }
         $ride->save();
 
+        event(new RideStatusUpdated($ride));
+
         return response()->json([
             'message' => 'Ride status updated.',
             'ride' => $ride,
@@ -253,6 +251,8 @@ class RideController extends Controller
             'ride_status_id' => RideStatus::COMPLETED,
             'completed_at' => now(),
         ]);
+        
+        event(new RideStatusUpdated($ride));
 
         return response()->json([
             'message' => 'Ride completed successfully.',

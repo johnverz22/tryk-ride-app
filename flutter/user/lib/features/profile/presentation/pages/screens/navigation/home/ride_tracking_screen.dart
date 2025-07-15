@@ -62,7 +62,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     try {
       final token = await AuthService().getToken();
       final response = await http.get(
-        Uri.parse('$baseUrl/rides/${widget.rideId}'),
+        Uri.parse('$baseUrl/api/rides/${widget.rideId}'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -128,7 +128,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       final token = await AuthService().getToken();
 
       final response = await http.get(
-        Uri.parse('$baseUrl/rides/${widget.rideId}/driver-location'),
+        Uri.parse('$baseUrl/api/rides/${widget.rideId}/driver-location'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -279,7 +279,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       final token = await AuthService().getToken();
 
       final response = await http.post(
-        Uri.parse('$baseUrl/rides/cancel'),
+        Uri.parse('$baseUrl/api/rides/cancel'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -431,7 +431,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     final token = await AuthService().getToken();
 
     final response = await http.post(
-      Uri.parse('$baseUrl/rides/$rideId/rate'),
+      Uri.parse('$baseUrl/api/rides/$rideId/rate'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',

@@ -2,7 +2,10 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 // ───── Public Routes ─────
 Route::post('/login', [Controllers\AuthController::class, 'login']);
@@ -62,4 +65,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/conversations/{id}/messages', [Controllers\MessageController::class, 'index']);
     Route::post('/conversations/{id}/messages', [Controllers\MessageController::class, 'store']);
     Route::get('/conversations', [Controllers\MessageController::class, 'userConversations']);
+
+    // Route::post('/broadcasting/auth', function (Request $request) {
+    //     Log::info('User', ['user' => $request->user()]);
+    //     return Broadcast::auth($request);
+    // });
 });

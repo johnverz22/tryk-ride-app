@@ -93,7 +93,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     try {
       final token = await storage.read(key: 'token');
       final response = await http.get(
-        Uri.parse('$baseUrl/conversations'),
+        Uri.parse('$baseUrl/api/conversations'),
         headers: {
           'Authorization': 'Bearer $token',
           'Accept': 'application/json',

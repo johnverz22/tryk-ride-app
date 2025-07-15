@@ -33,6 +33,7 @@ dependencies:
   go_router: ^16.0.0
   webview_flutter: ^4.0.7
   emoji_picker_flutter: ^4.3.0 
+  web_socket_channel: ^3.0.3
 
 dev_dependencies:
   flutter_test:

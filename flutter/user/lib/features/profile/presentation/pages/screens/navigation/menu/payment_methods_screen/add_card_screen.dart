@@ -103,7 +103,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
       };
 
       final response = await http.post(
-        Uri.parse('$baseUrl/payment-methods'),
+        Uri.parse('$baseUrl/api/payment-methods'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',

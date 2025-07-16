@@ -3,19 +3,36 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:user/features/core/network/dio_provider.dart';
+// REMOVE THIS IMPORT: import 'package:user/features/profile/presentation/pages/screens/navigation/home/ride_tracking_screen.dart';
 import 'package:user/features/ride/data/services/ride_socket_service.dart';
 import 'package:user/features/ride/presentation/providers/ride_cancellation_provider.dart';
 
+// NEW: Define a data class for confirmed driver info
+class ConfirmedDriverInfo {
+  final int rideId;
+  final String driverName;
+  final String? profilePicture;
+  final String vehicle;
+
+  ConfirmedDriverInfo({
+    required this.rideId,
+    required this.driverName,
+    this.profilePicture,
+    required this.vehicle,
+  });
+}
+
 class SearchingDriverBottomSheet extends ConsumerStatefulWidget {
   final int rideId;
-  final VoidCallback? onCancelled;
   final VoidCallback? cancelStatusCheck;
+  // NEW: Callback to notify parent about confirmed driver
+  final ValueChanged<ConfirmedDriverInfo>? onDriverConfirmed;
 
   const SearchingDriverBottomSheet({
     super.key,
     required this.rideId,
-    this.onCancelled,
     this.cancelStatusCheck,
+    this.onDriverConfirmed, // Add to constructor
   });
 
   @override
@@ -49,30 +66,42 @@ class _SearchingDriverBottomSheetState
     });
   }
 
+  // REMOVE this method completely: _showDriverConfirmedModal
+  // It will now be shown by RideBookingScreen
+
   void _listenToRideStatus() {
-    _socketService.init(widget.rideId, (eventData) {
+    _socketService.init(widget.rideId, (eventData) async {
       final decoded = eventData is String ? jsonDecode(eventData) : eventData;
-      final status = decoded['status'];
 
       if (!mounted || _rideCancelled) return;
 
-      switch (status) {
-        case 'accepted':
-          Navigator.of(context, rootNavigator: true).pop();
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Driver found!')));
-          break;
-        case 'cancelled':
-          setState(() {
-            _rideCancelled = true;
-            _statusText = 'Ride was cancelled.';
-          });
-          break;
-        default:
-          setState(() {
-            _statusText = 'Status updated: $status';
-          });
+      final rideStatusId = decoded['ride_status_id'];
+      final assignedDriverId = decoded['assigned_driver_id'];
+
+      if (rideStatusId == 2 && assignedDriverId != null) {
+        // First, close *this* bottom sheet (SearchingDriverBottomSheet)
+        // using its own context.
+        Navigator.of(context, rootNavigator: true).pop();
+
+        if (!mounted) return; // Re-check mounted after pop
+
+        // 👉 Replace the below mock values with real API call or provider state
+        final driverName = 'John Doe'; // Replace with real name
+        final profilePicture = ''; // Replace with driver image URL
+        final vehicle =
+            'Toyota Prius - ABC 1234'; // Replace with real vehicle info
+
+        // Notify the parent (RideBookingScreen) that a driver is confirmed
+        // and pass the relevant data.
+        widget.onDriverConfirmed?.call(
+          ConfirmedDriverInfo(
+            rideId: widget.rideId,
+            driverName: driverName,
+            profilePicture: profilePicture,
+            vehicle: vehicle,
+          ),
+        );
+        return; // Important: Exit after handling confirmed driver
       }
     });
   }
@@ -90,13 +119,18 @@ class _SearchingDriverBottomSheetState
 
       if (!mounted) return;
 
+      // Close the searching bottom sheet when cancelled
       Navigator.of(context, rootNavigator: true).pop();
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Ride request cancelled.')));
-
-      widget.onCancelled?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Ride request cancelled.',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
 

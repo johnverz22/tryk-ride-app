@@ -3,7 +3,7 @@
 namespace App\Events;
 
 use App\Models\Ride;
-use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -21,10 +21,10 @@ class RideStatusUpdated implements ShouldBroadcastNow
         Log::info('RideStatusUpdated constructed', ['ride_id' => $ride->id]);
     }
 
-    public function broadcastOn(): PrivateChannel
+    public function broadcastOn(): Channel
     {
-        Log::info('Broadcasting on channel: private-ride.' . $this->ride->id);
-        return new PrivateChannel('private-ride.' . $this->ride->id);
+        Log::info('Broadcasting on channel: ride.' . $this->ride->id);
+        return new Channel('ride.' . $this->ride->id);
     }
 
     public function broadcastAs(): string

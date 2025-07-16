@@ -4,6 +4,12 @@ import 'package:user/features/ride/domain/entities/ride.dart';
 import 'package:user/features/ride/domain/repositories/ride_repository.dart';
 import 'package:user/features/ride/data/repositories/ride_repository_impl.dart';
 import 'package:user/features/ride/data/datasources/ride_remote_datasource.dart';
+import 'package:user/features/ride/domain/usecases/request_ride_usecase.dart';
+
+final requestRideUseCaseProvider = Provider((ref) {
+  final repository = ref.watch(rideRepositoryProvider);
+  return RequestRide(repository);
+});
 
 // Remote datasource provider
 final rideRemoteDatasourceProvider = Provider<RideRemoteDatasource>((ref) {
@@ -34,9 +40,7 @@ class RideBookingNotifier extends StateNotifier<AsyncValue<void>> {
   Future<void> bookRide(Ride request) async {
     state = const AsyncLoading();
     try {
-      await _repo.requestRide(
-        request,
-      ); // ← match method name in your RideRepositoryImpl
+      await _repo.requestRide(request);
       state = const AsyncData(null);
     } catch (e, st) {
       state = AsyncError(e, st);

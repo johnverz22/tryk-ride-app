@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../../widgets/widgets.dart';
-import 'home/ride_tracking_screen.dart';
+import '../../../../../ride/presentation/screens/ride_tracking_screen.dart';
 
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});

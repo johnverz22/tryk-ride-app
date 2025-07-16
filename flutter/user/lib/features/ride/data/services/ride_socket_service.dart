@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class RideSocketService {
@@ -42,7 +41,6 @@ class RideSocketService {
         print('🔔 Received event: $event');
         print('📦 Received payload: $payload');
 
-        // 🔥🔥 ADD THIS TO REPLY TO SERVER
         if (event == 'pusher:ping') {
           _channel?.sink.add(jsonEncode({'event': 'pusher:pong'}));
           print('🏓 Sent pong in response to ping');
@@ -52,7 +50,7 @@ class RideSocketService {
           final socketData = jsonDecode(payload);
           final socketId = socketData['socket_id'];
           print('🔌 Socket ID: $socketId');
-          await _subscribeToRideChannel(rideId, socketId);
+          _subscribeToRideChannel(rideId);
         }
 
         if (event.toString().contains('RideStatusUpdated')) {
@@ -67,35 +65,16 @@ class RideSocketService {
     );
   }
 
-  Future<void> _subscribeToRideChannel(int rideId, String socketId) async {
-    final channelName = 'private-ride.$rideId';
+  void _subscribeToRideChannel(int rideId) {
+    final channelName = 'ride.$rideId';
 
-    try {
-      final token = await const FlutterSecureStorage().read(key: 'token');
-      print('Headers: ${_dio.options.headers}');
-      final authResponse = await _dio.post(
-        '/broadcasting/auth',
-        data: {'socket_id': socketId, 'channel_name': channelName},
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Accept': 'application/json',
-          },
-        ),
-      );
+    final payload = jsonEncode({
+      'event': 'pusher:subscribe',
+      'data': {'channel': channelName},
+    });
 
-      final auth = authResponse.data['auth'];
-
-      final payload = jsonEncode({
-        'event': 'pusher:subscribe',
-        'data': {'channel': channelName, 'auth': auth},
-      });
-
-      _channel?.sink.add(payload);
-      print('Subscribed to $channelName with auth');
-    } catch (e) {
-      print('Subscription auth failed: $e');
-    }
+    _channel?.sink.add(payload);
+    print('✅ Subscribed to public channel $channelName (no auth needed)');
   }
 
   void disconnect() {

@@ -42,7 +42,7 @@ return [
                 'useTLS' => env('REVERB_SCHEME', 'http') === 'https',
             ],
             'client_options' => [
-                'authEndpoint' => '/api/broadcasting/auth',
+                'authEndpoint' => '/broadcasting/auth',
             ],
             'middleware' => ['auth:sanctum'],
         ],

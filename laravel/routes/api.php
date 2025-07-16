@@ -14,6 +14,9 @@ Route::post('/register', [Controllers\AuthController::class, 'register']);
 // ───── Protected Routes ─────
 Route::middleware('auth:sanctum')->group(function () {
 
+    // ── Broadcasting ──
+    Route::post('/broadcasting/auth', fn (Request $request) => Broadcast::auth($request));
+
     // ── Authenticated User ──
     Route::get('/user', fn(Request $request) => $request->user());
     Route::post('/logout', [Controllers\AuthController::class, 'logout']);
@@ -66,8 +69,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/conversations/{id}/messages', [Controllers\MessageController::class, 'store']);
     Route::get('/conversations', [Controllers\MessageController::class, 'userConversations']);
 
-    // Route::post('/broadcasting/auth', function (Request $request) {
-    //     Log::info('User', ['user' => $request->user()]);
-    //     return Broadcast::auth($request);
-    // });
 });

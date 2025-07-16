@@ -67,8 +67,8 @@ class DriverSearchRadiusSlider extends StatelessWidget {
           Slider(
             value: radiusKm,
             min: 5,
-            max: 100,
-            divisions: 19,
+            max: 50,
+            divisions: 9,
             label: radiusKm.toStringAsFixed(0),
             activeColor: color.primary,
             inactiveColor: Colors.grey[300],
@@ -78,10 +78,7 @@ class DriverSearchRadiusSlider extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('5 km', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              Text(
-                '100 km',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
+              Text('50 km', style: TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
         ],

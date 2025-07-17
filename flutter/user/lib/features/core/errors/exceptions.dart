@@ -27,4 +27,16 @@ class NetworkException implements Exception {
 class UnauthorizedException implements Exception {
   final String message;
   const UnauthorizedException(this.message);
+
+  @override
+  String toString() => 'UnauthorizedException: $message'; // Added toString
+}
+
+// Add this if it's not already defined in your exceptions.dart
+class DataParsingException implements Exception {
+  final String message;
+  const DataParsingException(this.message);
+
+  @override
+  String toString() => 'DataParsingException: $message';
 }

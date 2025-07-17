@@ -20,7 +20,7 @@ class RideRepositoryImpl implements RideRepository {
       final rideId = await remote.requestRide(model);
       return Right(rideId);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(message: e.message));
     } on NetworkException catch (_) {
       return Left(NoInternetFailure());
     } catch (e) {
@@ -36,7 +36,7 @@ class RideRepositoryImpl implements RideRepository {
       await remote.cancelRide(rideId);
       return const Right(null);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(message: e.message));
     } on NetworkException catch (_) {
       return Left(NoInternetFailure());
     } catch (e) {
@@ -50,7 +50,7 @@ class RideRepositoryImpl implements RideRepository {
       final rideDetails = await remote.fetchRideDetails(rideId);
       return Right(rideDetails);
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(message: e.message));
     } on NetworkException catch (_) {
       return Left(NoInternetFailure());
     } catch (e) {
@@ -69,7 +69,7 @@ class RideRepositoryImpl implements RideRepository {
       return const Right(null); // Success, no data to return
     } on ServerException catch (e) {
       return Left(
-        ServerFailure(e.message),
+        ServerFailure(message: e.message),
       ); // Map ServerException to ServerFailure
     } on NetworkException catch (_) {
       return Left(

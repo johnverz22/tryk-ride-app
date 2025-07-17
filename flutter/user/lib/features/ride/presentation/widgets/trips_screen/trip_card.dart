@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:user/config/currency.dart';
+import 'package:user/config/currency.dart'; // Assuming currencyFormatter is defined here
+import 'package:user/features/ride/domain/entities/trip_entity.dart';
 
 class TripCard extends StatelessWidget {
-  final Map<String, dynamic> trip;
+  final TripEntity trip;
   final VoidCallback? onViewDetails;
   final VoidCallback? onRebook;
 
@@ -14,71 +15,65 @@ class TripCard extends StatelessWidget {
     this.onRebook,
   });
 
-  Color _getStatusColor(String? status) {
-    switch (status) {
-      case 'Accepted':
-      case 'Driver En Route':
-      case 'Ride in Progress':
+  // Helper to determine status color based on TripEntity's statusName
+  Color _getStatusColor(String? statusName) {
+    switch (statusName?.toLowerCase()) {
+      // Use toLowerCase for robust matching
+      case 'accepted':
+      case 'driver en route':
+      case 'ride in progress':
+      case 'ride started awaiting user confirmation': // Added from TripEntity's isOngoing
+      case 'ride completed awaiting user confirmation': // Added from TripEntity's isOngoing
         return Colors.orange;
-      case 'Completed':
+      case 'completed':
         return Colors.green;
-      case 'Cancelled':
+      case 'cancelled':
         return Colors.redAccent;
       default:
         return Colors.grey;
     }
   }
 
-  Widget _statusBadge(String status) {
+  // Widget to display the status badge
+  Widget _statusBadge(String statusName) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: _getStatusColor(status),
+        color: _getStatusColor(statusName),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        status,
+        statusName,
         style: const TextStyle(fontSize: 12, color: Colors.white),
       ),
     );
   }
 
-  /// Gets the correct datetime field based on trip status
-  DateTime? _getRelevantDate(String status) {
-    String? dateString;
-
-    switch (status) {
-      case 'Accepted':
-        dateString = trip['accepted_at'];
-        break;
-      case 'Completed':
-        dateString = trip['completed_at'];
-        break;
-      case 'Cancelled': // Match backend spelling
-        dateString = trip['canceled_at'];
-        break;
-      default:
-        dateString = trip['requested_at'];
-    }
-
-    return dateString != null ? DateTime.tryParse(dateString) : null;
-  }
+  // Removed _getRelevantDate method as we'll access DateTime properties directly
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final String status = trip['status'] ?? 'Unknown';
-    final DateTime? tripDate = _getRelevantDate(status);
-    final String pickup = trip['pickup_address'];
-    final String dropoff = trip['dropoff_address'];
-    final String payment = trip['payment_method'];
-    final String driver = trip['driver'] ?? 'N/A';
-    final double rating = (trip['rating'] ?? 0).toDouble();
-    final double price = (trip['fare_amount'] ?? 0).toDouble();
+    // Access properties directly from the TripEntity object
+    final String status = trip.statusName;
+    final String pickup = trip.pickupAddress;
+    final String dropoff = trip.dropoffAddress;
+    final String payment = trip.paymentMethod;
+    final String driver =
+        trip.driverName ?? 'N/A'; // Use driverName from entity
+    final int? riderRating = trip.riderRating; // Use riderRating from entity
+    final double price = trip.fareAmount; // Use fareAmount from entity
+
+    // Determine the most relevant date to display
+    final DateTime? displayDate =
+        trip.completedAt ??
+        trip.canceledAt ??
+        trip.acceptedAt ??
+        trip.requestedAt;
 
     return Dismissible(
-      key: ValueKey(trip['id']),
+      key: ValueKey(trip.id), // Use TripEntity's ID
       background: Container(
         color: Colors.blue.shade100,
         alignment: Alignment.centerRight,
@@ -86,7 +81,6 @@ class TripCard extends StatelessWidget {
         child: const Icon(Icons.replay, color: Colors.blue),
       ),
       direction: DismissDirection.endToStart,
-      // Optional: enable this to trigger rebooking on swipe
       confirmDismiss: (_) async {
         if (onRebook != null) onRebook!();
         return false; // prevent actual dismissal
@@ -105,8 +99,10 @@ class TripCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    tripDate != null
-                        ? DateFormat('MMM dd, yyyy – hh:mm a').format(tripDate)
+                    displayDate != null
+                        ? DateFormat(
+                            'MMM dd, yyyy – hh:mm a',
+                          ).format(displayDate)
                         : 'Date not available',
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w500,
@@ -128,7 +124,7 @@ class TripCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Fare: ${currencyFormatter.format(price)})',
+                    'Fare: ${currencyFormatter.format(price)}', // Removed extra parenthesis
                     style: theme.textTheme.bodyMedium,
                   ),
                   Text('Paid via $payment', style: theme.textTheme.bodyMedium),
@@ -141,10 +137,12 @@ class TripCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Driver: $driver ★ $rating',
+                    'Driver: $driver ${riderRating != null ? '★ $riderRating' : ''}', // Display rating only if available
                     style: theme.textTheme.bodyMedium,
                   ),
-                  if (status == 'Completed')
+                  // Only show Rebook button if status is 'Completed'
+                  if (trip.isCompleted &&
+                      onRebook != null) // Use TripEntity's helper
                     TextButton(
                       onPressed: onRebook,
                       child: const Text('Rebook'),
@@ -165,6 +163,7 @@ class TripCard extends StatelessWidget {
     );
   }
 
+  // Helper for location rows
   Widget _tripLocationRow(IconData icon, String label) {
     Color? iconColor;
     if (icon == Icons.location_on) {

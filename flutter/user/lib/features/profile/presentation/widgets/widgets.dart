@@ -13,11 +13,6 @@ export 'home_screen/recent_trip_list.dart';
 
 export 'section_header_with_see_all.dart';
 
-// Trips Screen
-export 'trips_screen/trip_card.dart';
-export 'trips_screen/empty_trip_placeholder.dart';
-export 'trips_screen/search_bar.dart';
-
 // Wallet Screen
 export 'wallet_screen/wallet_balance_card.dart';
 export 'wallet_screen/payment_methods_list.dart';

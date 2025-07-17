@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:user/features/profile/presentation/pages/screens/navigation/messages_screen.dart';
 import 'navigation/home_screen.dart';
 import '../../../../ride/presentation/screens/trips_screen.dart';
-import 'navigation/menu_screen.dart';
+import 'navigation/menu_screen.dart'; // Assuming ProfileScreen is aliased as MenuScreen based on usage
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -17,10 +17,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _pages = const [
     HomeScreen(),
     TripsScreen(),
-    // MessagesScreen(),
-    // SavedPlacesScreen(),
     MessagesScreen(),
-    ProfileScreen(),
+    ProfileScreen(), // Assuming this is your MenuScreen content
   ];
 
   void _onTap(int index) {
@@ -32,7 +30,21 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
+      body: AnimatedSwitcher(
+        duration: const Duration(
+          milliseconds: 300,
+        ), // Adjust duration as needed
+        // Use a ValueKey to tell AnimatedSwitcher when the child changes
+        child: SizedBox.expand(
+          // Use SizedBox.expand to ensure the child fills the available space
+          key: ValueKey<int>(_currentIndex), // Key changes with the index
+          child: _pages[_currentIndex],
+        ),
+        // Optional: Customize the transition. Default is a fade.
+        // transitionBuilder: (Widget child, Animation<double> animation) {
+        //   return FadeTransition(opacity: animation, child: child);
+        // },
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _onTap,

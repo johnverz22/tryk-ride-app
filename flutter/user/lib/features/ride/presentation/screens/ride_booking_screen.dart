@@ -8,11 +8,11 @@ import 'package:user/features/core/errors/failures.dart';
 import 'package:user/features/ride/presentation/providers/ride_booking_provider.dart';
 import 'package:user/features/ride/presentation/screens/ride_tracking_screen.dart';
 import 'package:user/features/profile/presentation/providers/payment_info_provider.dart';
-import 'package:user/features/profile/presentation/widgets/widgets.dart';
+import 'package:user/features/profile/presentation/widgets/widgets.dart'; // Assuming this imports PaymentMethodCard
 
-import 'package:user/core/utils/geo_utils.dart';
-import 'package:user/features/ride/domain/entities/ride.dart';
-import 'package:user/features/ride/presentation/widgets/ride_booking_screen/widgets.dart';
+import 'package:user/core/utils/geo_utils.dart'; // Assuming calculateDistanceKm is here
+import 'package:user/features/ride/domain/entities/ride.dart'; // Assuming Ride entity is here
+import 'package:user/features/ride/presentation/widgets/ride_booking_screen/widgets.dart'; // Assuming this imports LocationSelector, RoutePreviewSection, RouteInfoCard, DriverSearchRadiusSlider, SearchingDriverBottomSheet
 
 class RideBookingScreen extends ConsumerStatefulWidget {
   const RideBookingScreen({super.key});
@@ -43,6 +43,13 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
     _ensureLocationPermission();
   }
 
+  @override
+  void dispose() {
+    _fromController.dispose();
+    _toController.dispose();
+    super.dispose();
+  }
+
   void _handleRouteInfoLoaded(double distanceKm, double durationMinutes) {
     final double fare = _baseFare + (_perKmRate * distanceKm);
 
@@ -51,6 +58,9 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
       _duration = durationMinutes;
       _fare = fare;
     });
+    debugPrint(
+      'Route info loaded: Distance: $distanceKm km, Duration: $durationMinutes min, Fare: \$$fare',
+    );
   }
 
   Future<void> _ensureLocationPermission() async {
@@ -59,15 +69,26 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
   }
 
   Future<void> _fetchRouteInfo() async {
-    if (_fromLocation == null || _toLocation == null) return;
+    if (_fromLocation == null || _toLocation == null) {
+      debugPrint('Cannot fetch route info: From or To location is null.');
+      setState(() {
+        _distance = null;
+        _duration = null;
+        _fare = null;
+      });
+      return;
+    }
 
+    // Simulate API call for distance and duration
+    // In a real app, you'd use a mapping service API (e.g., Google Maps Directions API)
     final distance = calculateDistanceKm(
       _fromLocation!.latitude,
       _fromLocation!.longitude,
       _toLocation!.latitude,
       _toLocation!.longitude,
     );
-    final duration = distance / 40 * 60;
+    // Assuming average speed of 40 km/h to estimate duration
+    final duration = distance / 40 * 60; // duration in minutes
     final fare = _baseFare + (_perKmRate * distance);
 
     setState(() {
@@ -75,6 +96,9 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
       _duration = duration;
       _fare = fare;
     });
+    debugPrint(
+      'Calculated route info: Distance: $distance km, Duration: $duration min, Fare: \$$fare',
+    );
   }
 
   Future<void> _showDriverConfirmedModal({
@@ -157,7 +181,7 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
                             children: [
                               Icon(Icons.star, color: Colors.amber, size: 16),
                               SizedBox(width: 4),
-                              Text('4.8'),
+                              Text('4.8'), // Placeholder for driver rating
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -174,7 +198,7 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    icon: Icon(Icons.track_changes),
+                    icon: const Icon(Icons.track_changes),
                     label: const Text('Track Ride'),
                     onPressed: () {
                       Navigator.of(
@@ -213,10 +237,17 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
 
   Future<void> _handlePayment() async {
     if (_fromLocation == null || _toLocation == null) {
-      // Optionally show a snackbar if locations are missing
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select pickup and dropoff locations.'),
+        ),
+      );
+      return;
+    }
+    if (_distance == null || _duration == null || _fare == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please wait for route information to load.'),
         ),
       );
       return;
@@ -226,7 +257,6 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
       _isLoading = true; // Show loading indicator on UI
     });
 
-    // 1. Prepare the Ride entity
     final rideRequest = Ride(
       pickupAddress: _fromController.text,
       pickupLatitude: _fromLocation!.latitude,
@@ -244,16 +274,12 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
 
     final requestRideUseCase = ref.read(requestRideUseCaseProvider);
 
-    // 2. Call the Use Case and handle the Either result
     final result = await requestRideUseCase(rideRequest);
 
-    // Ensure widget is still mounted before performing UI updates
     if (!mounted) return;
 
-    // 3. Fold the Either result
     result.fold(
       (failure) {
-        // This block runs if the ride request failed (Left side of Either)
         setState(() {
           _isLoading = false; // Hide loading indicator
         });
@@ -265,6 +291,8 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
           errorMessage = 'No internet connection. Please check your network.';
         } else if (failure is UnexpectedFailure) {
           errorMessage = failure.message;
+        } else if (failure is UnauthorizedFailure) {
+          errorMessage = 'Authentication failed. Please log in again.';
         } else {
           errorMessage = 'An unknown error occurred. Please try again.';
         }
@@ -281,7 +309,6 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
         );
       },
       (rideId) async {
-        // This block runs if the ride request succeeded (Right side of Either)
         setState(() {
           _isLoading =
               false; // Hide loading indicator, as bottom sheet will show its own
@@ -289,7 +316,6 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
 
         debugPrint('Ride requested successfully with ID: $rideId');
 
-        // 4. Show the SearchingDriverBottomSheet with the successfully obtained rideId
         await showModalBottomSheet(
           context: context,
           isScrollControlled: true,
@@ -299,14 +325,11 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
               rideId: rideId, // Pass the extracted int rideId
               onDriverConfirmed: (driverInfo) {
                 if (mounted) {
-                  // Ensure _showDriverConfirmedModal is defined in your class
                   _showDriverConfirmedModal(
                     rideId: driverInfo.rideId,
                     driverName: driverInfo.driverName,
                     profilePicture: driverInfo.profilePicture,
                     vehicle: driverInfo.vehicle,
-                    // Pass driverId if you added it to ConfirmedDriverInfo
-                    // driverId: driverInfo.driverId,
                   );
                 }
               },
@@ -325,6 +348,7 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
 
     final canRequestRide =
         _fromLocation != null && _toLocation != null && !_isLoading;
+    final bool showRouteInfo = _fromLocation != null && _toLocation != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -333,7 +357,6 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
         foregroundColor: color.onPrimary,
       ),
       body: SafeArea(
-        // <--- Wrap with SafeArea here
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Column(
@@ -368,17 +391,22 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
                       icon: Icons.my_location,
                       controller: _fromController,
                       onLocationPicked: (picked) async {
-                        final loc = picked['latLng'];
-                        final desc = picked['description'];
+                        final loc = picked['latLng'] as LatLng?;
+                        final desc = picked['description'] as String?;
                         setState(() {
                           _fromLocation = loc;
-                          _fromController.text = desc;
+                          _fromController.text = desc ?? '';
                         });
+                        debugPrint('Pickup location picked: $_fromLocation');
                         await _fetchRouteInfo();
                       },
                       onClear: () => setState(() {
                         _fromController.clear();
                         _fromLocation = null;
+                        _distance = null; // Clear route info on clear
+                        _duration = null;
+                        _fare = null;
+                        debugPrint('Pickup location cleared.');
                       }),
                     ),
                     const SizedBox(height: 16),
@@ -387,17 +415,22 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
                       icon: Icons.location_on,
                       controller: _toController,
                       onLocationPicked: (picked) async {
-                        final loc = picked['latLng'];
-                        final desc = picked['description'];
+                        final loc = picked['latLng'] as LatLng?;
+                        final desc = picked['description'] as String?;
                         setState(() {
                           _toLocation = loc;
-                          _toController.text = desc;
+                          _toController.text = desc ?? '';
                         });
+                        debugPrint('Destination location picked: $_toLocation');
                         await _fetchRouteInfo();
                       },
                       onClear: () => setState(() {
                         _toController.clear();
                         _toLocation = null;
+                        _distance = null; // Clear route info on clear
+                        _duration = null;
+                        _fare = null;
+                        debugPrint('Destination location cleared.');
                       }),
                     ),
                   ],
@@ -420,23 +453,38 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
 
               const SizedBox(height: 20),
 
-              /// Route Preview
-              if (_fromLocation != null &&
-                  _toLocation != null &&
-                  _distance != null)
-                RoutePreviewSection(
-                  from: _fromLocation!,
-                  to: _toLocation!,
-                  onRouteInfoLoaded: _handleRouteInfoLoaded,
-                ),
-              const SizedBox(height: 20),
-
-              if (_distance != null && _duration != null && _fare != null)
-                RouteInfoCard(
-                  distanceInMeters: _distance! * 1000,
-                  duration: _duration!,
-                  fare: _fare!,
-                ),
+              /// Route Preview & Info (Animated)
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+                child: showRouteInfo
+                    ? Column(
+                        key: const ValueKey(
+                          'route_info_visible',
+                        ), // Key when visible
+                        children: [
+                          RoutePreviewSection(
+                            from: _fromLocation!,
+                            to: _toLocation!,
+                            onRouteInfoLoaded: _handleRouteInfoLoaded,
+                          ),
+                          const SizedBox(height: 20),
+                          if (_distance != null &&
+                              _duration != null &&
+                              _fare != null)
+                            RouteInfoCard(
+                              distanceInMeters: _distance! * 1000,
+                              duration: _duration!,
+                              fare: _fare!,
+                            ),
+                        ],
+                      )
+                    : const SizedBox.shrink(
+                        key: ValueKey('route_info_hidden'),
+                      ), // Key when hidden
+              ),
 
               const SizedBox(height: 20),
 

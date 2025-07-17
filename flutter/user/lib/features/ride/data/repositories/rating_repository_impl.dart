@@ -50,19 +50,21 @@ class RatingRepositoryImpl implements RatingRepository {
       } else if (response.statusCode == 400 || response.statusCode == 404) {
         return Left(
           ServerFailure(
-            json.decode(response.body)['message'] ??
+            message:
+                json.decode(response.body)['message'] ??
                 'Bad request or resource not found.',
           ),
         );
       } else {
         return Left(
           ServerFailure(
-            'Failed to submit rating: ${response.statusCode} - ${response.body}',
+            message:
+                'Failed to submit rating: ${response.statusCode} - ${response.body}',
           ),
         );
       }
     } on ServerException catch (e) {
-      return Left(ServerFailure(e.message));
+      return Left(ServerFailure(message: e.message));
     } on UnauthorizedException catch (e) {
       // Correct way to return UnauthorizedFailure
       return Left(UnauthorizedFailure(e.message));

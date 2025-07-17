@@ -59,35 +59,44 @@ class UserController extends Controller
 
     public function userTrips(Request $request)
     {
-        $user = Auth::user();
+            $user = Auth::user();
 
-        $rides = Ride::with('driver', 'status')
-            ->where('user_id', $user->id)
-            ->orderByDesc('requested_at')
-            ->get()
-            ->map(function ($ride) {
+            if (!$user) {
+                Log::warning('Attempted to fetch user trips without authentication.');
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
+
+            $ridesPaginator = Ride::with(['driver', 'status'])
+                ->where('user_id', $user->id)
+                ->orderByDesc('requested_at')
+                ->paginate(10);
+
+            $formattedRides = $ridesPaginator->through(function ($ride) {
                 $formatted = [
                     'id' => $ride->id,
-                    'pickup_address' => $ride->pickup_address,
-                    'dropoff_address' => $ride->dropoff_address,
-                    'fare_amount' => $ride->fare_amount,
-                    'payment_method' => $ride->payment_method,
-                    'driver' => $ride->driver?->name,
-                    'rider_rating' => $ride->rider_rating,
+                    'pickup_address' => $ride->pickup_address ?? 'N/A', // Null coalescing for safety
+                    'dropoff_address' => $ride->dropoff_address ?? 'N/A', // Null coalescing for safety
+                    'fare_amount' => (float) ($ride->fare_amount ?? 0.0), // Cast to float, default 0.0
+                    'payment_method' => (string) ($ride->payment_method ?? 'Unknown'), // Cast to string, default 'Unknown'
+                    'driver' => $ride->driver?->name, // Null-safe access to driver name
+                    'rider_rating' => (int) ($ride->rider_rating ?? 0), // Cast to int, default 0
                     'status' => $ride->status ? [
-                        'id' => $ride->status->id,
-                        'name' => $ride->status->name,
-                    ] : null,
-                    'accepted_at' => $ride->accepted_at,
-                    'completed_at' => $ride->completed_at,
-                    'canceled_at' => $ride->canceled_at,
-                    'requested_at' => $ride->requested_at,
+                        'id' => $ride->status->id ?? null,
+                        'name' => $ride->status->name ?? 'Unknown',
+                    ] : null, // Ensure status is an object or null
+                    'accepted_at' => $ride->accepted_at?->toIso8601String(), // Format dates, null-safe
+                    'completed_at' => $ride->completed_at?->toIso8601String(),
+                    'canceled_at' => $ride->canceled_at?->toIso8601String(),
+                    'requested_at' => $ride->requested_at?->toIso8601String(),
                 ];
-            Log::info("Trips Details", ['trips' => $formatted]);
+
+                Log::info("Formatted Trip Item", ['item' => $formatted]);
 
                 return $formatted;
             });
-        
-        return response()->json($rides);
+
+            Log::info("Paginated Trips Details", ['trips_data' => $formattedRides->toArray()]);
+
+            return response()->json($formattedRides);
     }
 }

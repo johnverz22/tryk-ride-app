@@ -1,89 +1,61 @@
-import 'dart:convert';
+// user/features/ride/presentation/screens/trips_screen.dart
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import '../../../profile/presentation/widgets/widgets.dart';
-import 'ride_tracking_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:user/features/profile/presentation/widgets/appbar/app_bar.dart';
+import 'package:user/features/ride/presentation/screens/ride_tracking_screen.dart';
 
-class TripsScreen extends StatefulWidget {
+import '../providers/trip_list_provider.dart';
+import '../../domain/entities/trip_entity.dart';
+import '../widgets/trips_screen/widgets.dart'; // This should export TripSearchBar, EmptyTripPlaceholder, TripCard
+
+class TripsScreen extends ConsumerStatefulWidget {
   const TripsScreen({super.key});
 
   @override
-  State<TripsScreen> createState() => _TripsScreenState();
+  ConsumerState<TripsScreen> createState() => _TripsScreenState();
 }
 
-class _TripsScreenState extends State<TripsScreen>
+class _TripsScreenState extends ConsumerState<TripsScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
-  String searchQuery = '';
-  bool isLoading = false;
-  List<Map<String, dynamic>> allTrips = [];
-  String? baseUrl = dotenv.env['BASE_URL'];
+  String _searchQuery = '';
+  DateTimeRange? _selectedDateRange;
 
-  final storage = FlutterSecureStorage();
   final List<String> tripCategories = ['Ongoing', 'Completed', 'Cancelled'];
-  DateTimeRange? selectedDateRange;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: tripCategories.length, vsync: this);
-    _loadTrips();
+    // Add a listener to rebuild the widget when the tab changes
+    _tabController.addListener(_handleTabSelection);
   }
 
-  Future<String?> _getUserToken() async {
-    return await storage.read(key: 'token');
-  }
-
-  Future<void> _loadTrips() async {
-    if (!mounted) return;
-
-    setState(() => isLoading = true);
-
-    final token = await _getUserToken();
-
-    if (!mounted) return;
-
-    if (token != null) {
-      final trips = await fetchUserTrips(token);
-
-      if (!mounted) return;
+  void _handleTabSelection() {
+    // Only rebuild if the tab selection has settled (not during animation)
+    if (!_tabController.indexIsChanging) {
       setState(() {
-        allTrips = trips;
-        isLoading = false;
+        // This setState will trigger _buildTripList to rebuild with the new category
       });
-    } else {
-      if (!mounted) return;
-      setState(() => isLoading = false);
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchUserTrips(String token) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/user/trips'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      );
+  @override
+  void dispose() {
+    _tabController.removeListener(_handleTabSelection); // Remove the listener
+    _tabController.dispose();
+    super.dispose();
+  }
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(data);
-      } else {
-        print('Failed to fetch trips: ${response.body}');
-        return [];
-      }
-    } catch (e) {
-      print('Error fetching trips: $e');
-      return [];
-    }
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query;
+    });
+    // The filtering logic is handled in _buildTripList based on _searchQuery
   }
 
   Future<void> _refreshTrips() async {
-    await _loadTrips();
+    await ref.read(tripListProvider.notifier).loadTrips(isRefresh: true);
   }
 
   void _showDateRangePicker() async {
@@ -91,57 +63,83 @@ class _TripsScreenState extends State<TripsScreen>
       context: context,
       firstDate: DateTime(2022),
       lastDate: DateTime.now(),
-      initialDateRange: selectedDateRange,
+      initialDateRange: _selectedDateRange,
     );
 
     if (picked != null) {
       setState(() {
-        selectedDateRange = picked;
+        _selectedDateRange = picked;
       });
+      // The filtering logic is handled in _buildTripList based on _selectedDateRange
     }
   }
 
   Widget _buildTripList(String category) {
-    List<Map<String, dynamic>> trips = allTrips
+    final tripListState = ref.watch(tripListProvider);
+    final List<TripEntity> allTrips = tripListState.trips.value ?? [];
+
+    List<TripEntity> filteredTrips = allTrips
         .where((trip) {
-          final status = trip['status'];
+          // Filter by category
           if (category == 'Ongoing') {
-            return [
-              'Accepted',
-              'Driver En Route',
-              'Ride Started Awaiting User Confirmation',
-              'Ride in Progress',
-              'Ride Completed Awaiting User Confirmation',
-            ].contains(status);
+            return trip.isOngoing;
+          } else if (category == 'Completed') {
+            return trip.isCompleted;
+          } else if (category == 'Cancelled') {
+            return trip.isCancelled;
           }
-          return status == category;
+          return false; // Should not happen
         })
         .where((trip) {
-          final pickup = trip['pickup_address'].toLowerCase();
-          final dropoff = trip['dropoff_address'].toLowerCase();
+          // Filter by search query
           final matchesSearch =
-              pickup.contains(searchQuery.toLowerCase()) ||
-              dropoff.contains(searchQuery.toLowerCase());
-
-          if (selectedDateRange != null) {
-            final tripDate = DateTime.tryParse(trip['requested_at'] ?? '');
-            if (tripDate == null) return false;
-
-            return matchesSearch &&
-                tripDate.isAfter(
-                  selectedDateRange!.start.subtract(const Duration(seconds: 1)),
+              trip.pickupAddress.toLowerCase().contains(
+                _searchQuery.toLowerCase(),
+              ) ||
+              trip.dropoffAddress.toLowerCase().contains(
+                _searchQuery.toLowerCase(),
+              );
+          return matchesSearch;
+        })
+        .where((trip) {
+          // Filter by date range
+          if (_selectedDateRange != null) {
+            final tripDate = trip.requestedAt;
+            return tripDate.isAfter(
+                  _selectedDateRange!.start.subtract(
+                    const Duration(seconds: 1),
+                  ),
                 ) &&
                 tripDate.isBefore(
-                  selectedDateRange!.end.add(const Duration(days: 1)),
+                  _selectedDateRange!.end.add(const Duration(days: 1)),
                 );
           }
-
-          return matchesSearch;
+          return true; // No date filter applied
         })
         .toList();
 
-    if (trips.isEmpty) {
+    // Sort the filtered trips by requestedAt in descending order
+    filteredTrips.sort((a, b) => b.requestedAt.compareTo(a.requestedAt));
+
+    if (tripListState.trips.isLoading && allTrips.isEmpty) {
+      return const Center(
+        key: ValueKey('loading'),
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (tripListState.trips.hasError && allTrips.isEmpty) {
+      return Center(
+        key: const ValueKey('error'),
+        child: Text(tripListState.errorMessage ?? 'Failed to load trips.'),
+      );
+    }
+
+    if (filteredTrips.isEmpty) {
       return EmptyTripPlaceholder(
+        key: ValueKey(
+          'empty_$category',
+        ), // Unique key for each category's placeholder
         category: category,
         onBookPressed: () {
           // TODO: Navigate to ride booking
@@ -150,24 +148,40 @@ class _TripsScreenState extends State<TripsScreen>
     }
 
     return RefreshIndicator(
+      key: ValueKey('list_$category'), // Unique key for each category's list
       onRefresh: _refreshTrips,
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: trips.length,
+        itemCount:
+            filteredTrips.length +
+            (tripListState.hasMore ? 1 : 0), // Add 1 for loading indicator
         itemBuilder: (context, index) {
+          if (index == filteredTrips.length) {
+            // This is the loading indicator for pagination
+            if (tripListState.hasMore && !tripListState.trips.isLoading) {
+              // Trigger load more when scroll reaches the end
+              ref.read(tripListProvider.notifier).loadTrips(loadMore: true);
+              return const Center(child: CircularProgressIndicator());
+            }
+            return const SizedBox.shrink();
+          }
+
+          final trip = filteredTrips[index];
           return TripCard(
-            trip: trips[index],
+            trip: trip,
             onViewDetails: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => RideTrackingScreen(
-                    rideId: int.tryParse(trips[index]['id'].toString())!,
+                    rideId: trip.id, // Use TripEntity's ID
                   ),
                 ),
               );
             },
-            onRebook: () {},
+            onRebook: () {
+              // TODO: Implement rebook logic
+            },
           );
         },
       ),
@@ -189,11 +203,11 @@ class _TripsScreenState extends State<TripsScreen>
               children: [
                 Expanded(
                   child: TripSearchBar(
-                    onChanged: (value) => setState(() => searchQuery = value),
+                    onChanged: _onSearchChanged,
                     onFilterPressed: _showDateRangePicker,
                   ),
                 ),
-                if (selectedDateRange != null)
+                if (_selectedDateRange != null)
                   Padding(
                     padding: const EdgeInsets.only(left: 8),
                     child: IconButton(
@@ -201,7 +215,7 @@ class _TripsScreenState extends State<TripsScreen>
                       tooltip: 'Clear date filter',
                       onPressed: () {
                         setState(() {
-                          selectedDateRange = null;
+                          _selectedDateRange = null;
                         });
                       },
                     ),
@@ -209,7 +223,6 @@ class _TripsScreenState extends State<TripsScreen>
               ],
             ),
             const SizedBox(height: 8),
-
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
@@ -240,20 +253,13 @@ class _TripsScreenState extends State<TripsScreen>
                 ),
               ),
             ),
-
             const SizedBox(height: 16),
-
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
-                child: isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : TabBarView(
-                        controller: _tabController,
-                        children: tripCategories
-                            .map((category) => _buildTripList(category))
-                            .toList(),
-                      ),
+                // Use a ValueKey to ensure AnimatedSwitcher recognizes the child is changing
+                // when the tab category changes.
+                child: _buildTripList(tripCategories[_tabController.index]),
               ),
             ),
           ],

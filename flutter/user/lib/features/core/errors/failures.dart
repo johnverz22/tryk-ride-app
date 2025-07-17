@@ -10,7 +10,12 @@ abstract class Failure extends Equatable {
 }
 
 class ServerFailure extends Failure {
-  const ServerFailure(super.message);
+  final int? statusCode; // Added statusCode to ServerFailure
+  const ServerFailure({required String message, this.statusCode})
+    : super(message);
+
+  @override
+  List<Object> get props => [message, statusCode ?? '']; // Include statusCode in props for Equatable
 }
 
 class CacheFailure extends Failure {
@@ -19,6 +24,11 @@ class CacheFailure extends Failure {
 
 class NoInternetFailure extends Failure {
   const NoInternetFailure() : super('No internet connection.');
+}
+
+// Add this if it's not already defined in your failures.dart
+class DataParsingFailure extends Failure {
+  const DataParsingFailure({required String message}) : super(message);
 }
 
 class UnexpectedFailure extends Failure {

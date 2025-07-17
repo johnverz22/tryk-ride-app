@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:user/features/ride/presentation/screens/ride_booking_screen.dart';
 
-// import 'home/ride_booking_screen.dart';
-import '../../../widgets/widgets.dart';
-import '../../../providers/trip_provider.dart';
-import '../../../../../../core/services/auth_service.dart';
+// import 'home/ride_booking_screen.dart'; // This line seems commented out, ensure correct path for widgets
+import '../../../widgets/widgets.dart'; // Assuming this imports BannerCarousel, SectionTitle, SuggestionCard, PromotionCard
+import '../../../providers/trip_provider.dart'; // Assuming Trip and its fetchOngoingTrips method are here
+import '../../../../../../core/services/auth_service.dart'; // Assuming AuthService is here
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   String? baseUrl = dotenv.env['BASE_URL'];
-  Future<List<Trip>>? _futureTrips;
+  Future<List<Trip>>? _futureTrips; // Assuming Trip model is still used here
   Timer? _bannerTimer;
 
   @override
@@ -82,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _refreshTrips() async {
     _loadTrips();
-    await _futureTrips;
+    await _futureTrips; // Wait for the future to complete
   }
 
   @override
@@ -138,10 +138,33 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.all(16),
         child: ElevatedButton.icon(
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const RideBookingScreen()),
-          ),
+          onPressed: () {
+            // Using PageRouteBuilder for a custom transition
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    const RideBookingScreen(),
+                transitionsBuilder:
+                    (context, animation, secondaryAnimation, child) {
+                      // Example: Fade transition
+                      return FadeTransition(opacity: animation, child: child);
+                      // Example: Slide transition from right
+                      // const begin = Offset(1.0, 0.0);
+                      // const end = Offset.zero;
+                      // const curve = Curves.ease;
+                      // var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+                      // return SlideTransition(
+                      //   position: animation.drive(tween),
+                      //   child: child,
+                      // );
+                    },
+                transitionDuration: const Duration(
+                  milliseconds: 400,
+                ), // Duration of the transition
+              ),
+            );
+          },
           icon: const Icon(Icons.hail, color: Colors.white),
           label: const Text(
             'Book a Ride',
@@ -154,7 +177,9 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             elevation: 3,
-            shadowColor: theme.primaryColor.withValues(alpha: 0.2),
+            shadowColor: theme.primaryColor.withOpacity(
+              0.2,
+            ), // Corrected alpha to opacity
           ),
         ),
       ),

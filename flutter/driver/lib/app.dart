@@ -10,9 +10,9 @@ class MainApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final driverAsync = ref.watch(driverProvider);
+    final userAsync = ref.watch(driverProvider);
 
-    return driverAsync.when(
+    return userAsync.when(
       loading: () => _buildLoadingScreen(),
       error: (err, _) => _buildErrorScreen(err),
       data: (_) {

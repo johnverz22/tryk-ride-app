@@ -1,3 +1,7 @@
+import 'package:dartz/dartz.dart';
+
+import 'package:user/features/core/errors/failures.dart';
+
 import '../entities/ride_details.dart';
 import '../repositories/ride_repository.dart';
 
@@ -6,7 +10,7 @@ class FetchRideDetails {
 
   FetchRideDetails(this.repository);
 
-  Future<RideDetails> call(int rideId) {
+  Future<Either<Failure, RideDetails>> call(int rideId) {
     return repository.fetchRideDetails(rideId);
   }
 }

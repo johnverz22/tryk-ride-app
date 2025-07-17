@@ -18,18 +18,27 @@ class FetchRideDetailsNotifier extends AutoDisposeAsyncNotifier<RideDetails?> {
 
   @override
   Future<RideDetails?> build() async {
+    // Initialize the use case here, as `ref` is available
+    _useCase = ref.read(fetchRideDetailsUseCaseProvider);
     // No rideId yet — wait for manual trigger via fetch()
     return null;
   }
 
   Future<void> fetch(int rideId) async {
     state = const AsyncLoading();
-    try {
-      _useCase = ref.read(fetchRideDetailsUseCaseProvider);
-      final rideDetails = await _useCase(rideId);
-      state = AsyncData(rideDetails);
-    } catch (e, st) {
-      state = AsyncError(e, st);
-    }
+    final result = await _useCase(
+      rideId,
+    ); // This returns Either<Failure, RideDetails>
+
+    state = result.fold(
+      (failure) {
+        // On failure, update the state to AsyncError with the failure message
+        return AsyncError(failure.message, StackTrace.current);
+      },
+      (rideDetails) {
+        // On success, update the state to AsyncData with the RideDetails
+        return AsyncData(rideDetails);
+      },
+    );
   }
 }

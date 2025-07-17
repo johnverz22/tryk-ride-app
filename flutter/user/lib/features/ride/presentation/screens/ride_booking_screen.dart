@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:user/features/core/errors/failures.dart';
 import 'package:user/features/ride/presentation/providers/ride_booking_provider.dart';
 import 'package:user/features/ride/presentation/screens/ride_tracking_screen.dart';
 import 'package:user/features/profile/presentation/providers/payment_info_provider.dart';
@@ -12,7 +13,6 @@ import 'package:user/features/profile/presentation/widgets/widgets.dart';
 import 'package:user/core/utils/geo_utils.dart';
 import 'package:user/features/ride/domain/entities/ride.dart';
 import 'package:user/features/ride/presentation/widgets/ride_booking_screen/widgets.dart';
-import 'package:dio/dio.dart';
 
 class RideBookingScreen extends ConsumerStatefulWidget {
   const RideBookingScreen({super.key});
@@ -174,8 +174,8 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.verified),
-                    label: const Text('Track Ride!'),
+                    icon: Icon(Icons.track_changes),
+                    label: const Text('Track Ride'),
                     onPressed: () {
                       Navigator.of(
                         bottomSheetContext,
@@ -212,12 +212,21 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
   }
 
   Future<void> _handlePayment() async {
-    if (_fromLocation == null || _toLocation == null) return;
+    if (_fromLocation == null || _toLocation == null) {
+      // Optionally show a snackbar if locations are missing
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select pickup and dropoff locations.'),
+        ),
+      );
+      return;
+    }
 
     setState(() {
-      _isLoading = true;
+      _isLoading = true; // Show loading indicator on UI
     });
 
+    // 1. Prepare the Ride entity
     final rideRequest = Ride(
       pickupAddress: _fromController.text,
       pickupLatitude: _fromLocation!.latitude,
@@ -233,68 +242,79 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
       searchRadiusKm: _searchRadiusKm.round(),
     );
 
-    final requestRide = ref.read(requestRideUseCaseProvider);
+    final requestRideUseCase = ref.read(requestRideUseCaseProvider);
 
-    try {
-      final rideId = await requestRide(rideRequest);
+    // 2. Call the Use Case and handle the Either result
+    final result = await requestRideUseCase(rideRequest);
 
-      if (!mounted) return;
+    // Ensure widget is still mounted before performing UI updates
+    if (!mounted) return;
 
-      await showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (bottomSheetContext) {
-          return SearchingDriverBottomSheet(
-            rideId: rideId,
-            onDriverConfirmed: (driverInfo) {
-              if (mounted) {
-                _showDriverConfirmedModal(
-                  rideId: driverInfo.rideId,
-                  driverName: driverInfo.driverName,
-                  profilePicture: driverInfo.profilePicture,
-                  vehicle: driverInfo.vehicle,
-                );
-              }
-            },
-          );
-        },
-      );
-    } on DioException catch (e) {
-      debugPrint('Dio Error: ${e.response?.statusCode} - ${e.message}');
-      String errorMessage = 'Failed to request ride.';
-      if (e.response != null && e.response!.data != null) {
-        if (e.response!.data is Map &&
-            e.response!.data.containsKey('message')) {
-          errorMessage = e.response!.data['message'] as String;
-        } else if (e.response!.data is String) {
-          errorMessage = e.response!.data as String;
+    // 3. Fold the Either result
+    result.fold(
+      (failure) {
+        // This block runs if the ride request failed (Left side of Either)
+        setState(() {
+          _isLoading = false; // Hide loading indicator
+        });
+
+        String errorMessage;
+        if (failure is ServerFailure) {
+          errorMessage = failure.message;
+        } else if (failure is NoInternetFailure) {
+          errorMessage = 'No internet connection. Please check your network.';
+        } else if (failure is UnexpectedFailure) {
+          errorMessage = failure.message;
+        } else {
+          errorMessage = 'An unknown error occurred. Please try again.';
         }
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(errorMessage)));
-      }
-    } catch (e) {
-      debugPrint('Error: $e');
-      if (mounted) {
-        final errorMessage = e
-            .toString()
-            .replaceFirst('Exception: ', '')
-            .trim();
+
+        debugPrint('Ride request failed: $errorMessage');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorMessage, style: TextStyle(color: Colors.white)),
+            content: Text(
+              errorMessage,
+              style: const TextStyle(color: Colors.white),
+            ),
             backgroundColor: Colors.red,
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+      },
+      (rideId) async {
+        // This block runs if the ride request succeeded (Right side of Either)
+        setState(() {
+          _isLoading =
+              false; // Hide loading indicator, as bottom sheet will show its own
+        });
+
+        debugPrint('Ride requested successfully with ID: $rideId');
+
+        // 4. Show the SearchingDriverBottomSheet with the successfully obtained rideId
+        await showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (bottomSheetContext) {
+            return SearchingDriverBottomSheet(
+              rideId: rideId, // Pass the extracted int rideId
+              onDriverConfirmed: (driverInfo) {
+                if (mounted) {
+                  // Ensure _showDriverConfirmedModal is defined in your class
+                  _showDriverConfirmedModal(
+                    rideId: driverInfo.rideId,
+                    driverName: driverInfo.driverName,
+                    profilePicture: driverInfo.profilePicture,
+                    vehicle: driverInfo.vehicle,
+                    // Pass driverId if you added it to ConfirmedDriverInfo
+                    // driverId: driverInfo.driverId,
+                  );
+                }
+              },
+            );
+          },
+        );
+      },
+    );
   }
 
   @override

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../pages/screens/navigation/home/location_picker_screen.dart';
+import '../../../../ride/presentation/screens/location_picker_screen.dart';
 
 class LocationInputCard extends StatelessWidget {
   final String label;

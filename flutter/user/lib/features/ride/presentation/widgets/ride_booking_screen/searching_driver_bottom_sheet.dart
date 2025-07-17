@@ -1,13 +1,10 @@
-import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:user/features/core/network/dio_provider.dart';
-// REMOVE THIS IMPORT: import 'package:user/features/profile/presentation/pages/screens/navigation/home/ride_tracking_screen.dart';
-import 'package:user/features/ride/data/services/ride_socket_service.dart';
 import 'package:user/features/ride/presentation/providers/ride_cancellation_provider.dart';
+import 'package:user/features/ride/presentation/providers/ride_booking_provider.dart';
 
-// NEW: Define a data class for confirmed driver info
 class ConfirmedDriverInfo {
   final int rideId;
   final String driverName;
@@ -25,14 +22,13 @@ class ConfirmedDriverInfo {
 class SearchingDriverBottomSheet extends ConsumerStatefulWidget {
   final int rideId;
   final VoidCallback? cancelStatusCheck;
-  // NEW: Callback to notify parent about confirmed driver
   final ValueChanged<ConfirmedDriverInfo>? onDriverConfirmed;
 
   const SearchingDriverBottomSheet({
     super.key,
     required this.rideId,
     this.cancelStatusCheck,
-    this.onDriverConfirmed, // Add to constructor
+    this.onDriverConfirmed,
   });
 
   @override
@@ -47,14 +43,13 @@ class _SearchingDriverBottomSheetState
   bool _rideCancelled = false;
   String _statusText = 'Looking for a nearby driver...';
 
-  late final RideSocketService _socketService;
+  // No longer `late final RideSocketService _socketService;`
+  // It will be accessed directly via ref.read() in methods.
+  StreamSubscription? _rideStatusSubscription; // Manage the stream subscription
 
   @override
   void initState() {
     super.initState();
-
-    final dio = ref.read(dioProvider);
-    _socketService = RideSocketService(dio);
 
     _listenToRideStatus();
 
@@ -66,44 +61,86 @@ class _SearchingDriverBottomSheetState
     });
   }
 
-  // REMOVE this method completely: _showDriverConfirmedModal
-  // It will now be shown by RideBookingScreen
-
   void _listenToRideStatus() {
-    _socketService.init(widget.rideId, (eventData) async {
-      final decoded = eventData is String ? jsonDecode(eventData) : eventData;
+    _rideStatusSubscription?.cancel(); // Cancel any existing subscription
 
-      if (!mounted || _rideCancelled) return;
+    // Get the RideSocketService instance from Riverpod
+    final rideSocketService = ref.read(rideSocketServiceProvider);
 
-      final rideStatusId = decoded['ride_status_id'];
-      final assignedDriverId = decoded['assigned_driver_id'];
+    // Call init on the service, which now returns a Stream.
+    // Then, listen to that stream.
+    _rideStatusSubscription = rideSocketService
+        .init(widget.rideId, (eventData) {
+          // The `eventData` here is the `parsed` payload from `_socketService._parsePayload`
+          // which is already a Map<String, dynamic>. No need for jsonDecode here.
+          final Map<String, dynamic> decoded = eventData;
 
-      if (rideStatusId == 2 && assignedDriverId != null) {
-        // First, close *this* bottom sheet (SearchingDriverBottomSheet)
-        // using its own context.
-        Navigator.of(context, rootNavigator: true).pop();
+          if (!mounted || _rideCancelled) return;
 
-        if (!mounted) return; // Re-check mounted after pop
+          final String? rideStatusName = decoded['status']?['name']
+              ?.toString()
+              .toLowerCase();
+          final Map<String, dynamic>? driverInfo = decoded['driver_info'];
 
-        // 👉 Replace the below mock values with real API call or provider state
-        final driverName = 'John Doe'; // Replace with real name
-        final profilePicture = ''; // Replace with driver image URL
-        final vehicle =
-            'Toyota Prius - ABC 1234'; // Replace with real vehicle info
+          // Check for the 'accepted' status and presence of driver info
+          if (rideStatusName == 'accepted' && driverInfo != null) {
+            // Pop the current bottom sheet
+            Navigator.of(context, rootNavigator: true).pop();
 
-        // Notify the parent (RideBookingScreen) that a driver is confirmed
-        // and pass the relevant data.
-        widget.onDriverConfirmed?.call(
-          ConfirmedDriverInfo(
-            rideId: widget.rideId,
-            driverName: driverName,
-            profilePicture: profilePicture,
-            vehicle: vehicle,
-          ),
+            if (!mounted) return;
+
+            // Extract driver details from the eventData
+            final String driverName = driverInfo['name'] ?? 'Unknown Driver';
+            final String? profilePicture = driverInfo['profile_picture'];
+            final String vehicleModel =
+                driverInfo['vehicle_model'] ?? 'Unknown Model';
+            final String licensePlate = driverInfo['license_plate'] ?? 'N/A';
+            final String vehicle = '$vehicleModel - $licensePlate';
+
+            widget.onDriverConfirmed?.call(
+              ConfirmedDriverInfo(
+                rideId: widget.rideId,
+                driverName: driverName,
+                profilePicture: profilePicture,
+                vehicle: vehicle,
+              ),
+            );
+          } else if (rideStatusName == 'cancelled') {
+            // Handle cases where the ride is cancelled by the system or driver during search
+            Navigator.of(context, rootNavigator: true).pop();
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Ride request was cancelled by the system or driver.',
+                ),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        })
+        .listen(
+          (data) {
+            // This `data` is the same `parsed` payload from the `onUpdate` callback above.
+            // You can add additional logging or processing of stream data here if needed,
+            // but the main logic for confirming the driver is handled in the `onUpdate` callback.
+          },
+          onError: (error) {
+            if (!mounted) return;
+            debugPrint(
+              'WebSocket stream error in SearchingDriverBottomSheet: $error',
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Connection error: ${error.toString()}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          },
+          onDone: () {
+            debugPrint('WebSocket stream done in SearchingDriverBottomSheet.');
+          },
         );
-        return; // Important: Exit after handling confirmed driver
-      }
-    });
   }
 
   Future<void> _cancelRide() async {
@@ -114,35 +151,46 @@ class _SearchingDriverBottomSheetState
 
     widget.cancelStatusCheck?.call();
 
-    try {
-      await ref.read(rideCancellationProvider.notifier).cancel(widget.rideId);
-
+    final sub = ref.listenManual(rideCancellationProvider, (previous, next) {
       if (!mounted) return;
 
-      // Close the searching bottom sheet when cancelled
-      Navigator.of(context, rootNavigator: true).pop();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Ride request cancelled.',
-            style: TextStyle(color: Colors.white),
+      if (next is AsyncData) {
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Ride request cancelled.',
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
           ),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Failed to cancel ride.')));
-    }
+        );
+      } else if (next is AsyncError) {
+        setState(() {
+          _rideCancelled = false;
+          _statusText = 'Failed to cancel ride.';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to cancel ride: ${next.error.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }, fireImmediately: true);
+    sub.close();
+    await ref.read(rideCancellationProvider.notifier).cancel(widget.rideId);
   }
 
   @override
   void dispose() {
-    _socketService.disconnect();
+    _rideStatusSubscription?.cancel(); // Cancel the stream subscription
+    // No need to call _socketService.disconnect() here directly,
+    // as the `rideSocketServiceProvider` manages its lifecycle and
+    // the `onDispose` in `ride_tracking_provider.dart` will handle the disconnect
+    // when the `driverLocationStreamProvider` is disposed.
+    // However, if this bottom sheet is the *only* consumer, you might want to disconnect here.
+    // For now, let's rely on the provider chain's dispose mechanism.
     super.dispose();
   }
 
@@ -192,11 +240,11 @@ class _SearchingDriverBottomSheetState
               const SizedBox(height: 24),
               Center(
                 child: TextButton.icon(
-                  onPressed: _cancelRide,
+                  onPressed: _rideCancelled ? null : _cancelRide,
                   icon: const Icon(Icons.cancel, color: Colors.red),
-                  label: const Text(
-                    'Cancel Ride',
-                    style: TextStyle(color: Colors.red),
+                  label: Text(
+                    _rideCancelled ? 'Cancelling...' : 'Cancel Ride',
+                    style: const TextStyle(color: Colors.red),
                   ),
                 ),
               ),

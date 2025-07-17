@@ -1,39 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/services/shared_preferences_service.dart';
 
-class OnboardingState {
-  final bool isComplete;
-  OnboardingState({this.isComplete = false});
-}
+final sharedPreferencesProvider = Provider<SharedPreferencesService>((ref) {
+  throw UnimplementedError(
+    'Must be overridden in main using ProviderScope overrides.',
+  );
+});
 
-class OnboardingNotifier extends StateNotifier<OnboardingState> {
-  OnboardingNotifier() : super(OnboardingState());
-
-  static const _onboardingKey = 'onboarding_complete';
-
-  bool _loaded = false;
-  bool get isLoaded => _loaded;
-
-  Future<void> ensureLoaded() async {
-    if (_loaded) return;
-    final prefs = await SharedPreferences.getInstance();
-    final complete = prefs.getBool(_onboardingKey) ?? false;
-    state = OnboardingState(isComplete: complete);
-    _loaded = true;
-  }
-
-  Future<void> completeOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_onboardingKey, true);
-    state = OnboardingState(isComplete: true);
-  }
-}
-
-final onboardingProvider =
-    StateNotifierProvider<OnboardingNotifier, OnboardingState>(
-      (ref) => OnboardingNotifier(),
-    );
-
-final onboardingLoadedProvider = FutureProvider<void>((ref) async {
-  await ref.read(onboardingProvider.notifier).ensureLoaded();
+/// Use this when you need a reactive onboarding state
+final onboardingProvider = FutureProvider<bool>((ref) async {
+  final preferences = ref.watch(sharedPreferencesProvider);
+  return preferences.getOnboarding();
 });

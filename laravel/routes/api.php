@@ -16,6 +16,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Broadcasting ──
     Route::post('/broadcasting/auth', fn (Request $request) => Broadcast::auth($request));
+    Route::post('/driver/location', [Controllers\DriverLocationController::class, 'updateLocation']);
+
 
     // ── Authenticated User ──
     Route::get('/user', fn(Request $request) => $request->user());

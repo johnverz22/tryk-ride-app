@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -68,11 +69,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   @override
   void dispose() {
+    _searchController.removeListener(_onSearchChanged); // Remove listener
     _searchController.dispose();
     super.dispose();
   }
 
   void _onSearchChanged() {
+    // Check mounted before calling setState in synchronous listener
+    if (!mounted) return;
+
     final query = _searchController.text.toLowerCase();
     setState(() {
       _filteredMessages =
@@ -88,6 +93,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Future<void> _loadMessages() async {
+    // Set loading state only if mounted
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
@@ -99,6 +106,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
           'Accept': 'application/json',
         },
       );
+
+      // Check mounted again after the async operation completes
+      if (!mounted) return;
 
       if (response.statusCode == 200) {
         final List jsonData = json.decode(response.body);
@@ -115,6 +125,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
       }
     } catch (e) {
       debugPrint('Error fetching messages: $e');
+      // Check mounted before calling setState in catch block
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }

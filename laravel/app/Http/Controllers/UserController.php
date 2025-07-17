@@ -74,16 +74,20 @@ class UserController extends Controller
                     'payment_method' => $ride->payment_method,
                     'driver' => $ride->driver?->name,
                     'rider_rating' => $ride->rider_rating,
-                    'status' => $ride->status?->name,
+                    'status' => $ride->status ? [
+                        'id' => $ride->status->id,
+                        'name' => $ride->status->name,
+                    ] : null,
                     'accepted_at' => $ride->accepted_at,
                     'completed_at' => $ride->completed_at,
                     'canceled_at' => $ride->canceled_at,
                     'requested_at' => $ride->requested_at,
                 ];
+            Log::info("Trips Details", ['trips' => $formatted]);
 
                 return $formatted;
             });
-            
+        
         return response()->json($rides);
     }
 }

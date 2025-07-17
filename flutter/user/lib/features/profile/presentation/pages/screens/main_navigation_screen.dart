@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:user/features/profile/presentation/pages/screens/navigation/messages_screen.dart';
 import 'navigation/home_screen.dart';
-import 'navigation/trips_screen.dart';
+import '../../../../ride/presentation/screens/trips_screen.dart';
 import 'navigation/menu_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {

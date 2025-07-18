@@ -12,4 +12,9 @@ class SavedLocation extends Model
         'latitude',
         'longitude',
     ];
+
+    protected $casts = [
+        'latitude' => 'double',
+        'longitude' => 'double',
+    ];
 }

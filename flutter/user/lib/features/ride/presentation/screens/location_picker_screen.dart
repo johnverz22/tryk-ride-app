@@ -1,989 +1,518 @@
-import 'dart:convert';
-import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
-import 'package:user/core/services/auth_service.dart';
+// lib/features/ride/presentation/screens/location_picker_screen.dart
 
-class LocationPickerScreen extends StatefulWidget {
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:user/features/ride/domain/entities/location_entity.dart';
+import 'package:user/features/ride/domain/entities/place_entity.dart';
+import 'package:user/features/ride/presentation/providers/location_picker_provider.dart';
+import 'package:user/features/ride/presentation/widgets/location_picker_screen/widgets.dart';
+import 'package:user/providers/initial_location_provider.dart';
+
+class LocationPickerScreen extends ConsumerStatefulWidget {
   const LocationPickerScreen({super.key});
 
   @override
-  State<LocationPickerScreen> createState() => _LocationPickerScreenState();
+  ConsumerState<LocationPickerScreen> createState() =>
+      _LocationPickerScreenState();
 }
 
-class _LocationPickerScreenState extends State<LocationPickerScreen> {
-  LatLng? _selectedPoint;
+class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
   GoogleMapController? _mapController;
-  String? googleMapsApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
-
   final TextEditingController _searchController = TextEditingController();
-  List<dynamic> _searchResults = [];
-  bool _isSearching = false;
-  String? _selectedDescription;
+  final FocusNode _searchFocusNode = FocusNode();
 
-  List<Map<String, dynamic>> _favoriteLocations = [];
+  LatLng? _cameraMovingPosition;
 
-  void _selectFavoriteLocation(LatLng latLng, {String? description}) async {
-    // Only use reverse geocoding if description is generic (like "Home", "Work", etc.)
-    final isGeneric = [
-      'Home',
-      'Work',
-      'Gym',
-      'Library',
-      'Coffee Shop',
-    ].contains(description);
-    final placeName = isGeneric
-        ? await _getPlaceNameFromLatLng(latLng)
-        : description;
-
-    setState(() {
-      _selectedPoint = latLng;
-      _selectedDescription = placeName;
-    });
-    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(latLng, 15));
-  }
+  CameraPosition _currentCameraPosition = const CameraPosition(
+    target: LatLng(14.5995, 120.9842), // Default to Manila
+    zoom: 12,
+  );
 
   @override
   void initState() {
     super.initState();
-    _loadFavoriteLocations();
+    _searchController.addListener(_onSearchChanged);
   }
 
-  Future<void> _loadFavoriteLocations() async {
-    final token = await AuthService().getToken();
-    final url = Uri.parse('$baseUrl/api/user/saved-locations');
+  @override
+  void dispose() {
+    _mapController?.dispose();
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
 
+  Future<void> _onMapCreated(GoogleMapController controller) async {
+    _mapController = controller;
+    final initialLatLng = ref.read(initialLocationProvider).value;
+    final notifier = ref.read(locationPickerProvider.notifier);
+
+    if (initialLatLng != null) {
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(initialLatLng, 15.5),
+      );
+      await notifier.geocodeCameraPosition(initialLatLng);
+    } else {
+      await notifier.geocodeCameraPosition(_currentCameraPosition.target);
+    }
+  }
+
+  void _onCameraMove(CameraPosition position) {
+    if (mounted) {
+      ref.read(locationPickerProvider.notifier).setLoadingState();
+    }
+    _cameraMovingPosition = position.target;
+  }
+
+  void _onCameraIdle() {
+    if (_cameraMovingPosition != null) {
+      ref
+          .read(locationPickerProvider.notifier)
+          .geocodeCameraPosition(_cameraMovingPosition!);
+    }
+  }
+
+  void _onSearchChanged() {
+    ref
+        .read(locationPickerProvider.notifier)
+        .searchPlaces(_searchController.text);
+  }
+
+  Future<void> _getCurrentLocationAndAnimateMap() async {
     try {
-      final response = await http.get(
-        url,
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body)['locations'] ?? [];
-
-        setState(() {
-          _favoriteLocations = data.map<Map<String, dynamic>>((item) {
-            return {
-              'id': item['id'],
-              'name': item['location_name'],
-              'latLng': LatLng(
-                double.parse(item['latitude'].toString()),
-                double.parse(item['longitude'].toString()),
-              ),
-              'icon': Icons.star,
-            };
-          }).toList();
-        });
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to load locations')));
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Connection error: $e')));
-    }
-  }
-
-  void _showLocationsBottomSheet(List<Map<String, dynamic>> locations) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return DraggableScrollableSheet(
-          expand: false,
-          builder: (_, scrollController) {
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 12, bottom: 4),
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[400],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'Favorite Locations',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const Divider(height: 1),
-
-                Expanded(
-                  child: ListView.builder(
-                    controller: scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: locations.length,
-                    itemBuilder: (context, index) {
-                      final place = locations[index];
-                      return Card(
-                        elevation: 2,
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          leading: CircleAvatar(
-                            backgroundColor: Theme.of(
-                              context,
-                            ).primaryColor.withValues(alpha: .1),
-                            child: Icon(
-                              place['icon'],
-                              color: Theme.of(context).primaryColor,
-                            ),
-                          ),
-                          title: Text(
-                            place['name'],
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          trailing: PopupMenuButton<String>(
-                            icon: Icon(
-                              Icons.more_vert,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                            onSelected: (value) {
-                              Navigator.pop(
-                                context,
-                              ); // close bottom sheet before dialog
-
-                              if (value == 'edit') {
-                                _showEditFavoriteDialog(index);
-                              } else if (value == 'delete') {
-                                _deleteFavoriteLocation(index);
-                              }
-                            },
-                            itemBuilder: (context) => [
-                              const PopupMenuItem(
-                                value: 'edit',
-                                child: Text('Edit'),
-                              ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Text('Delete'),
-                              ),
-                            ],
-                          ),
-
-                          onTap: () {
-                            Navigator.pop(context);
-                            _selectFavoriteLocation(
-                              place['latLng'],
-                              description: place['name'],
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ),
-
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).primaryColor,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showAddFavoriteDialog();
-                      },
-                      icon: const Icon(Icons.add),
-                      label: const Text(
-                        'Add to Favorite Locations',
-                        style: TextStyle(fontSize: 16, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _showAddFavoriteDialog() {
-    String? baseUrl = dotenv.env['BASE_URL'];
-    final TextEditingController nameController = TextEditingController();
-    final FocusNode focusNode = FocusNode();
-    final LatLng? selectedLatLng = _selectedPoint;
-    final String? selectedDescription = _selectedDescription;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          focusNode.requestFocus();
-          nameController.selection = TextSelection(
-            baseOffset: 0,
-            extentOffset: nameController.text.length,
-          );
-        });
-
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 6,
-          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          title: const Text(
-            'Add to Favorite Locations',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: nameController,
-                focusNode: focusNode,
-                decoration: InputDecoration(
-                  labelText: 'Name',
-                  hintText: 'e.g. Home, Office, Coffee Spot',
-                  hintStyle: TextStyle(color: Colors.grey[500]),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-              if (selectedLatLng == null)
-                const Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.redAccent, size: 18),
-                    SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Please select a location on the map or search first.',
-                        style: TextStyle(
-                          color: Colors.redAccent,
-                          fontSize: 13,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
-                  ],
-                )
-              else
-                FutureBuilder<String>(
-                  future: selectedDescription != null
-                      ? Future.value(selectedDescription)
-                      : _getPlaceNameFromLatLng(selectedLatLng),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Row(
-                        children: const [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          SizedBox(width: 8),
-                          Text("Fetching location..."),
-                        ],
-                      );
-                    }
-
-                    final locationText = snapshot.data ?? "Unknown location";
-
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.place,
-                            size: 20,
-                            color: Theme.of(context).primaryColor,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              locationText,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-            ],
-          ),
-          actionsPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
-          actionsAlignment: MainAxisAlignment.end,
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(fontSize: 15)),
-            ),
-            ElevatedButton.icon(
-              onPressed: () async {
-                final name = nameController.text.trim();
-
-                if (name.isNotEmpty && selectedLatLng != null) {
-                  final token = await AuthService().getToken();
-
-                  final url = Uri.parse('$baseUrl/api/user/saved-locations');
-
-                  try {
-                    final response = await http.post(
-                      url,
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Authorization': 'Bearer $token',
-                      },
-                      body: jsonEncode({
-                        'location_name': name,
-                        'latitude': selectedLatLng.latitude,
-                        'longitude': selectedLatLng.longitude,
-                      }),
-                    );
-
-                    if (!mounted) return;
-                    if (response.statusCode == 201) {
-                      Navigator.pop(context);
-                      await _loadFavoriteLocations();
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Location saved successfully!'),
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Error: ${jsonDecode(response.body)['message'] ?? 'Unknown error'}',
-                          ),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to connect: $e')),
-                    );
-                  }
-                }
-              },
-              icon: const Icon(Icons.save, color: Colors.white),
-              label: const Text('Save', style: TextStyle(color: Colors.white)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showEditFavoriteDialog(int index) {
-    debugPrint(_favoriteLocations[index].toString());
-
-    final favorite = _favoriteLocations[index];
-    final TextEditingController nameController = TextEditingController(
-      text: favorite['name'],
-    );
-    final FocusNode focusNode = FocusNode();
-
-    final LatLng latLng = favorite['latLng'];
-    final String? selectedDescription = _selectedDescription;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          focusNode.requestFocus();
-          nameController.selection = TextSelection(
-            baseOffset: 0,
-            extentOffset: nameController.text.length,
-          );
-        });
-
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 6,
-          contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-          title: const Text(
-            'Edit Favorite Location',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: nameController,
-                focusNode: focusNode,
-                decoration: InputDecoration(
-                  labelText: 'Name',
-                  hintText: 'e.g. Home, Work, Gym',
-                  hintStyle: TextStyle(color: Colors.grey[500]),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              FutureBuilder<String>(
-                future: selectedDescription != null
-                    ? Future.value(selectedDescription)
-                    : _getPlaceNameFromLatLng(latLng),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Row(
-                      children: const [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        SizedBox(width: 8),
-                        Text("Fetching location..."),
-                      ],
-                    );
-                  }
-
-                  final locationText = snapshot.data ?? "Unknown location";
-
-                  return Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.place,
-                          size: 20,
-                          color: Theme.of(context).primaryColor,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            locationText,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-          actionsPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
-          actionsAlignment: MainAxisAlignment.end,
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(fontSize: 15)),
-            ),
-            ElevatedButton.icon(
-              onPressed: () async {
-                final name = nameController.text.trim();
-
-                if (name.isNotEmpty) {
-                  final token = await AuthService().getToken();
-                  final locationId = _favoriteLocations[index]['id'];
-                  final LatLng? selectedLatLng = _selectedPoint;
-                  final url = Uri.parse(
-                    '$baseUrl/api/user/saved-locations/$locationId',
-                  );
-                  debugPrint(
-                    'Sending updated values: $name, ${latLng.latitude}, ${latLng.longitude}',
-                  );
-
-                  try {
-                    final response = await http.put(
-                      url,
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Authorization': 'Bearer $token',
-                      },
-                      body: jsonEncode({
-                        'location_name': name,
-                        'latitude': selectedLatLng?.latitude,
-                        'longitude': selectedLatLng?.longitude,
-                      }),
-                    );
-
-                    if (!mounted) return;
-                    if (response.statusCode == 200) {
-                      final responseData = jsonDecode(response.body);
-
-                      setState(() {
-                        _favoriteLocations[index] = {
-                          'id': responseData['location']['id'],
-                          'name': responseData['location']['location_name'],
-                          'latLng': LatLng(
-                            responseData['location']['latitude'],
-                            responseData['location']['longitude'],
-                          ),
-                          'icon': _favoriteLocations[index]['icon'],
-                        };
-                      });
-
-                      Navigator.pop(context);
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Location updated successfully!'),
-                        ),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Error: ${jsonDecode(response.body)['message'] ?? 'Unknown error'}',
-                          ),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to connect: $e')),
-                    );
-                  }
-                }
-              },
-              icon: const Icon(Icons.save, color: Colors.white),
-              label: const Text('Save', style: TextStyle(color: Colors.white)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _deleteFavoriteLocation(int index) async {
-    final locationId = _favoriteLocations[index]['id'];
-    final token = await AuthService().getToken();
-
-    final url = Uri.parse('$baseUrl/api/user/saved-locations/$locationId');
-
-    try {
-      final response = await http.delete(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-
-      if (!mounted) return;
-      if (response.statusCode == 200) {
-        setState(() {
-          _favoriteLocations.removeAt(index);
-        });
-
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location deleted successfully!')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error: ${jsonDecode(response.body)['message'] ?? 'Failed to delete'}',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to connect: $e')));
-    }
-  }
-
-  Future<void> _goToMyLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location services are disabled.')),
-      );
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permission denied.')),
+          const SnackBar(content: Text('Location services are disabled.')),
         );
         return;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
-      if (!mounted) return;
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions are denied.')),
+          );
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enable location from app settings.')),
+        );
+        await openAppSettings();
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      final LatLng currentLatLng = LatLng(
+        position.latitude,
+        position.longitude,
+      );
+
+      ref
+          .read(locationPickerProvider.notifier)
+          .geocodeCameraPosition(currentLatLng);
+
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(currentLatLng, 15.5),
+      );
+    } catch (e) {
+      debugPrint("Error getting current location: $e");
+    }
+  }
+
+  void _showAddFavoriteDialog() {
+    final state = ref.read(locationPickerProvider);
+    if (state.selectedPoint != null && !state.isLoadingAddress) {
+      showDialog(
+        context: context,
+        builder: (context) => const AddFavoriteLocationDialog(),
+      );
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Location permissions are permanently denied.'),
+          content: Text('Please wait for the location to load before adding.'),
         ),
       );
-      return;
     }
+  }
 
-    final position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
+  void _showEditFavoriteDialog(LocationEntity favorite) {
+    showDialog(
+      context: context,
+      builder: (context) =>
+          EditFavoriteLocationDialog(favoriteLocation: favorite),
     );
-    final currentLatLng = LatLng(position.latitude, position.longitude);
-
-    final placeName = await _getPlaceNameFromLatLng(currentLatLng);
-    setState(() {
-      _selectedPoint = currentLatLng;
-      _selectedDescription = placeName;
-    });
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(currentLatLng, 15),
-    );
-  }
-
-  Future<void> _searchPlaces(String query) async {
-    if (query.isEmpty) return;
-    final url =
-        'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=$query&key=$googleMapsApiKey&components=country:ph';
-
-    final response = await http.get(Uri.parse(url));
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      setState(() => _searchResults = data['predictions']);
-    } else {
-      setState(() => _searchResults = []);
-    }
-  }
-
-  Future<void> _selectPlace(String placeId, String description) async {
-    final url =
-        'https://maps.googleapis.com/maps/api/place/details/json?place_id=$placeId&key=$googleMapsApiKey';
-
-    final response = await http.get(Uri.parse(url));
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final location = data['result']['geometry']['location'];
-      final latLng = LatLng(location['lat'], location['lng']);
-
-      setState(() {
-        _selectedPoint = latLng;
-        _selectedDescription = description;
-        _searchResults = [];
-        _searchController.clear();
-        _isSearching = false;
-      });
-
-      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(latLng, 15));
-    }
-  }
-
-  Future<String> _getPlaceNameFromLatLng(LatLng latLng) async {
-    final url =
-        'https://maps.googleapis.com/maps/api/geocode/json?latlng=${latLng.latitude},${latLng.longitude}&key=$googleMapsApiKey';
-
-    final response = await http.get(Uri.parse(url));
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-
-      if (data['status'] == 'OK' && data['results'].isNotEmpty) {
-        final results = data['results'] as List;
-
-        // 1. Try best formatted address (skip Unnamed Road or plus codes)
-        for (final result in results) {
-          final address = result['formatted_address'].toString().toLowerCase();
-          if (!address.contains('unnamed road') && !address.contains('+')) {
-            return result['formatted_address'];
-          }
-        }
-
-        // 2. Try nearest landmark
-        for (final result in results) {
-          final components = result['address_components'] as List<dynamic>;
-          for (final comp in components) {
-            final types = comp['types'] as List<dynamic>;
-            if (types.contains('point_of_interest') ||
-                types.contains('establishment')) {
-              return comp['long_name'];
-            }
-          }
-        }
-
-        // 3. Try sublocality, locality, or administrative area
-        for (final result in results) {
-          final components = result['address_components'] as List<dynamic>;
-          for (final comp in components) {
-            final types = comp['types'] as List<dynamic>;
-            if (types.contains('sublocality') ||
-                types.contains('locality') ||
-                types.contains('administrative_area_level_2')) {
-              return comp['long_name'];
-            }
-          }
-        }
-
-        // 4. Final fallback to any available formatted address
-        return results.first['formatted_address'];
-      }
-    }
-
-    return 'Unknown location';
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final initialLocationAsync = ref.watch(initialLocationProvider);
+    final topPadding = MediaQuery.of(context).padding.top;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Select Location'),
-        backgroundColor: theme.primaryColor,
-        foregroundColor: Colors.white,
-      ),
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: const CameraPosition(
-              target: LatLng(16.6167, 120.3167),
-              zoom: 13,
-            ),
-            onMapCreated: (controller) => _mapController = controller,
-            onTap: (point) async {
-              final placeName = await _getPlaceNameFromLatLng(point);
-              setState(() {
-                _selectedPoint = point;
-                _selectedDescription = placeName;
-              });
+          // --- The Map ---
+          initialLocationAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => _buildMap(theme, _currentCameraPosition),
+            data: (initialLatLng) {
+              _currentCameraPosition = CameraPosition(
+                target: initialLatLng ?? _currentCameraPosition.target,
+                zoom: initialLatLng != null
+                    ? 15.5
+                    : _currentCameraPosition.zoom,
+              );
+              return _buildMap(theme, _currentCameraPosition);
             },
-            markers: _selectedPoint != null
-                ? {
-                    Marker(
-                      markerId: const MarkerId('selected'),
-                      position: _selectedPoint!,
-                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                        BitmapDescriptor.hueRed,
-                      ),
-                    ),
-                  }
-                : <Marker>{},
-            zoomControlsEnabled: false,
-            myLocationButtonEnabled: false,
           ),
-
-          // Search bar and results
+          // --- Perfectly Centered Pin ---
+          Center(
+            child: Transform.translate(
+              offset: const Offset(0, -25),
+              child: Icon(
+                Icons.location_pin,
+                size: 50,
+                color: theme.colorScheme.primary,
+                shadows: const [
+                  Shadow(
+                    color: Colors.black26,
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // --- Top UI Area (Search, Favorites) ---
           Positioned(
-            top: 16,
-            left: 16,
-            right: 16,
-            child: Column(
-              children: [
-                Material(
-                  elevation: 6,
-                  borderRadius: BorderRadius.circular(12),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (value) {
-                      setState(() => _isSearching = true);
-                      _searchPlaces(value);
+            top: topPadding,
+            left: 0,
+            right: 0,
+            child: _buildTopUI(theme),
+          ),
+          // --- Bottom Confirmation Panel ---
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: _buildConfirmationPanel(theme, bottomPadding),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMap(ThemeData theme, CameraPosition initialPosition) {
+    return GoogleMap(
+      initialCameraPosition: initialPosition,
+      onMapCreated: _onMapCreated,
+      onCameraMove: _onCameraMove,
+      onCameraIdle: _onCameraIdle,
+      myLocationEnabled: true,
+      myLocationButtonEnabled: false,
+      zoomControlsEnabled: false,
+      mapToolbarEnabled: false,
+      padding: const EdgeInsets.only(
+        bottom: 150, // Space for bottom panel
+        top: 150, // Space for top UI
+      ),
+      onTap: (_) => _searchFocusNode.unfocus(),
+    );
+  }
+
+  Widget _buildTopUI(ThemeData theme) {
+    final state = ref.watch(locationPickerProvider);
+    final searchResults = state.searchResults.value ?? [];
+    final isSearching = _searchController.text.isNotEmpty;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildFloatingSearch(theme),
+        if (isSearching)
+          _buildSearchResultsOverlay(searchResults, state.isSearching)
+        else
+          _buildFavoritesCarousel(theme, state),
+      ],
+    );
+  }
+
+  Widget _buildFloatingSearch(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(15, 10, 15, 10),
+      child: Material(
+        elevation: 4.0,
+        borderRadius: BorderRadius.circular(15.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  decoration: const InputDecoration(
+                    hintText: 'Search for a location...',
+                    border: InputBorder.none,
+                  ),
+                ),
+              ),
+              if (_searchController.text.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    ref.read(locationPickerProvider.notifier).clearSearch();
+                  },
+                )
+              else
+                IconButton(
+                  tooltip: 'Current Location',
+                  icon: Icon(
+                    Icons.my_location,
+                    color: theme.colorScheme.primary,
+                  ),
+                  onPressed: _getCurrentLocationAndAnimateMap,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFavoritesCarousel(ThemeData theme, LocationPickerState state) {
+    return state.favoriteLocations.when(
+      data: (favs) {
+        if (favs.isEmpty) return const SizedBox(height: 10);
+        return SizedBox(
+          height: 85,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            scrollDirection: Axis.horizontal,
+            itemCount: favs.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final fav = favs[index];
+              return SizedBox(
+                width: 150,
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  margin: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: InkWell(
+                    onTap: () {
+                      _mapController?.animateCamera(
+                        CameraUpdate.newLatLngZoom(fav.latLng, 15.5),
+                      );
                     },
-                    decoration: InputDecoration(
-                      hintText: 'Search location...',
-                      prefixIcon: Icon(Icons.search),
-                      suffixIcon: _isSearching
-                          ? IconButton(
-                              icon: Icon(Icons.clear),
-                              onPressed: () {
-                                setState(() {
-                                  _searchController.clear();
-                                  _searchResults = [];
-                                  _isSearching = false;
-                                });
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Icon(
+                                fav.icon,
+                                size: 22,
+                                color: theme.colorScheme.primary,
+                              ),
+                              // Edit button specific to this favorite
+                              InkWell(
+                                onTap: () => _showEditFavoriteDialog(fav),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(
+                                    4.0,
+                                  ), // Makes it easier to tap
+                                  child: Icon(Icons.edit_outlined, size: 18),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Spacer(),
+                          Text(
+                            fav.name,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-                if (_searchResults.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black12, blurRadius: 4),
-                      ],
-                    ),
-                    constraints: BoxConstraints(maxHeight: 200),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: _searchResults.length,
-                      itemBuilder: (context, index) {
-                        final place = _searchResults[index];
-                        return ListTile(
-                          title: Text(place['description']),
-                          onTap: () => _selectPlace(
-                            place['place_id'],
-                            place['description'],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
+              );
+            },
           ),
+        );
+      },
+      loading: () => const SizedBox(height: 10),
+      error: (_, __) => const SizedBox(height: 10),
+    );
+  }
 
-          // Favorites button
-          Positioned(
-            bottom: 120,
-            left: 16,
-            child: FloatingActionButton(
-              heroTag: 'favoritesBtn',
-              mini: true,
-              backgroundColor: Colors.white,
-              onPressed: () {
-                _showLocationsBottomSheet(_favoriteLocations);
-              },
-              child: Icon(Icons.favorite, color: theme.primaryColor),
-            ),
-          ),
-
-          // My Location button
-          Positioned(
-            bottom: 120,
-            right: 16,
-            child: FloatingActionButton(
-              heroTag: 'myLocationBtn',
-              mini: true,
-              backgroundColor: Colors.white,
-              onPressed: _goToMyLocation,
-              child: Icon(Icons.my_location, color: theme.primaryColor),
-            ),
-          ),
+  Widget _buildSearchResultsOverlay(
+    List<PlaceSuggestionEntity> results,
+    bool isSearching,
+  ) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15.0),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 1),
         ],
       ),
-      floatingActionButton: _selectedPoint != null
-          ? FloatingActionButton.extended(
-              onPressed: () => Navigator.pop(context, {
-                'latLng': _selectedPoint,
-                'description': _selectedDescription ?? 'Selected Location',
-              }),
-              backgroundColor: theme.primaryColor,
-              icon: const Icon(Icons.check),
-              label: const Text('Confirm'),
+      constraints: const BoxConstraints(maxHeight: 250),
+      child: isSearching && results.isEmpty
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(),
+              ),
             )
-          : null,
+          : ListView.builder(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              itemCount: results.length,
+              itemBuilder: (context, index) {
+                final suggestion = results[index];
+                return ListTile(
+                  leading: const Icon(Icons.search),
+                  title: Text(suggestion.description),
+                  onTap: () async {
+                    _searchFocusNode.unfocus();
+                    _searchController.clear();
+                    final LatLng? selectedLatLng = await ref
+                        .read(locationPickerProvider.notifier)
+                        .selectPlace(
+                          suggestion.placeId,
+                          suggestion.description,
+                        );
+
+                    if (_mapController != null && selectedLatLng != null) {
+                      _mapController!.animateCamera(
+                        CameraUpdate.newLatLngZoom(selectedLatLng, 15.5),
+                      );
+                    }
+                  },
+                );
+              },
+            ),
+    );
+  }
+
+  Widget _buildConfirmationPanel(ThemeData theme, double bottomPadding) {
+    final state = ref.watch(locationPickerProvider);
+    return Material(
+      elevation: 8.0,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
+      child: Container(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          20,
+          24,
+          bottomPadding > 0 ? bottomPadding : 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  "Selected Location",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                // Add to favorites button is the only action here
+                IconButton(
+                  icon: const Icon(Icons.star_border, size: 28),
+                  tooltip: 'Add to Favorites',
+                  onPressed: _showAddFavoriteDialog,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.location_on, color: theme.colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: state.isLoadingAddress
+                        ? Text(
+                            "Loading address...",
+                            style: TextStyle(
+                              color: theme.textTheme.bodySmall?.color,
+                            ),
+                          )
+                        : Text(
+                            state.selectedDescription ?? "Unknown location",
+                            key: ValueKey(state.selectedDescription),
+                            style: theme.textTheme.bodyLarge,
+                          ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed:
+                    state.selectedPoint != null && !state.isLoadingAddress
+                    ? () => Navigator.pop(context, {
+                        'latLng': state.selectedPoint,
+                        'description': state.selectedDescription,
+                      })
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Confirm Location',
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

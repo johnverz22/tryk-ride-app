@@ -34,96 +34,98 @@ class ProfileScreen extends ConsumerWidget {
         final photoUrl = user.profilePhotoUrl;
 
         return Scaffold(
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _buildProfileHeader(context, name, email, photoUrl),
-              const SizedBox(height: 32),
+          body: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildProfileHeader(context, name, email, photoUrl),
+                const SizedBox(height: 32),
 
-              _sectionCard(
-                title: 'Account Settings',
-                items: [
-                  _buildNavTile(
-                    context,
-                    Icons.person_outline,
-                    'Personal Information',
-                    const PersonalInfoScreen(),
-                  ),
-                  _buildNavTile(
-                    context,
-                    Icons.notifications_outlined,
-                    'Notifications Preferences',
-                    const NotificationsPreferencesScreen(),
-                  ),
-                  _buildNavTile(
-                    context,
-                    Icons.payment_outlined,
-                    'Payment Methods',
-                    const PaymentMethodsScreen(),
-                  ),
-                  _buildNavTile(
-                    context,
-                    Icons.lock_outline,
-                    'Privacy Settings',
-                    const PrivacySettingsScreen(),
-                  ),
-                  _buildNavTile(
-                    context,
-                    Icons.language,
-                    'Language Settings',
-                    const LanguageSettingsScreen(),
-                  ),
-                ],
-              ),
+                _sectionCard(
+                  title: 'Account Settings',
+                  items: [
+                    _buildNavTile(
+                      context,
+                      Icons.person_outline,
+                      'Personal Information',
+                      const PersonalInfoScreen(),
+                    ),
+                    _buildNavTile(
+                      context,
+                      Icons.notifications_outlined,
+                      'Notifications Preferences',
+                      const NotificationsPreferencesScreen(),
+                    ),
+                    _buildNavTile(
+                      context,
+                      Icons.payment_outlined,
+                      'Payment Methods',
+                      const PaymentMethodsScreen(),
+                    ),
+                    _buildNavTile(
+                      context,
+                      Icons.lock_outline,
+                      'Privacy Settings',
+                      const PrivacySettingsScreen(),
+                    ),
+                    _buildNavTile(
+                      context,
+                      Icons.language,
+                      'Language Settings',
+                      const LanguageSettingsScreen(),
+                    ),
+                  ],
+                ),
 
-              const SizedBox(height: 24),
-              _sectionCard(
-                title: 'Trip Preferences',
-                items: [
-                  _buildNavTile(
-                    context,
-                    Icons.people_alt_outlined,
-                    'Preferred Drivers',
-                    const PreferredDriversScreen(),
-                  ),
-                  _buildNavTile(
-                    context,
-                    Icons.directions_car,
-                    'Vehicle Preferences',
-                    const VehiclePreferencesScreen(),
-                  ),
-                  _buildNavTile(
-                    context,
-                    Icons.accessibility_new,
-                    'Special Requirements',
-                    const SpecialRequirementsScreen(),
-                  ),
-                ],
-              ),
+                const SizedBox(height: 24),
+                _sectionCard(
+                  title: 'Trip Preferences',
+                  items: [
+                    _buildNavTile(
+                      context,
+                      Icons.people_alt_outlined,
+                      'Preferred Drivers',
+                      const PreferredDriversScreen(),
+                    ),
+                    _buildNavTile(
+                      context,
+                      Icons.directions_car,
+                      'Vehicle Preferences',
+                      const VehiclePreferencesScreen(),
+                    ),
+                    _buildNavTile(
+                      context,
+                      Icons.accessibility_new,
+                      'Special Requirements',
+                      const SpecialRequirementsScreen(),
+                    ),
+                  ],
+                ),
 
-              const SizedBox(height: 24),
-              _sectionCard(
-                title: 'Security',
-                items: [
-                  _buildActionButton(
-                    context,
-                    label: 'Logout',
-                    icon: Icons.logout,
-                    color: theme.colorScheme.primary,
-                    onPressed: () => showLogoutDialog(context, ref),
-                  ),
+                const SizedBox(height: 24),
+                _sectionCard(
+                  title: 'Security',
+                  items: [
+                    _buildActionButton(
+                      context,
+                      label: 'Logout',
+                      icon: Icons.logout,
+                      color: theme.colorScheme.primary,
+                      onPressed: () => showLogoutDialog(context, ref),
+                    ),
 
-                  const SizedBox(height: 12),
-                  _buildActionButton(
-                    context,
-                    label: 'Delete Account',
-                    icon: Icons.delete_forever,
-                    color: Colors.red,
-                    onPressed: () => showDeleteAccountDialog(context, ref),
-                  ),
-                ],
-              ),
-            ],
+                    const SizedBox(height: 12),
+                    _buildActionButton(
+                      context,
+                      label: 'Delete Account',
+                      icon: Icons.delete_forever,
+                      color: Colors.red,
+                      onPressed: () => showDeleteAccountDialog(context, ref),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -230,19 +232,25 @@ class ProfileScreen extends ConsumerWidget {
     required Color color,
     required VoidCallback onPressed,
   }) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon),
-        label: Text(label),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: onPressed,
+          icon: Icon(icon),
+          label: Text(label),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: color,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            textStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
       ),

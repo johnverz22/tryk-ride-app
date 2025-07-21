@@ -70,7 +70,6 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
       setState(() {
         _selectedDateRange = picked;
       });
-      // The filtering logic is handled in _buildTripList based on _selectedDateRange
     }
   }
 
@@ -157,10 +156,11 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
             (tripListState.hasMore ? 1 : 0), // Add 1 for loading indicator
         itemBuilder: (context, index) {
           if (index == filteredTrips.length) {
-            // This is the loading indicator for pagination
             if (tripListState.hasMore && !tripListState.trips.isLoading) {
-              // Trigger load more when scroll reaches the end
-              ref.read(tripListProvider.notifier).loadTrips(loadMore: true);
+              // *** FIX: Wrap the call in a Future.microtask ***
+              Future.microtask(() {
+                ref.read(tripListProvider.notifier).loadTrips(loadMore: true);
+              });
               return const Center(child: CircularProgressIndicator());
             }
             return const SizedBox.shrink();

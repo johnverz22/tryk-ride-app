@@ -34,7 +34,6 @@ class RatingCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const DragIndicator(),
             const Center(
               child: Text(
                 'Your Rating',

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:user/features/ride/presentation/providers/ride_cancellation_provider.dart';
 import 'package:user/features/ride/presentation/providers/ride_booking_provider.dart';
+import 'package:user/features/ride/presentation/widgets/ride_booking_screen/widgets.dart';
 
 class ConfirmedDriverInfo {
   final int rideId;
@@ -38,8 +39,6 @@ class SearchingDriverBottomSheet extends ConsumerStatefulWidget {
 
 class _SearchingDriverBottomSheetState
     extends ConsumerState<SearchingDriverBottomSheet> {
-  final DraggableScrollableController _controller =
-      DraggableScrollableController();
   bool _rideCancelled = false;
   String _statusText = 'Looking for a nearby driver...';
 
@@ -184,74 +183,91 @@ class _SearchingDriverBottomSheetState
 
   @override
   void dispose() {
-    _rideStatusSubscription?.cancel(); // Cancel the stream subscription
-    // No need to call _socketService.disconnect() here directly,
-    // as the `rideSocketServiceProvider` manages its lifecycle and
-    // the `onDispose` in `ride_tracking_provider.dart` will handle the disconnect
-    // when the `driverLocationStreamProvider` is disposed.
-    // However, if this bottom sheet is the *only* consumer, you might want to disconnect here.
-    // For now, let's rely on the provider chain's dispose mechanism.
+    _rideStatusSubscription?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      controller: _controller,
-      initialChildSize: 0.3,
-      minChildSize: 0.3,
-      maxChildSize: 0.5,
-      builder: (context, scrollController) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(25),
-                blurRadius: 12,
-                offset: const Offset(0, -3),
-              ),
-            ],
-          ),
-          child: ListView(
-            controller: scrollController,
-            children: [
-              const Center(child: CircularProgressIndicator()),
-              const SizedBox(height: 20),
-              Center(
-                child: Text(
+    final theme = Theme.of(context);
+
+    // Prevent user from dismissing the sheet with the back button
+    return PopScope(
+      canPop: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(25),
+              blurRadius: 12,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // The new custom animation
+            const PulsatingRadarAnimation(),
+            const SizedBox(height: 24),
+
+            // Animated status text for smooth transitions
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+              child: Text(
+                _statusText,
+                key: ValueKey<String>(
                   _statusText,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                ), // Important for AnimatedSwitcher
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            Text(
+              "This will only take a moment. We appreciate your patience!",
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+
+            // A cleaner, more modern cancel button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _rideCancelled ? null : _cancelRide,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: BorderSide(
+                    color: _rideCancelled ? Colors.grey : Colors.red,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Center(
                 child: Text(
-                  'Hang tight! A driver will be assigned shortly.',
-                  style: TextStyle(fontSize: 14),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Center(
-                child: TextButton.icon(
-                  onPressed: _rideCancelled ? null : _cancelRide,
-                  icon: const Icon(Icons.cancel, color: Colors.red),
-                  label: Text(
-                    _rideCancelled ? 'Cancelling...' : 'Cancel Ride',
-                    style: const TextStyle(color: Colors.red),
+                  _rideCancelled ? 'Cancelling...' : 'Cancel Ride Request',
+                  style: TextStyle(
+                    color: _rideCancelled ? Colors.grey : Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
                 ),
               ),
-            ],
-          ),
-        );
-      },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

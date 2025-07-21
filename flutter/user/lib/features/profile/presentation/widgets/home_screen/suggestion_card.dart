@@ -23,7 +23,7 @@ class SuggestionCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 28, color: Colors.blueAccent),
+            Icon(icon, size: 28, color: Theme.of(context).primaryColor),
             const SizedBox(height: 8),
             Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
           ],

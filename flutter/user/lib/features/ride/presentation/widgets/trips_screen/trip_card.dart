@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:user/config/currency.dart'; // Assuming currencyFormatter is defined here
+import 'package:user/config/currency.dart';
 import 'package:user/features/ride/domain/entities/trip_entity.dart';
 
 class TripCard extends StatelessWidget {
@@ -15,147 +15,38 @@ class TripCard extends StatelessWidget {
     this.onRebook,
   });
 
-  // Helper to determine status color based on TripEntity's statusName
-  Color _getStatusColor(String? statusName) {
-    switch (statusName?.toLowerCase()) {
-      // Use toLowerCase for robust matching
-      case 'accepted':
-      case 'driver en route':
-      case 'ride in progress':
-      case 'ride started awaiting user confirmation': // Added from TripEntity's isOngoing
-      case 'ride completed awaiting user confirmation': // Added from TripEntity's isOngoing
-        return Colors.orange;
-      case 'completed':
-        return Colors.green;
-      case 'cancelled':
-        return Colors.redAccent;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  // Widget to display the status badge
-  Widget _statusBadge(String statusName) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: _getStatusColor(statusName),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        statusName,
-        style: const TextStyle(fontSize: 12, color: Colors.white),
-      ),
-    );
-  }
-
-  // Removed _getRelevantDate method as we'll access DateTime properties directly
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    // Access properties directly from the TripEntity object
-    final String status = trip.statusName;
-    final String pickup = trip.pickupAddress;
-    final String dropoff = trip.dropoffAddress;
-    final String payment = trip.paymentMethod;
-    final String driver =
-        trip.driverName ?? 'N/A'; // Use driverName from entity
-    final int? riderRating = trip.riderRating; // Use riderRating from entity
-    final double price = trip.fareAmount; // Use fareAmount from entity
+    final isDarkMode = theme.brightness == Brightness.dark;
 
     // Determine the most relevant date to display
-    final DateTime? displayDate =
+    final DateTime displayDate =
         trip.completedAt ??
         trip.canceledAt ??
         trip.acceptedAt ??
         trip.requestedAt;
 
-    return Dismissible(
-      key: ValueKey(trip.id), // Use TripEntity's ID
-      background: Container(
-        color: Colors.blue.shade100,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        child: const Icon(Icons.replay, color: Colors.blue),
-      ),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (_) async {
-        if (onRebook != null) onRebook!();
-        return false; // prevent actual dismissal
-      },
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: isDarkMode ? Colors.grey[800] : Colors.white,
+      child: InkWell(
+        onTap: onViewDetails,
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Date & Status
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    displayDate != null
-                        ? DateFormat(
-                            'MMM dd, yyyy – hh:mm a',
-                          ).format(displayDate)
-                        : 'Date not available',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  _statusBadge(status),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Pickup & Dropoff
-              _tripLocationRow(Icons.location_on, pickup),
-              const SizedBox(height: 4),
-              _tripLocationRow(Icons.flag, dropoff),
-              const SizedBox(height: 12),
-
-              // Price & Payment
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Fare: ${currencyFormatter.format(price)}', // Removed extra parenthesis
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  Text('Paid via $payment', style: theme.textTheme.bodyMedium),
-                ],
-              ),
+              _buildHeader(theme, displayDate, trip.statusName),
+              const SizedBox(height: 16),
+              _buildRouteInfo(theme),
               const SizedBox(height: 8),
-
-              // Driver & Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Driver: $driver ${riderRating != null ? '★ $riderRating' : ''}', // Display rating only if available
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  // Only show Rebook button if status is 'Completed'
-                  if (trip.isCompleted &&
-                      onRebook != null) // Use TripEntity's helper
-                    TextButton(
-                      onPressed: onRebook,
-                      child: const Text('Rebook'),
-                    ),
-                ],
-              ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: onViewDetails,
-                  child: const Text('View Details'),
-                ),
-              ),
+              const Divider(),
+              const SizedBox(height: 8),
+              _buildFooter(theme),
             ],
           ),
         ),
@@ -163,28 +54,197 @@ class TripCard extends StatelessWidget {
     );
   }
 
-  // Helper for location rows
-  Widget _tripLocationRow(IconData icon, String label) {
-    Color? iconColor;
-    if (icon == Icons.location_on) {
-      iconColor = Colors.green; // Pickup
-    } else if (icon == Icons.flag) {
-      iconColor = Colors.red; // Dropoff
-    } else {
-      iconColor = Colors.grey[600]; // Default
-    }
-
+  // Header: Contains Date and Status Badge
+  Widget _buildHeader(ThemeData theme, DateTime displayDate, String status) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Icon(icon, size: 18, color: iconColor),
-        const SizedBox(width: 8),
+        Text(
+          DateFormat('MMM dd, yyyy – hh:mm a').format(displayDate),
+          style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+        ),
+        _StatusBadge(status: status),
+      ],
+    );
+  }
+
+  // Body: Contains Pickup and Dropoff locations with a visual route line
+  Widget _buildRouteInfo(ThemeData theme) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildRouteIndicator(),
+        const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w500),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildLocationText(trip.pickupAddress, 'Pickup', theme),
+              const SizedBox(height: 24), // Space between pickup and dropoff
+              _buildLocationText(trip.dropoffAddress, 'Dropoff', theme),
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  // Footer: Contains Fare, Driver info, Payment Method, and Action buttons
+  Widget _buildFooter(ThemeData theme) {
+    final String driver = trip.driverName ?? 'N/A';
+    final int? riderRating = trip.riderRating;
+    final String paymentMethod = trip.paymentMethod;
+
+    return Column(
+      children: [
+        Row(
+          crossAxisAlignment:
+              CrossAxisAlignment.start, // Align items to the top
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // --- START: MODIFIED SECTION ---
+            // Group driver and payment info in a column
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildInfoChip(
+                  Icons.person_outline,
+                  '$driver ${riderRating != null ? '★ $riderRating' : ''}',
+                  theme,
+                ),
+                const SizedBox(height: 8),
+                _buildInfoChip(
+                  Icons.credit_card, // Icon for payment method
+                  'Paid via $paymentMethod',
+                  theme,
+                ),
+              ],
+            ),
+            // --- END: MODIFIED SECTION ---
+            Text(
+              currencyFormatter.format(trip.fareAmount),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _buildActionButtons(theme),
+      ],
+    );
+  }
+
+  // Helper for location text with a label
+  Widget _buildLocationText(String address, String label, ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          address,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  // Visual indicator for the route (from -> to)
+  Widget _buildRouteIndicator() {
+    return Column(
+      children: [
+        const SizedBox(height: 4),
+        const Icon(Icons.trip_origin, color: Colors.green, size: 20),
+        Container(height: 30, width: 1, color: Colors.grey[300]),
+        const Icon(Icons.location_on, color: Colors.red, size: 20),
+      ],
+    );
+  }
+
+  // Helper for info chips (e.g., Driver, Payment)
+  Widget _buildInfoChip(IconData icon, String text, ThemeData theme) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 6),
+        Text(text, style: theme.textTheme.bodyMedium),
+      ],
+    );
+  }
+
+  // Action Buttons row
+  Widget _buildActionButtons(ThemeData theme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        // Only show Rebook button if trip is completed and callback exists
+        if (trip.isCompleted && onRebook != null)
+          TextButton(onPressed: onRebook, child: const Text('Rebook')),
+        const SizedBox(width: 8),
+        FilledButton(
+          onPressed: onViewDetails,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text('View Details'),
+        ),
+      ],
+    );
+  }
+}
+
+// A dedicated widget for the status badge for better code organization
+class _StatusBadge extends StatelessWidget {
+  final String status;
+
+  const _StatusBadge({required this.status});
+
+  // Helper to determine status color and icon
+  ({Color color, IconData icon}) _getStatusStyle() {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return (color: Colors.green.shade700, icon: Icons.check_circle);
+      case 'cancelled':
+        return (color: Colors.red.shade700, icon: Icons.cancel);
+      default: // Ongoing statuses
+        return (color: Colors.orange.shade700, icon: Icons.hourglass_top);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = _getStatusStyle();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: style.color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Icon(style.icon, color: style.color, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            status,
+            style: TextStyle(
+              fontSize: 12,
+              color: style.color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

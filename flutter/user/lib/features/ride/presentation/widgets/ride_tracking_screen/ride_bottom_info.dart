@@ -3,11 +3,6 @@ import 'package:user/features/ride/presentation/widgets/ride_tracking_screen/wid
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'info_tile.dart'; // if you extracted this too
-import 'rating_card.dart';
-import 'rating_form.dart';
-import 'toggle_rating_button.dart';
-import 'drag_indicator.dart';
 
 class RideBottomInfo extends StatelessWidget {
   final Map<String, dynamic>? ride;
@@ -75,7 +70,6 @@ class RideBottomInfo extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const DragIndicator(),
                   Row(
                     children: [
                       CircleAvatar(

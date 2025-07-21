@@ -1,11 +1,9 @@
-// lib/features/ride/presentation/screens/location_picker_screen.dart
-
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:user/core/utils/location_utils.dart';
 import 'package:user/features/ride/domain/entities/location_entity.dart';
 import 'package:user/features/ride/domain/entities/place_entity.dart';
 import 'package:user/features/ride/presentation/providers/location_picker_provider.dart';
@@ -112,22 +110,24 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
         return;
       }
 
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
+      final Position? position =
+          await LocationUtils.getCurrentPositionWithPermissionCheck(context);
 
-      final LatLng currentLatLng = LatLng(
-        position.latitude,
-        position.longitude,
-      );
+      // If we successfully get a position, update the UI.
+      if (position != null) {
+        final LatLng currentLatLng = LatLng(
+          position.latitude,
+          position.longitude,
+        );
 
-      ref
-          .read(locationPickerProvider.notifier)
-          .geocodeCameraPosition(currentLatLng);
+        ref
+            .read(locationPickerProvider.notifier)
+            .geocodeCameraPosition(currentLatLng);
 
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(currentLatLng, 15.5),
-      );
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(currentLatLng, 15.5),
+        );
+      }
     } catch (e) {
       debugPrint("Error getting current location: $e");
     }
@@ -182,24 +182,20 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
               return _buildMap(theme, _currentCameraPosition);
             },
           ),
-          // --- Perfectly Centered Pin ---
+
+          // --- Center Pin ---
           Center(
             child: Transform.translate(
-              offset: const Offset(0, -25),
+              offset: const Offset(0, -25), // Adjust to align pin tip
               child: Icon(
                 Icons.location_pin,
                 size: 50,
                 color: theme.colorScheme.primary,
-                shadows: const [
-                  Shadow(
-                    color: Colors.black26,
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
+                shadows: const [Shadow(color: Colors.black26, blurRadius: 10)],
               ),
             ),
           ),
+
           // --- Top UI Area (Search, Favorites) ---
           Positioned(
             top: topPadding,
@@ -207,6 +203,7 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
             right: 0,
             child: _buildTopUI(theme),
           ),
+
           // --- Bottom Confirmation Panel ---
           Positioned(
             bottom: 0,
@@ -240,16 +237,19 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
   Widget _buildTopUI(ThemeData theme) {
     final state = ref.watch(locationPickerProvider);
     final searchResults = state.searchResults.value ?? [];
-    final isSearching = _searchController.text.isNotEmpty;
+    final bool isSearching = _searchController.text.isNotEmpty;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildFloatingSearch(theme),
-        if (isSearching)
-          _buildSearchResultsOverlay(searchResults, state.isSearching)
-        else
-          _buildFavoritesCarousel(theme, state),
+        // Animate the transition between favorites and search results
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: isSearching
+              ? _buildSearchResultsOverlay(searchResults, state.isSearching)
+              : _buildFavoritesCarousel(theme, state),
+        ),
       ],
     );
   }
@@ -259,46 +259,39 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
       padding: const EdgeInsets.fromLTRB(15, 10, 15, 10),
       child: Material(
         elevation: 4.0,
-        borderRadius: BorderRadius.circular(15.0),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15.0),
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: Icon(Icons.arrow_back, color: theme.colorScheme.primary),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  focusNode: _searchFocusNode,
-                  decoration: const InputDecoration(
-                    hintText: 'Search for a location...',
-                    border: InputBorder.none,
+        borderRadius: BorderRadius.circular(30.0), // More rounded
+        child: TextField(
+          controller: _searchController,
+          focusNode: _searchFocusNode,
+          decoration: InputDecoration(
+            hintText: 'Search for a location...',
+            prefixIcon: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.of(context).pop(),
+              color: theme.textTheme.bodySmall?.color,
+            ),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      ref.read(locationPickerProvider.notifier).clearSearch();
+                    },
+                  )
+                : IconButton(
+                    icon: Icon(
+                      Icons.my_location,
+                      color: theme.colorScheme.primary,
+                    ),
+                    onPressed: _getCurrentLocationAndAnimateMap,
                   ),
-                ),
-              ),
-              if (_searchController.text.isNotEmpty)
-                IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    ref.read(locationPickerProvider.notifier).clearSearch();
-                  },
-                )
-              else
-                IconButton(
-                  tooltip: 'Current Location',
-                  icon: Icon(
-                    Icons.my_location,
-                    color: theme.colorScheme.primary,
-                  ),
-                  onPressed: _getCurrentLocationAndAnimateMap,
-                ),
-            ],
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(30.0),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(vertical: 14),
           ),
         ),
       ),
@@ -433,9 +426,10 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
   Widget _buildConfirmationPanel(ThemeData theme, double bottomPadding) {
     final state = ref.watch(locationPickerProvider);
     return Material(
+      color: theme.scaffoldBackgroundColor,
       elevation: 8.0,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
-      child: Container(
+      child: Padding(
         padding: EdgeInsets.fromLTRB(
           24,
           20,
@@ -447,15 +441,16 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  "Selected Location",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Text(
+                  "Set Location",
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                const Spacer(),
-                // Add to favorites button is the only action here
                 IconButton(
-                  icon: const Icon(Icons.star_border, size: 28),
+                  icon: Icon(Icons.star_border, color: Colors.grey[600]),
                   tooltip: 'Add to Favorites',
                   onPressed: _showAddFavoriteDialog,
                 ),
@@ -463,21 +458,27 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
             ),
             const SizedBox(height: 8),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.location_on, color: theme.colorScheme.primary),
+                Icon(
+                  Icons.location_on,
+                  color: theme.colorScheme.primary,
+                  size: 28,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 300),
                     child: state.isLoadingAddress
                         ? Text(
-                            "Loading address...",
-                            style: TextStyle(
-                              color: theme.textTheme.bodySmall?.color,
+                            "Loading...",
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: Colors.grey,
                             ),
                           )
                         : Text(
-                            state.selectedDescription ?? "Unknown location",
+                            state.selectedDescription ??
+                                "Move the map to select",
                             key: ValueKey(state.selectedDescription),
                             style: theme.textTheme.bodyLarge,
                           ),
@@ -485,7 +486,7 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -503,11 +504,12 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                child: const Text(
-                  'Confirm Location',
-                  style: TextStyle(fontSize: 16),
-                ),
+                child: const Text('Confirm Location'),
               ),
             ),
           ],

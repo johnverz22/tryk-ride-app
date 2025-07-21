@@ -1,4 +1,3 @@
-export 'drag_indicator.dart';
 export 'info_tile.dart';
 export 'rating_card.dart';
 export 'rating_form.dart';

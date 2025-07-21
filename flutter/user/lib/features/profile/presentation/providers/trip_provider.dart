@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class Trip {
@@ -44,24 +45,43 @@ class Trip {
     );
   }
 
-  // Static method to fetch ongoing trips
   static Future<List<Trip>> fetchOngoingTrips(
     String? token,
     String baseUrl,
   ) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/rides/ongoing'),
-      headers: {
-        'Accept': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      },
-    );
+    final uri = Uri.parse('$baseUrl/api/rides/ongoing');
+    try {
+      final response = await http.get(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> tripsJson = jsonDecode(response.body)['rides'];
-      return tripsJson.map((json) => Trip.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to load ongoing trips');
+      if (response.statusCode == 200) {
+        // The decoding is now safely inside the try-catch block
+        final List<dynamic> tripsJson = jsonDecode(response.body)['rides'];
+        return tripsJson.map((json) => Trip.fromJson(json)).toList();
+      } else {
+        // Provide more context on failure
+        throw Exception(
+          'Failed to load trips. Status code: ${response.statusCode}, Body: ${response.body}',
+        );
+      }
+    } on FormatException catch (e) {
+      // This is where your specific error will be caught!
+      debugPrint('Error decoding JSON from $uri: $e');
+      // You can log the first few characters of the body to see what you received
+      // final responseForDebug = await http.get(uri);
+      // debugPrint('Truncated response body: ${responseForDebug.body.substring(0, 500)}...');
+      throw Exception(
+        'Failed to parse server response. The data may be malformed or incomplete.',
+      );
+    } catch (e) {
+      // Catch any other exceptions (network errors, etc.)
+      debugPrint('An unexpected error occurred: $e');
+      throw Exception('Could not connect to the server.');
     }
   }
 }

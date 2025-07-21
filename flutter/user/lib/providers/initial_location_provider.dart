@@ -35,7 +35,7 @@ final initialLocationProvider = FutureProvider<LatLng?>((ref) async {
 
     // 3. Get the current position
     Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
+      desiredAccuracy: LocationAccuracy.best,
       timeLimit: const Duration(seconds: 15), // Give it a reasonable timeout
     );
 

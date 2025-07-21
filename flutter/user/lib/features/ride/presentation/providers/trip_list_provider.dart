@@ -87,16 +87,13 @@ class TripListNotifier extends StateNotifier<TripListState> {
       'TripListNotifier: loadTrips called. isRefresh: $isRefresh, loadMore: $loadMore',
     );
 
-    // If loading more and no more data, just return.
     if (loadMore && !state.hasMore) {
       debugPrint('TripListNotifier: No more data to load.');
       return;
     }
 
-    if (state.trips.isLoading &&
-        state.trips.value != null &&
-        !isRefresh &&
-        !loadMore) {
+    // Prevent duplicate fetches if already loading (unless it's a refresh)
+    if (state.trips.isLoading && !isRefresh) {
       debugPrint('TripListNotifier: Already loading, returning early.');
       return;
     }
@@ -105,37 +102,21 @@ class TripListNotifier extends StateNotifier<TripListState> {
     final int nextPage = loadMore ? state.currentPage + 1 : 1;
     debugPrint('TripListNotifier: Determining next page: $nextPage');
 
-    // Set loading state based on the type of load
+    // Set loading state
     if (isRefresh) {
-      debugPrint('TripListNotifier: Setting state to refresh loading.');
       state = state.copyWith(
         trips: const AsyncValue.loading(),
-        currentPage: 1,
-        hasMore: true,
-        errorMessage: null,
+        currentPage: 1, // Reset to 1 on refresh
       );
     } else if (loadMore) {
-      debugPrint('TripListNotifier: Setting state to load more loading.');
-      state = state.copyWith(
-        trips: AsyncValue.data(state.trips.value ?? []),
-        currentPage: nextPage,
-        errorMessage: null,
-      );
+      // This state is for the API call, UI state is handled by hasMore flag
     } else {
-      debugPrint('TripListNotifier: Setting state to initial loading.');
-      state = state.copyWith(
-        trips: const AsyncValue.loading(),
-        currentPage: 1,
-        hasMore: true,
-        errorMessage: null,
-      );
+      // Initial load
+      state = state.copyWith(trips: const AsyncValue.loading());
     }
 
     final token = await _getUserToken();
     if (token == null) {
-      debugPrint(
-        'TripListNotifier: Token is null, setting UnauthorizedFailure.',
-      );
       state = state.copyWith(
         trips: AsyncValue.error(
           const UnauthorizedFailure('Authentication token not found.'),
@@ -147,12 +128,10 @@ class TripListNotifier extends StateNotifier<TripListState> {
     }
 
     debugPrint(
-      'TripListNotifier: Calling FetchUserTripsUseCase for page: ${state.currentPage}',
+      'TripListNotifier: Calling FetchUserTripsUseCase for page: $nextPage',
     );
-    final result = await _fetchUserTripsUseCase.call(
-      token,
-      page: state.currentPage,
-    );
+    // Use the calculated nextPage, not the one from the state before the call
+    final result = await _fetchUserTripsUseCase.call(token, page: nextPage);
 
     result.fold(
       (failure) {
@@ -168,17 +147,32 @@ class TripListNotifier extends StateNotifier<TripListState> {
         debugPrint(
           'TripListNotifier: Fetch successful. Received ${newTrips.length} new trips.',
         );
-        // Combine existing trips with newly fetched ones
-        final currentTrips = (isRefresh || state.trips.value == null)
+
+        // --- START: CORRECTED LOGIC ---
+
+        // FIX 1: Robustly get the previous list of trips.
+        // On refresh, start with an empty list. Otherwise, use the existing list,
+        // defaulting to an empty list `[]` if it's somehow null (e.g., after an error).
+        final previousTrips = isRefresh
             ? <TripEntity>[]
-            : state.trips.value!;
-        final combinedTrips = [...currentTrips, ...newTrips];
+            : state.trips.value ?? [];
+        final combinedTrips = previousTrips + newTrips;
+
+        // Define your page size as a constant
+        const int pageSize = 10;
+
+        // FIX 2: Correct 'hasMore' logic.
+        // We have more items to fetch if the API returned a full page.
+        final bool hasMore = newTrips.length == pageSize;
 
         state = state.copyWith(
           trips: AsyncValue.data(combinedTrips),
-          hasMore: newTrips.length == 10,
+          // FIX 3: Explicitly update the current page number in the state.
+          currentPage: nextPage,
+          hasMore: hasMore,
           errorMessage: null,
         );
+
         debugPrint(
           'TripListNotifier: State updated with ${combinedTrips.length} total trips.',
         );

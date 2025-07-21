@@ -1,7 +1,8 @@
-import 'package:driver/presentation/providers/auth_provider.dart';
+import 'package:driver/core/providers/shared_prefs_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -39,7 +40,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _onDonePressed() async {
-    await ref.read(onboardingProvider.notifier).completeOnboarding();
+    final sharedPrefs = ref.read(sharedPrefsProvider);
+    await sharedPrefs.completeOnboarding();
     if (!mounted) return;
     context.go('/auth');
   }
@@ -81,7 +83,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   decoration: BoxDecoration(
                     color: _currentPage == index
                         ? theme.colorScheme.primary
-                        : theme.colorScheme.primary.withOpacity(0.3),
+                        : theme.colorScheme.primary.withAlpha(
+                            (255.0 * 0.3).round(),
+                          ),
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),
@@ -106,7 +110,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   elevation: 6,
                   backgroundColor: theme.colorScheme.primary,
-                  shadowColor: theme.colorScheme.primary.withOpacity(0.5),
+                  shadowColor: theme.colorScheme.primary.withAlpha(
+                    (255.0 * 0.5).round(),
+                  ),
                 ),
                 child: Text(
                   isLastPage ? 'Get Started' : 'Next',
@@ -132,11 +138,10 @@ class _OnboardingPage extends StatelessWidget {
   final IconData icon;
 
   const _OnboardingPage({
-    Key? key,
     required this.title,
     required this.description,
     required this.icon,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -148,11 +153,13 @@ class _OnboardingPage extends StatelessWidget {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.1),
+              color: theme.colorScheme.primary.withAlpha((255.0 * 0.1).round()),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: theme.colorScheme.primary.withOpacity(0.15),
+                  color: theme.colorScheme.primary.withAlpha(
+                    (255.0 * 0.15).round(),
+                  ),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),

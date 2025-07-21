@@ -1,64 +1,58 @@
+import 'package:driver/core/providers/shared_prefs_provider.dart';
 import 'package:driver/presentation/notifiers/router_notifier.dart';
-import 'package:driver/presentation/providers/auth_provider.dart';
 import 'package:driver/presentation/providers/driver_provider.dart';
 import 'package:driver/presentation/screens/onboarding_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../screens/auth_screen.dart';
 import '../../skeleton.dart';
 
 /// The main app router provider
 final routerProvider = Provider<GoRouter>((ref) {
   final refreshNotifier = GoRouterRefreshNotifier(ref);
-  final onboardingState = ref.watch(onboardingProvider);
-  final isOnboardingComplete = onboardingState.isComplete;
+  final user = ref.watch(driverProvider);
+  final onboarded = ref.read(sharedPrefsProvider).getOnboarding();
 
   return GoRouter(
     debugLogDiagnostics: true,
-    initialLocation: '/onboarding',
+    initialLocation: '/home',
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
-      final driver = ref.read(driverProvider);
-      final goingToOnboarding = state.uri.path == '/onboarding';
-      final loggedIn = driver.driver != null && driver.token != null;
-      final isAtAuth = state.matchedLocation == '/auth';
-      final isAtHome = state.matchedLocation == '/home';
+      final location = state.uri.path;
 
-      // 1. Force onboarding if not complete
-      if (!isOnboardingComplete) {
-        return goingToOnboarding ? null : '/onboarding';
+      final goingToAuth = location == '/auth';
+      final goingToOnboarding = location == '/onboarding';
+      final isSplash = location == '/';
+      final isAtHome = location == '/home';
+
+      // 1. Go to onboarding if not completed
+      if (!onboarded && !goingToOnboarding) {
+        return '/onboarding';
       }
 
-      // If not logged in and trying to access anything other than /auth, redirect to /auth
-      if (!loggedIn && !isAtAuth) {
-        return '/auth';
+      // 2. Onboarding done but user not logged in
+      if (onboarded && (user.driver == null || !user.isAuthenticated)) {
+        if (!goingToAuth) return '/auth';
       }
 
-    // If logged in and trying to access /auth, redirect to /home
-      if (loggedIn && isAtAuth) {
-        return '/home';
+      // 3. User is authenticated but going to onboarding or auth
+      if (user.isAuthenticated == true &&
+          (goingToAuth || goingToOnboarding || isSplash)) {
+        if (!isAtHome) return '/home';
       }
 
-      // If logged out and currently at /home, redirect to /auth
-      if (!loggedIn && isAtHome) {
-        return '/auth';
-      }
-      return null; // no redirect needed
+      // 4. If everything matches, stay
+      return null;
     },
     routes: [
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
       ),
-      GoRoute(
-        path: '/auth',
-        builder: (context, state) => const AuthScreen(),
-      ),
-      GoRoute(
-        path: '/home',
-        builder: (context, state) => const Skeleton(),
-      ),
+      GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
+      GoRoute(path: '/home', builder: (context, state) => const Skeleton()),
     ],
   );
 });
+
+//TODO: Isolate the auth first

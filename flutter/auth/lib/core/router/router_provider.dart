@@ -23,7 +23,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         authenticated: (user) =>
             (isOnLogin || isOnRegister || isOnSplash) ? '/home' : null,
         unauthenticated: () => (isOnLogin || isOnRegister) ? null : '/login',
-        error: (failure) => isOnLogin ? null : '/login',
+        error: (failure) {
+          if (isOnLogin) {
+            return null;
+          }
+
+          if (isOnRegister) {
+            return '/register';
+          }
+
+          return '/login';
+        },
       );
     },
     routes: [

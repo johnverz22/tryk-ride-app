@@ -5,9 +5,10 @@ class NoParams {}
 class TemplateParams {}
 
 /// Parameters required to fetch a specific user.
-class UserParams {
-  final String id;
-  const UserParams({required this.id});
+class AuthParams {
+  final String email;
+  final String password;
+  const AuthParams({required this.email, required this.password});
 }
 
 /// Parameters required to fetch a specific driver.

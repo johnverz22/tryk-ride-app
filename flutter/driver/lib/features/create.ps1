@@ -1,6 +1,7 @@
 # create_project_structure.ps1
 # run this first
 # Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+#then ruh this -> .\create.ps1
 
 # Create main feature directory
 mkdir "feature_name"

@@ -27,6 +27,8 @@ class DriverState {
     this.isLoading = false,
   });
 
+  bool get isAuthenticated => driver != null && token != null;
+
   DriverState copyWith({
     DriverModel? driver,
     String? token,
@@ -87,11 +89,7 @@ class DriverNotifier extends StateNotifier<DriverState> {
 
     final isOnline = isOnlineStr?.toLowerCase() == 'true';
 
-    state = state.copyWith(
-      driver: driver,
-      token: token,
-      isOnline: isOnline,
-    );
+    state = state.copyWith(driver: driver, token: token, isOnline: isOnline);
 
     if (isOnline) _startPolling();
   }
@@ -117,6 +115,7 @@ class DriverNotifier extends StateNotifier<DriverState> {
     await _storage.deleteAll();
     state = DriverState();
   }
+
   // Polling every 5 seconds
   void _startPolling() {
     _pollingTimer?.cancel();

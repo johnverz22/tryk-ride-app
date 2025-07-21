@@ -126,6 +126,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
           : const AuthState.unauthenticated(),
     );
   }
+
+  void clearError() {
+    state = const AuthState.initial();
+  }
 }
 
 // Provider

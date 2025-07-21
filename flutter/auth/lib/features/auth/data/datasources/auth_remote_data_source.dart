@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:auth/core/errors/exceptions.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
@@ -31,15 +32,20 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       return _handleResponse(response);
     } on SocketException {
       throw const NetworkException();
-    } on HttpException {
+    } on HttpException catch (e) {
+      debugPrint('remote/ds/login HttpException: ${e.message}');
       throw const NetworkException();
-    } on FormatException {
+    } on FormatException catch (e) {
+      debugPrint('remote/ds/login FormatException: ${e.message}');
       throw const UnknownException('Invalid response format');
-    } on InvalidCredentialsException {
+    } on InvalidCredentialsException catch (e) {
+      debugPrint('remote/ds/login InvalidCredentialsException: ${e.message}');
       throw const InvalidCredentialsException(); // Handle this custom exception
-    } on ValidationException {
+    } on ValidationException catch (e) {
+      debugPrint('remote/ds/login ValidationException: ${e.message}');
       throw const ValidationException(); // Handle validation error
-    } on ServerException {
+    } on ServerException catch (e) {
+      debugPrint('remote/ds/login ServerException: ${e.message}');
       throw const ServerException(); // Handle server error
     } catch (e) {
       throw UnknownException(e.toString());

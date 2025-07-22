@@ -16,13 +16,13 @@ class RideStatusSeeder extends Seeder
 
         $statuses = [
             ['id' => 1, 'name' => 'Requested'],
-            ['id' => 2, 'name' => 'Accepted'],
-            ['id' => 3, 'name' => 'Driver En Route'],
-            ['id' => 4, 'name' => 'Ride Started Awaiting User Confirmation'],
+            ['id' => 2, 'name' => 'Offered'],
+            ['id' => 3, 'name' => 'Accepted'],
+            ['id' => 4, 'name' => 'Driver En Route'],
             ['id' => 5, 'name' => 'Ride in Progress'],
-            ['id' => 6, 'name' => 'Ride Completed Awaiting User Confirmation'],
-            ['id' => 7, 'name' => 'Completed'],
-            ['id' => 8, 'name' => 'Cancelled'],
+            ['id' => 6, 'name' => 'Completed'],
+            ['id' => 7, 'name' => 'Cancelled'],
+            ['id' => 8, 'name' => 'No Drivers Available'],
         ];
 
         DB::table('ride_statuses')->insert($statuses);

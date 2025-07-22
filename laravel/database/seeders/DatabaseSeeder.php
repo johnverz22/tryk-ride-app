@@ -24,8 +24,8 @@ class DatabaseSeeder extends Seeder
             RideStatusSeeder::class,
             RoleSeeder::class,
             DriverStatusesTableSeeder::class,
-            RideSeeder::class,
-            DriverProfileSeeder::class,
+            // RideSeeder::class,
+            // DriverProfileSeeder::class,
         ]);
 
     }

@@ -5,7 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'config/theme.dart';
 import 'routes/app_router.dart';
 import 'features/profile/presentation/providers/user_provider.dart';
-import 'providers/initial_location_provider.dart'; // Import the new provider
+import 'providers/initial_location_provider.dart';
 
 class MainApp extends ConsumerWidget {
   const MainApp({super.key});

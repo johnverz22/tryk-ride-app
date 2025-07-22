@@ -446,7 +446,7 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
               zoomControlsEnabled: false,
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).size.height * 0.33,
-              ), // Prevents UI overlap
+              ),
             ),
           _buildDraggableSheet(),
         ],

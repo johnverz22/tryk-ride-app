@@ -3,10 +3,10 @@ import 'package:driver/features/driver/presentation/providers/driver_provider.da
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../features/driver/presentation/pages/screens/auth/auth_screen.dart';
-import '../features/driver/presentation/pages/screens/main_navigation_screen.dart';
-import '../features/driver/presentation/pages/screens/onboarding_screen.dart';
-import '../features/driver/presentation/pages/screens/splash_screen.dart';
+import '../features/driver/presentation/screens/auth/auth_screen.dart';
+import '../features/driver/presentation/screens/main_navigation_screen.dart';
+import '../features/driver/presentation/screens/onboarding_screen.dart';
+import '../features/driver/presentation/screens/splash_screen.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final userAsync = ref.watch(driverProvider);

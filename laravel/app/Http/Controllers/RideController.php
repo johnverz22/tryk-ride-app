@@ -6,14 +6,18 @@ use Illuminate\Http\Request;
 use App\Models\Ride;
 use App\Models\RideRejection;
 use App\Events\RideStatusUpdated;
+use App\Events\RideCancelled;
+use App\Events\NewRideOffer;
+use App\Jobs\OfferRideToDrivers;
 use App\Enums\RideStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use App\Services\RideService;
 use App\Services\DriverMatchingService;
 
 class RideController extends Controller
-{
+{  
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -26,79 +30,66 @@ class RideController extends Controller
             'requested_at' => 'required|date',
             'distance_km' => 'required|numeric|min:0',
             'duration_minutes' => 'required|numeric|min:0',
-            'fare_amount' => 'required|numeric|min:0',            'payment_method' => 'nullable|string|max:50',
+            'fare_amount' => 'required|numeric|min:0',
+            'payment_method' => 'nullable|string|max:50',
             'search_radius_km' => 'nullable|integer|min:1|max:100',
         ]);
 
-        $pickupLat = $validated['pickup_latitude'];
-        $pickupLng = $validated['pickup_longitude'];
-        $maxUserRadius = $validated['search_radius_km'] ?? 10;
-
-        $matcher = app(DriverMatchingService::class);
-        $initialRadius = 1;
-        $matchingRadiusUsed = $initialRadius;
-
-        $drivers = $matcher->findNearbyDrivers($pickupLat, $pickupLng, $initialRadius);
-        Log::info('Initial driver search', ['radius_km' => $initialRadius, 'drivers' => $drivers->pluck('id')]);
-
-        if ($drivers->isEmpty()) {
-            for ($radius = $initialRadius + 1; $radius <= $maxUserRadius; $radius++) {
-                $drivers = $matcher->findNearbyDrivers($pickupLat, $pickupLng, $radius);
-                Log::info("Expanded driver search (radius {$radius} km)", ['drivers' => $drivers->pluck('id')]);
-
-                if ($drivers->isNotEmpty()) {
-                    $matchingRadiusUsed = $radius;
-                    break;
-                }
-            }
-        }
-
-        if ($drivers->isEmpty()) {
-            return response()->json(['message' => "No drivers available within {$maxUserRadius} km."], 202);
-        }
-
         $user = $request->user();
 
+        // --- START: NEW, CLEANED-UP LOGIC ---
         DB::beginTransaction();
-
         try {
-            // Create ride
+            // Step 1: Create the ride with a 'requested' status. No driver is assigned yet.
             $ride = Ride::create([
                 ...$validated,
                 'ride_status_id' => RideStatus::REQUESTED,
                 'user_id' => $user->id,
-                'search_radius_km' => $matchingRadiusUsed,
-                'assigned_driver_id' => $drivers->first()->id,
+                'search_radius_km' => $validated['search_radius_km'] ?? 100,
             ]);
 
-            // Deduct wallet if applicable
+            // Step 2: Handle wallet deduction if applicable.
             if (strtolower($ride->payment_method) === 'wallet') {
                 $wallet = $user->wallet;
-
                 if (!$wallet || $wallet->balance < $ride->fare_amount) {
                     DB::rollBack();
                     return response()->json(['message' => 'Insufficient wallet balance.'], 402);
                 }
-
                 $wallet->balance -= $ride->fare_amount;
                 $wallet->save();
-
-                $ride->is_paid = true;
-                $ride->save();
+                $ride->update(['is_paid' => true]);
             }
 
             DB::commit();
 
-            return response()->json([
-                'message' => 'Ride created and driver notified.',
-                'ride' => $ride,
-                'notified_drivers' => $drivers->pluck('id'),
-            ], 201);
+            $matcher = app(DriverMatchingService::class);
+            $primaryDriver = $matcher->findNextAvailableDriver(
+                $validated['pickup_latitude'],
+                $validated['pickup_longitude'],
+                $validated['search_radius_km'] ?? 100,
+                []
+            );
 
+            if ($primaryDriver) {
+                $poolDrivers = $matcher->findAllNearbyDriversForPool(
+                    $validated['pickup_latitude'],
+                    $validated['pickup_longitude'],
+                    $validated['search_radius_km'] ?? 100
+                );
+                OfferRideToDrivers::dispatch($ride, $primaryDriver, $poolDrivers);
+
+                return response()->json([
+                    'message' => 'Finding a driver for your ride...',
+                    'ride' => $ride,
+                ], 202); // 202 Accepted
+            }
+
+            $ride->update(['ride_status_id' => RideStatus::NO_DRIVERS_AVAILABLE]);
+            return response()->json(['message' => "No drivers available at the moment."], 404);
         } catch (\Throwable $e) {
             DB::rollBack();
-            Log::error('Ride creation failed: ' . $e->getMessage());
-            return response()->json(['message' => 'Ride creation failed.'], 500);
+            Log::error('Ride creation failed: ' . $e->getMessage(), ['exception' => $e]);
+            return response()->json(['message' => 'Ride creation failed due to a server error.'], 500);
         }
     }
 
@@ -110,67 +101,127 @@ class RideController extends Controller
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
 
-        $ride->update([
-            'ride_status_id' => RideStatus::CANCELLED,
-            'canceled_at' => now(),
-        ]);
+        // THE FIX: Add RideStatus::OFFERED to the list of cancellable statuses.
+        $cancellableStatuses = [
+            RideStatus::REQUESTED,
+            RideStatus::OFFERED,
+            RideStatus::ACCEPTED
+        ];
 
-        return response()->json(['message' => 'Ride cancelled successfully.'], 200);
-    }
-
-    public function accept($id)
-    {
-        $driver = Auth::user();
-
-        $ride = Ride::where('id', $id)
-            ->where('ride_status_id', RideStatus::REQUESTED)
-            ->first();
-
-        if (!$ride) {
-            return response()->json(['message' => 'Ride already taken or unavailable.'], 409);
+        if (!in_array($ride->ride_status_id, $cancellableStatuses)) {
+            return response()->json(['message' => 'This ride can no longer be cancelled.'], 409);
         }
 
-        $ride->update([
-            'driver_id' => $driver->id,
-            'ride_status_id' => RideStatus::ACCEPTED,
-            'accepted_at' => now(),
-        ]);
+        DB::beginTransaction();
+        try {
+            $ride->update([
+                'ride_status_id' => RideStatus::CANCELLED,
+                'canceled_at' => now(),
+            ]);
 
-        event(new RideStatusUpdated($ride));
+            // FEATURE: Refund wallet if the ride was paid for.
+            if ($ride->is_paid && strtolower($ride->payment_method) === 'wallet') {
+                $user = $request->user();
+                $user->wallet()->increment('balance', $ride->fare_amount);
+                
+                // Set is_paid to false to indicate a refund.
+                $ride->update(['is_paid' => false]);
+                Log::info("Refunded {$ride->fare_amount} to user {$user->id} for cancelled ride {$ride->id}.");
+            }
+            
+            DB::commit();
+
+            // FEATURE: Notify the assigned/offered driver in real-time.
+            // This prevents them from driving to a cancelled ride.
+            event(new RideCancelled($ride));
+
+            return response()->json(['message' => 'Ride cancelled successfully.'], 200);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error("Failed to cancel ride {$ride->id}: " . $e->getMessage());
+            return response()->json(['message' => 'Failed to cancel ride.'], 500);
+        }
+    }
+
+    public function accept($id, RideService $rideService)
+    {
+        $driver = Auth::user();
+        $ride = Ride::find($id);
+
+        if (!$ride) {
+            return response()->json(['message' => 'Ride not found.'], 404);
+        }
+
+        $acceptedRide = $rideService->acceptRide($ride, $driver);
+
+        if (!$acceptedRide) {
+            return response()->json(['message' => 'This ride is no longer available for you to accept.'], 409);
+        }
 
         return response()->json([
             'message' => 'Ride accepted.',
-            'ride' => $ride->load(['driver:id,name', 'user:id,name', 'status:id,name']),
+            'ride' => $acceptedRide->load(['driver:id,name', 'user:id,name', 'status:id,name']),
         ]);
     }
 
     public function reject(Ride $ride)
     {
-        $user = Auth::user();
+        $rejectingDriver = Auth::user();
 
-        if (!$user || !$user->profile || $user->profile->status->name !== 'approved') {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+        // 1. Validate that this driver can actually reject this ride.
+        if ($ride->ride_status_id !== RideStatus::OFFERED || $ride->assigned_driver_id !== $rejectingDriver->id) {
+            return response()->json(['message' => 'This ride cannot be rejected by you.'], 409); // 409 Conflict
         }
 
-        if ($ride->ride_status_id !== RideStatus::REQUESTED) {
-            return response()->json(['message' => 'Ride is not in a rejectable state.'], 409);
-        }
-
-        $ride->update(['assigned_driver_id' => null]);
-
-        RideRejection::firstOrCreate([
+        // 2. Log the rejection so we don't offer it to this driver again.
+        RideRejection::create([
             'ride_id' => $ride->id,
-            'driver_id' => $user->id,
+            'driver_id' => $rejectingDriver->id,
         ]);
 
+        // 3. Find the IDs of all drivers who have rejected this ride so far.
+        $rejectedDriverIds = $ride->rejections()->pluck('driver_id')->toArray();
+
+        // 4. Use the service to find the NEXT best driver, excluding all rejectors.
         $matcher = app(DriverMatchingService::class);
-        $nearbyDrivers = $matcher->findNearbyDrivers(
+        $nextPrimaryDriver = $matcher->findNextAvailableDriver(
             $ride->pickup_latitude,
             $ride->pickup_longitude,
-            $ride->search_radius_km
-        )->reject(fn($driver) => $ride->rejections->pluck('driver_id')->contains($driver->id));
+            $ride->search_radius_km,
+            $rejectedDriverIds // Pass the list of drivers to exclude
+        );
 
-        return response()->json(['message' => 'Ride rejected and reassigned to nearby drivers.']);
+        // 5. Check if a new driver was found.
+        if ($nextPrimaryDriver) {
+            // --- A new driver was found, start the offer process for them ---
+            Log::info("Driver {$rejectingDriver->id} rejected ride {$ride->id}. Offering to next driver {$nextPrimaryDriver->id}.");
+
+            // We also need the full pool of drivers for the broadcast.
+            $poolDrivers = $matcher->findAllNearbyDriversForPool(
+                $ride->pickup_latitude,
+                $ride->pickup_longitude,
+                $ride->search_radius_km
+            );
+            
+            // Dispatch the job to handle the exclusive offer logic cleanly.
+            OfferRideToDrivers::dispatch($ride, $nextPrimaryDriver, $poolDrivers);
+
+            return response()->json(['message' => 'Ride rejected. Offering to the next available driver.']);
+
+        } else {
+            // --- No other drivers were found ---
+            Log::warning("No other drivers available for ride {$ride->id} after rejection by driver {$rejectingDriver->id}.");
+            
+            $ride->update([
+                'assigned_driver_id' => null,
+                'ride_status_id' => RideStatus::NO_DRIVERS_AVAILABLE,
+            ]);
+
+            // You might want to broadcast a cancellation event to the user here.
+
+            return response()->json(['message' => 'Ride rejected. No other drivers were found.']);
+        }
     }
 
     public function show($id)
@@ -178,19 +229,14 @@ class RideController extends Controller
         if (!is_numeric($id)) {
             return response()->json(['error' => 'Invalid ride ID'], 400);
         }
-
-        $ride = Ride::with([
-            'driver:id,name',
-            'user:id,name,email',
-            'status:id,name',
-        ])->findOrFail($id);
-
+        $ride = Ride::with(['driver:id,name', 'user:id,name,email', 'status:id,name'])->findOrFail($id);
         return response()->json($ride);
     }
 
     public function ongoing()
     {
         $user = Auth::user();
+        $query = $user->is_driver ? ['driver_id', $user->id] : ['user_id', $user->id];
 
         $rides = Ride::with(['driver', 'user', 'status'])
                     ->whereIn('ride_status_id', [
@@ -198,9 +244,8 @@ class RideController extends Controller
                         RideStatus::DRIVER_EN_ROUTE,
                         RideStatus::RIDE_IN_PROGRESS,
                     ])
-                    ->where('user_id', '=', $user->id)
+                    ->where(...$query)
                     ->get();
-
         return response()->json(['rides' => $rides]);
     }
 

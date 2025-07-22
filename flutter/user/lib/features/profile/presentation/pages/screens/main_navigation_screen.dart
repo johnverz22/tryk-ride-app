@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:user/features/profile/presentation/pages/screens/navigation/messages_screen.dart';
 import 'navigation/home_screen.dart';
 import '../../../../ride/presentation/screens/trips_screen.dart';
-import 'navigation/menu_screen.dart'; // Assuming ProfileScreen is aliased as MenuScreen based on usage
+import 'navigation/menu_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -18,7 +18,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     HomeScreen(),
     TripsScreen(),
     MessagesScreen(),
-    ProfileScreen(), // Assuming this is your MenuScreen content
+    ProfileScreen(),
   ];
 
   void _onTap(int index) {

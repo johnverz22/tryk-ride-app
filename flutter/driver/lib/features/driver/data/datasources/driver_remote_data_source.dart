@@ -26,7 +26,10 @@ class DriverRemoteDataSourceImpl implements DriverRemoteDataSource {
     if (response.statusCode == 200 || response.statusCode == 201) {
       return DriverModel.fromJson(json: response.data);
     } else {
-      throw ServerException();
+      throw ServerException(
+        'Server error occurred',
+        statusCode: response.statusCode,
+      );
     }
   }
 }

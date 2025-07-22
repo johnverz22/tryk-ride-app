@@ -75,7 +75,10 @@ class _AddFavoriteLocationDialogState
       if (latestState.errorMessage == null) {
         Navigator.pop(context); // Close dialog on success
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location saved successfully!')),
+          const SnackBar(
+            content: Text('Location saved successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

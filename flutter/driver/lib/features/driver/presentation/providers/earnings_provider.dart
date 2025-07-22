@@ -18,7 +18,7 @@ final earningsSummaryProvider = FutureProvider.family<EarningsSummary, String>((
 
   final token = driverState.token!;
   final baseUrl = dotenv.env['BASE_URL'];
-  final url = Uri.parse('$baseUrl/driver/earnings?range=$range');
+  final url = Uri.parse('$baseUrl/api/driver/earnings?range=$range');
 
   final response = await http.get(
     url,

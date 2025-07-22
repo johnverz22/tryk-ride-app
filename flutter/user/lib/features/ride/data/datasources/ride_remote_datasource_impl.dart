@@ -20,9 +20,14 @@ class RideRemoteDatasourceImpl implements RideRemoteDatasource {
       final payload = model.toJson();
       final response = await dio.post('/api/rides/request', data: payload);
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      // THE FIX IS HERE: Add 202 as a valid success code.
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 202) {
         final Map<String, dynamic>? data = response.data;
 
+        // The rest of your logic is already correct because your Laravel backend
+        // still returns the ride object with its ID.
         if (data != null &&
             data.containsKey('ride') &&
             data['ride'] is Map &&

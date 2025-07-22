@@ -1,5 +1,5 @@
 import '../../../../../core/constants/constants.dart';
-import '../../business/entities/driver_entity.dart';
+import '../../domain/entities/driver_entity.dart';
 
 class DriverModel extends DriverEntity {
   const DriverModel({
@@ -24,7 +24,7 @@ class DriverModel extends DriverEntity {
 
   factory DriverModel.fromJson({required Map<String, dynamic> json}) {
     return DriverModel(
-      id: json[kDriverId]?.toString() ?? '',
+      id: int.tryParse(json[kDriverId].toString()) ?? 0,
       name: json[kDriverFullName] ?? '',
       phone: json[kDriverPhoneNumber]?.toString() ?? '',
       email: json[kDriverEmail]?.toString() ?? '',
@@ -71,7 +71,7 @@ class DriverModel extends DriverEntity {
   }
 
   DriverModel copyWith({
-    String? id,
+    int? id,
     String? name,
     String? phone,
     String? email,
@@ -90,6 +90,7 @@ class DriverModel extends DriverEntity {
     DateTime? updatedAt,
   }) {
     return DriverModel(
+      // FIX: Use `?? this.id` instead of `!` to avoid crash when id is null
       id: id ?? this.id,
       name: name ?? this.name,
       phone: phone ?? this.phone,

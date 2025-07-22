@@ -6,6 +6,5 @@ export 'ride_request_button.dart';
 export 'location_selector.dart';
 export 'payment_method_card.dart';
 export 'driver_search_radius_slider.dart';
-export 'searching_driver_bottom_sheet.dart';
 export 'modern_ride_widgets.dart';
 export 'pulsating_radar_animation.dart';

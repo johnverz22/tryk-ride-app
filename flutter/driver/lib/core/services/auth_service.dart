@@ -44,7 +44,7 @@ class AuthService {
   ) async {
     try {
       final res = await client.post(
-        Uri.parse('$baseUrl/register'),
+        Uri.parse('$baseUrl/api/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'name': name,
@@ -78,7 +78,7 @@ class AuthService {
   Future<AuthResponse> login(String email, String password) async {
     try {
       final res = await client.post(
-        Uri.parse('$baseUrl/login'),
+        Uri.parse('$baseUrl/api/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
       );
@@ -109,7 +109,7 @@ class AuthService {
       final authToken = token ?? await getToken();
       if (authToken != null) {
         await client.post(
-          Uri.parse('$baseUrl/logout'),
+          Uri.parse('$baseUrl/api/logout'),
           headers: {
             'Authorization': 'Bearer $authToken',
             'Content-Type': 'application/json',

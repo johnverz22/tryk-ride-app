@@ -23,7 +23,7 @@ class DriverLocalDataSourceImpl implements DriverLocalDataSource {
     if (jsonString != null) {
       return Future.value(DriverModel.fromJson(json: json.decode(jsonString)));
     } else {
-      throw CacheException();
+      throw CacheException('No cached driver found.');
     }
   }
 
@@ -35,7 +35,7 @@ class DriverLocalDataSourceImpl implements DriverLocalDataSource {
         json.encode(driverToCache.toJson()),
       );
     } else {
-      throw CacheException();
+      throw CacheException('Failed to cache the driver data.');
     }
   }
 }

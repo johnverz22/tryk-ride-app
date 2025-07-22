@@ -1,13 +1,10 @@
-// file: lib/features/ride/presentation/widgets/ride_booking_screen/searching_driver_bottom_sheet.dart
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Your app's imports
 import 'package:user/features/ride/presentation/providers/ride_cancellation_provider.dart';
 import 'package:user/features/ride/presentation/providers/ride_booking_provider.dart';
-import 'package:user/features/ride/presentation/widgets/ride_booking_screen/widgets.dart'; // For PulsatingRadarAnimation
+import 'package:user/features/ride/presentation/widgets/ride_booking_screen/widgets.dart';
 
 class ConfirmedDriverInfo {
   final String driverName;
@@ -101,7 +98,7 @@ class _SearchingDriverBottomSheetState
               );
             });
           } else if (rideStatusName == 'cancelled') {
-            Navigator.of(context).pop(); // Close the sheet
+            Navigator.of(context).pop();
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('This ride request was cancelled.'),

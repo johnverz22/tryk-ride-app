@@ -1,7 +1,7 @@
 class RideRequest {
   final int id;
   final int userId;
-  final String? driverId;
+  final int driverId;
   final String pickupAddress;
   final double pickupLatitude;
   final double pickupLongitude;
@@ -42,7 +42,7 @@ class RideRequest {
     return RideRequest(
       id: json['id'],
       userId: json['user_id'],
-      driverId: json['driver_id'],
+      driverId: json['driver_info']?['id'] ?? 0,
       pickupAddress: json['pickup_address'],
       pickupLatitude: json['pickup_latitude'].toDouble(),
       pickupLongitude: json['pickup_longitude'].toDouble(),

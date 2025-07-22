@@ -1,8 +1,9 @@
 import 'package:auth/features/auth/presentation/providers/auth_providers.dart';
+import 'package:auth/features/home/presentation/screens/home_screen.dart';
+import 'package:auth/features/home/presentation/screens/skeleton.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/presentation/pages/home_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
@@ -43,7 +44,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/register',
         builder: (context, state) => const RegisterPage(),
       ),
-      GoRoute(path: '/home', builder: (context, state) => const HomePage()),
+      GoRoute(path: '/home', builder: (context, state) => const Skeleton()),
     ],
   );
 });

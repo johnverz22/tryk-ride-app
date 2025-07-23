@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
-  const CustomUserAppBar({super.key});
+  final VoidCallback toggleOverlay;
+
+  const CustomUserAppBar({super.key, required this.toggleOverlay});
 
   // Switch icon states based on the switch state
   static const WidgetStateProperty<Icon> thumbIcon =
@@ -19,15 +21,6 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Use the switchProvider to get the current state of the switch
     final isSwitched = ref.watch(switchProvider);
-    final isOverlayVisible = ref.watch(overlayEarnings);
-
-    void showOverlay(BuildContext context) {
-      if (!isOverlayVisible) {
-        ref.read(overlayEarnings.notifier).state = true;
-      } else {
-        ref.read(overlayEarnings.notifier).state = false;
-      }
-    }
 
     return AppBar(
       elevation: 0,
@@ -63,9 +56,7 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
             minimumSize: Size(100, 48),
             padding: EdgeInsets.symmetric(horizontal: 16),
           ),
-          onPressed: () {
-            showOverlay(context);
-          },
+          onPressed: toggleOverlay,
           child: Text(
             // TODO: Replace with dynamic earnings value
             "\$345.00",

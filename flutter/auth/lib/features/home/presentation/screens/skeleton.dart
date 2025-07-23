@@ -1,4 +1,3 @@
-import '../providers/app_bar_provider.dart';
 import '../../../earnings/presentation/screens/earnings_overlay.dart';
 import '../widgets/profile_drawer.dart';
 import 'package:flutter/material.dart';
@@ -7,27 +6,37 @@ import 'home_screen.dart';
 import '../widgets/app_bar.dart';
 import '../widgets/bottom_nav.dart';
 
-class Skeleton extends ConsumerWidget {
+class Skeleton extends ConsumerStatefulWidget {
   const Skeleton({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isOverlayEarningsVisible = ref.watch(overlayEarnings);
+  ConsumerState<Skeleton> createState() => _Skeleton();
+}
 
+class _Skeleton extends ConsumerState<Skeleton> {
+  bool overlayVisibile = false;
+
+  void _toggleOverlay() {
+    setState(() {
+      overlayVisibile = !overlayVisibile;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: CustomUserAppBar(),
+      appBar: CustomUserAppBar(toggleOverlay: _toggleOverlay),
       drawer: ProfileDrawer(),
       body: Stack(
         children: [
           // Display the selected page
           HomeScreen(),
           // Overlay widget for earnings
-          if (isOverlayEarningsVisible)
+          if (overlayVisibile)
             GestureDetector(
               onTap: () {
-                ref.read(overlayEarnings.notifier).state =
-                    false; // Hide overlay on tap
+                _toggleOverlay; // Hide overlay on tap
               },
               child: Container(
                 color: const Color.fromARGB(

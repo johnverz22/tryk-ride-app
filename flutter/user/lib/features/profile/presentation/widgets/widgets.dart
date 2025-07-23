@@ -11,8 +11,6 @@ export 'home_screen/suggestion_card.dart';
 export 'home_screen/promotion_card.dart';
 export 'home_screen/recent_trip_list.dart';
 
-export 'section_header_with_see_all.dart';
-
 // Wallet Screen
 export 'wallet_screen/wallet_balance_card.dart';
 export 'wallet_screen/payment_methods_list.dart';

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:user/features/ride/presentation/providers/location_service_provider.dart';
 import 'package:user/features/ride/presentation/screens/ride_booking_screen.dart';
 
 // import 'home/ride_booking_screen.dart'; // This line seems commented out, ensure correct path for widgets
@@ -8,14 +10,14 @@ import '../../../widgets/widgets.dart'; // Assuming this imports BannerCarousel,
 import '../../../providers/trip_provider.dart'; // Assuming Trip and its fetchOngoingTrips method are here
 import '../../../../../../core/services/auth_service.dart'; // Assuming AuthService is here
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   final PageController _pageController = PageController();
   final List<String> _bannerImages = [
     'assets/images/promotion_travel_fiesta.png',
@@ -51,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadTrips();
     _startAutoScroll();
+    ref.read(locationServiceProvider.notifier).fetchInitialLocation();
   }
 
   void _loadTrips() async {

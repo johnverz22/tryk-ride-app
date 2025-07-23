@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:user/features/core/errors/exceptions.dart';
 import 'package:user/features/ride/domain/entities/ride_details.dart';
@@ -10,9 +12,15 @@ import 'ride_remote_datasource.dart';
 
 class RideRemoteDatasourceImpl implements RideRemoteDatasource {
   final Dio dio;
+  final String _googleApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
   final RideSocketService rideSocketService;
+  final PolylinePoints polylinePoints;
 
-  RideRemoteDatasourceImpl(this.dio, this.rideSocketService);
+  RideRemoteDatasourceImpl(
+    this.dio,
+    this.rideSocketService,
+    this.polylinePoints,
+  );
 
   @override
   Future<int> requestRide(dynamic model) async {
@@ -230,5 +238,23 @@ class RideRemoteDatasourceImpl implements RideRemoteDatasource {
     };
 
     return controller.stream;
+  }
+
+  @override
+  Future<PolylineResult> getPolylineRoute(LatLng from, LatLng to) async {
+    final result = await polylinePoints.getRouteBetweenCoordinates(
+      googleApiKey: _googleApiKey,
+      request: PolylineRequest(
+        origin: PointLatLng(from.latitude, from.longitude),
+        destination: PointLatLng(to.latitude, to.longitude),
+        mode: TravelMode.driving,
+      ),
+    );
+
+    if (result.status == 'OK') {
+      return result;
+    } else {
+      throw ServerException(result.errorMessage ?? 'Failed to get route');
+    }
   }
 }

@@ -1,22 +1,8 @@
-// file: lib/features/ride/presentation/widgets/ride_booking_screen/payment_method_widgets.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-// IMPORTANT: Make sure these providers and screens are correctly imported from your project.
 import 'package:user/features/profile/presentation/providers/payment_info_provider.dart';
 import 'package:user/features/profile/presentation/pages/screens/navigation/menu/payment_methods_screen/add_card_screen.dart';
 
-// You should have this entity defined and accessible from your providers.
-// This is here as a placeholder for what the provider should return.
-// class CardEntity {
-//   final String id;
-//   final String provider;
-//   final String lastFour;
-//   CardEntity({required this.id, required this.provider, required this.lastFour});
-// }
-
-/// A compact widget to display the selected payment method. Tapping it opens a selection sheet.
 class CompactPaymentMethodDisplay extends StatelessWidget {
   final String selectedMethodLabel;
   final IconData selectedMethodIcon;

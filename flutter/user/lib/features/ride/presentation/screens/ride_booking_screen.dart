@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 // Domain, Data, and Provider Imports
 import 'package:user/features/profile/data/models/payment_method_model.dart';
@@ -14,14 +13,13 @@ import 'package:user/features/ride/domain/entities/location_entity.dart';
 import 'package:user/features/ride/domain/entities/place_entity.dart';
 import 'package:user/features/ride/domain/entities/ride.dart';
 import 'package:user/features/ride/presentation/providers/location_picker_provider.dart';
+import 'package:user/features/ride/presentation/providers/location_service_provider.dart';
 import 'package:user/features/ride/presentation/providers/ride_booking_provider.dart';
 
 // Screen and Widget Imports
 import 'package:user/features/ride/presentation/screens/ride_tracking_screen.dart';
 import 'package:user/features/ride/presentation/screens/searching_driver_screen.dart';
-import 'package:user/features/ride/presentation/widgets/location_picker_screen/widgets.dart';
-import 'package:user/features/ride/presentation/widgets/ride_booking_screen/modern_ride_widgets.dart';
-import 'package:user/features/ride/presentation/widgets/ride_booking_screen/payment_method_card.dart';
+import 'package:user/features/ride/presentation/widgets/ride_booking_screen/widgets.dart';
 
 // Enum to manage the screen's current UI state
 enum ScreenState { booking, pickingPickup, pickingDestination }
@@ -49,7 +47,7 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
   // --- RIDE BOOKING STATE ---
   LatLng? _fromLocation;
   LatLng? _toLocation;
-  String _fromAddress = "Fetching location...";
+  String _fromAddress = "Select pickup location";
   String _toAddress = "Where to?";
   String _selectedPaymentMethod = 'Cash';
   double? _distance;
@@ -57,7 +55,6 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
   double? _fare;
   bool _isRouteLoading = false;
   bool _isRideRequestLoading = false;
-  bool _isUsingInitialLocation = false;
 
   // --- LOCATION PICKER STATE ---
   final TextEditingController _searchController = TextEditingController();
@@ -71,7 +68,10 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeLocationAndMap();
+    final initialLocationState = ref.read(locationServiceProvider);
+    if (initialLocationState.userLocation != null) {
+      _updateLocationAndAddress(initialLocationState.userLocation!);
+    }
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -84,83 +84,25 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
     super.dispose();
   }
 
-  // --- INITIALIZATION & PERMISSIONS ---
-  Future<void> _initializeLocationAndMap() async {
-    setState(() => _isUsingInitialLocation = true);
-    final hasPermission = await _handleLocationPermission();
-    if (!hasPermission) {
-      setState(() {
-        _initialCameraPosition = const CameraPosition(
-          target: LatLng(14.5995, 120.9842),
-          zoom: 12.0,
-        );
-        _fromAddress = "Permission Denied";
-        _isUsingInitialLocation = false;
-      });
-      return;
-    }
-    try {
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      final userLocation = LatLng(position.latitude, position.longitude);
-      final address = await _getAddressFromLatLng(userLocation);
-      if (mounted) {
-        setState(() {
-          _initialCameraPosition = CameraPosition(
-            target: userLocation,
-            zoom: 16.0,
-          );
-          _fromLocation = userLocation;
-          _fromAddress = address;
-        });
-        _mapController?.animateCamera(
-          CameraUpdate.newCameraPosition(_initialCameraPosition!),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _fromAddress = "Could not get location";
-          _initialCameraPosition = const CameraPosition(
-            target: LatLng(14.5995, 120.9842),
-            zoom: 12.0,
-          );
-          _isUsingInitialLocation = false;
-        });
-      }
-    }
-  }
-
-  Future<bool> _handleLocationPermission() async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location services are disabled.')),
-      );
-      return false;
-    }
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permissions are denied.')),
-        );
-        return false;
-      }
-    }
-    if (permission == LocationPermission.deniedForever && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enable location from app settings.')),
-      );
-      await openAppSettings();
-      return false;
-    }
-    return true;
-  }
-
   // --- UI STATE TRANSITIONS ---
+  Future<void> _updateLocationAndAddress(LatLng location) async {
+    // Prevent re-fetching address if location is already set
+    if (_fromLocation == location) return;
+
+    final address = await _getAddressFromLatLng(location);
+    if (mounted) {
+      setState(() {
+        _fromLocation = location;
+        _fromAddress = address;
+        // Also update the map's initial position
+        _initialCameraPosition = CameraPosition(target: location, zoom: 16.0);
+      });
+      _mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(_initialCameraPosition!),
+      );
+    }
+  }
+
   void _enterLocationPickingMode(ScreenState targetState) {
     setState(() {
       _currentScreenState = targetState;
@@ -365,7 +307,6 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
       if (_currentScreenState == ScreenState.pickingPickup) {
         _fromLocation = pickerState.selectedPoint;
         _fromAddress = pickerState.selectedDescription!;
-        _isUsingInitialLocation = false;
       } else {
         _toLocation = pickerState.selectedPoint;
         _toAddress = pickerState.selectedDescription!;
@@ -462,11 +403,32 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
   // --- MAIN BUILD METHOD ---
   @override
   Widget build(BuildContext context) {
-    final bool isBooking = _currentScreenState == ScreenState.booking;
+    ref.listen<LocationState>(locationServiceProvider, (previous, next) {
+      if (next.userLocation != null) {
+        if (mounted) {
+          _updateLocationAndAddress(next.userLocation!);
+        }
+      } else if (next.error != null && _initialCameraPosition == null) {
+        if (mounted) {
+          setState(() {
+            _fromAddress = "Could not fetch location. Please select one.";
+            // Set a fallback camera position so the map can load.
+            _initialCameraPosition = const CameraPosition(
+              target: LatLng(14.5995, 120.9842), // Manila
+              zoom: 12.0,
+            );
+          });
+        }
+      }
+    });
 
+    // Watch the provider to get the current state for building the UI
+    final locationState = ref.watch(locationServiceProvider);
+    final bool isBooking = _currentScreenState == ScreenState.booking;
+    final bool isMapReady = _initialCameraPosition != null;
     return Scaffold(
       key: _scaffoldKey,
-      appBar: isBooking
+      appBar: isBooking && isMapReady
           ? AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
@@ -485,35 +447,45 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
-          _initialCameraPosition == null
-              ? const Center(child: CircularProgressIndicator())
-              : GoogleMap(
-                  onMapCreated: (controller) => _mapController = controller,
-                  initialCameraPosition: _initialCameraPosition!,
-                  markers: _markers,
-                  polylines: _polylines,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false,
-                  padding: EdgeInsets.only(bottom: _mapBottomPadding, top: 100),
-                  onCameraMove: _onCameraMove,
-                  onCameraIdle: _onCameraIdle,
-                ),
-          if (isBooking) _buildBookingUI() else _buildLocationPickerUI(),
+          if (isMapReady)
+            GoogleMap(
+              // It's now guaranteed that _initialCameraPosition is not null here.
+              initialCameraPosition: _initialCameraPosition!,
+              onMapCreated: (controller) => _mapController = controller,
+              markers: _markers,
+              polylines: _polylines,
+              myLocationEnabled: true,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              padding: EdgeInsets.only(bottom: _mapBottomPadding, top: 100),
+              onCameraMove: _onCameraMove,
+              onCameraIdle: _onCameraIdle,
+            )
+          else
+            // If the map isn't ready, show a centered loading spinner.
+            const Center(child: CircularProgressIndicator()),
+
+          // Only build the UI overlays (bottom sheet, picker) if the map is ready.
+          if (isMapReady)
+            if (isBooking)
+              _buildBookingUI(locationState)
+            else
+              _buildLocationPickerUI(),
         ],
       ),
     );
   }
 
   // --- UI BUILDER WIDGETS ---
-  Widget _buildBookingUI() {
+  Widget _buildBookingUI(LocationState locationState) {
     final theme = Theme.of(context);
     final areLocationsSet = _fromLocation != null && _toLocation != null;
-    final double sheetHeight = areLocationsSet ? 0.6 : 0.4;
+    final double sheetHeight = areLocationsSet ? 0.6 : 0.25;
+
     return DraggableScrollableSheet(
       key: const ValueKey('bookingSheet'),
       initialChildSize: sheetHeight,
-      minChildSize: 0.4,
+      minChildSize: 0.25,
       maxChildSize: 0.6,
       builder: (context, scrollController) {
         return Container(
@@ -530,37 +502,54 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
           ),
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12.0),
-                child: Center(
-                  child: Container(
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
               Expanded(
-                child: ListView(
+                child: CustomScrollView(
                   controller: scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  children: [
-                    LocationInputDisplay(
-                      fromAddress: _isUsingInitialLocation
-                          ? "Current Location"
-                          : _fromAddress,
-                      toAddress: _toAddress,
-                      onFromTap: () =>
-                          _enterLocationPickingMode(ScreenState.pickingPickup),
-                      onToTap: () => _enterLocationPickingMode(
-                        ScreenState.pickingDestination,
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
+                            child: Center(
+                              child: Container(
+                                width: 50,
+                                height: 5,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[300],
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: LocationInputDisplay(
+                              fromAddress:
+                                  locationState.isLoading &&
+                                      _fromLocation == null
+                                  ? "Fetching current location..."
+                                  : _fromAddress,
+                              toAddress: _toAddress,
+                              onFromTap: () => _enterLocationPickingMode(
+                                ScreenState.pickingPickup,
+                              ),
+                              onToTap: () => _enterLocationPickingMode(
+                                ScreenState.pickingDestination,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          if (areLocationsSet)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: _buildRideDetailsSection(theme, ref),
+                            ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    if (areLocationsSet) _buildRideDetailsSection(theme, ref),
                   ],
                 ),
               ),
@@ -599,17 +588,18 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
           bottom: 0,
           left: 0,
           right: 0,
-          child: _buildPickerConfirmationPanel(theme),
+          child: PickerConfirmationPanel(
+            onConfirm: _confirmPickedLocation,
+            onAddToFavorites: _showAddFavoriteDialog,
+          ),
         ),
       ],
     );
   }
 
   // --- SUB-WIDGETS FOR BOOKING UI ---
-  // <<< THIS IS THE CORRECTED WIDGET >>>
   Widget _buildRideDetailsSection(ThemeData theme, WidgetRef ref) {
     final walletAsync = ref.watch(paymentInfoProvider);
-    // <<< FIX: Safely access the value from the AsyncValue. Provide a fallback empty list. >>>
     final cards = ref.watch(cardsProvider);
 
     if (_isRouteLoading) {
@@ -620,7 +610,7 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
       key: const ValueKey('ride_details'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle("Trip Summary", theme),
+        SectionTitle(title: "Trip Summary"),
         if (_distance != null && _duration != null && _fare != null)
           RouteInfoCard(
             distanceInMeters: _distance! * 1000,
@@ -628,7 +618,7 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
             fare: _fare!,
           ),
         const SizedBox(height: 24),
-        _buildSectionTitle("Payment", theme),
+        SectionTitle(title: "Payment"),
         walletAsync.when(
           data: (paymentInfo) {
             final paymentDetails = _getPaymentMethodDetails(
@@ -737,251 +727,32 @@ class _RideBookingScreenState extends ConsumerState<RideBookingScreen> {
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
           child: isSearching
-              ? _buildSearchResultsOverlay(
-                  searchResults,
-                  pickerState.isSearching,
+              ? SearchResultsOverlay(
+                  results: searchResults,
+                  isLoading: isSearching,
+                  onSuggestionTap: _onSearchResultTapped,
                 )
-              : _buildFavoritesCarousel(theme),
+              : FavoritesCarousel(
+                  onFavoriteTap: (favoriteLocation) {
+                    // Handle the favorite location tap (e.g., animate map to the location)
+                    _mapController?.animateCamera(
+                      CameraUpdate.newLatLngZoom(favoriteLocation.latLng, 16.0),
+                    );
+                    ref
+                        .read(locationPickerProvider.notifier)
+                        .geocodeCameraPosition(favoriteLocation.latLng);
+                  },
+                  onEditTap: (favoriteLocation) {
+                    // Handle the edit favorite action (e.g., open a dialog)
+                    _showEditFavoriteDialog(favoriteLocation);
+                  },
+                ),
         ),
       ],
     );
   }
 
-  Widget _buildFavoritesCarousel(ThemeData theme) {
-    final favsAsync = ref.watch(
-      locationPickerProvider.select((state) => state.favoriteLocations),
-    );
-    return favsAsync.when(
-      data: (favs) {
-        if (favs.isEmpty) return const SizedBox(height: 10);
-        return SizedBox(
-          height: 85,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 15),
-            scrollDirection: Axis.horizontal,
-            itemCount: favs.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final fav = favs[index];
-              return SizedBox(
-                width: 150,
-                child: Card(
-                  clipBehavior: Clip.antiAlias,
-                  margin: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: InkWell(
-                    onTap: () {
-                      _mapController?.animateCamera(
-                        CameraUpdate.newLatLngZoom(fav.latLng, 16.0),
-                      );
-                      ref
-                          .read(locationPickerProvider.notifier)
-                          .geocodeCameraPosition(fav.latLng);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Icon(
-                                fav.icon,
-                                size: 22,
-                                color: theme.colorScheme.primary,
-                              ),
-                              InkWell(
-                                onTap: () => _showEditFavoriteDialog(fav),
-                                child: const Padding(
-                                  padding: EdgeInsets.all(4.0),
-                                  child: Icon(Icons.edit_outlined, size: 18),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Spacer(),
-                          Text(
-                            fav.name,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      },
-      loading: () => const SizedBox(
-        height: 85,
-        child: Center(child: CircularProgressIndicator()),
-      ),
-      error: (_, __) => const SizedBox(
-        height: 85,
-        child: Center(child: Text("Can't load favorites")),
-      ),
-    );
-  }
-
-  Widget _buildSearchResultsOverlay(
-    List<PlaceSuggestionEntity> results,
-    bool isProviderSearching,
-  ) {
-    if (isProviderSearching) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 15),
-        padding: const EdgeInsets.all(16.0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15.0),
-          boxShadow: const [
-            BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 1),
-          ],
-        ),
-        child: const Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (results.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15.0),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 1),
-        ],
-      ),
-      constraints: const BoxConstraints(maxHeight: 250),
-      child: ListView.builder(
-        padding: EdgeInsets.zero,
-        shrinkWrap: true,
-        itemCount: results.length,
-        itemBuilder: (context, index) {
-          final suggestion = results[index];
-          return ListTile(
-            leading: const Icon(Icons.search),
-            title: Text(suggestion.description),
-            onTap: () => _onSearchResultTapped(suggestion),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildPickerConfirmationPanel(ThemeData theme) {
-    final state = ref.watch(locationPickerProvider);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    return Material(
-      color: theme.scaffoldBackgroundColor,
-      elevation: 8.0,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          24,
-          20,
-          24,
-          bottomPadding > 0 ? bottomPadding : 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "Set Location",
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.star_border, color: Colors.grey[600]),
-                  tooltip: 'Add to Favorites',
-                  onPressed: _showAddFavoriteDialog,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.location_on,
-                  color: theme.colorScheme.primary,
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: state.isLoadingAddress
-                        ? Text(
-                            "Loading...",
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              color: Colors.grey,
-                            ),
-                            key: const ValueKey('loading'),
-                          )
-                        : Text(
-                            state.selectedDescription ??
-                                "Move the map to select",
-                            key: ValueKey(state.selectedDescription),
-                            style: theme.textTheme.bodyLarge,
-                          ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed:
-                    state.selectedPoint != null && !state.isLoadingAddress
-                    ? _confirmPickedLocation
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                child: const Text('Confirm Location'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   // --- HELPERS & UTILITIES ---
-  Widget _buildSectionTitle(String title, ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Text(
-        title,
-        style: theme.textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
   ({String label, IconData icon}) _getPaymentMethodDetails(
     String methodId,
     List<PaymentMethod> cards,

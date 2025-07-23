@@ -57,12 +57,14 @@ class AuthService {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final token = data['token'] as String;
+        final driverData = data['user'] as Map<String, dynamic>?;
+
         final driver = await compute<Map<String, dynamic>, DriverModel>(
           parsedriver,
-          Map<String, dynamic>.from(data['driver']),
+          Map<String, dynamic>.from(driverData!),
         );
 
-        await saveCredentials(token, data['driver']);
+        await saveCredentials(token, driverData);
         return AuthResponse(success: true, token: token, driver: driver);
       }
 

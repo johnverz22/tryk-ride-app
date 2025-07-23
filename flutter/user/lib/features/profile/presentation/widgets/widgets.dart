@@ -21,10 +21,3 @@ export 'wallet_screen/analytics_placeholder.dart';
 
 // Profile Screen
 export 'profile_screen/save_changes_button.dart';
-
-// Ride Booking Screen
-export 'ride_booking_screen/info_tile.dart';
-export 'ride_booking_screen/payment_method_dropdown.dart';
-export 'ride_booking_screen/location_input_card.dart';
-export 'ride_booking_screen/route_info_card.dart';
-export 'ride_booking_screen/route_review_map.dart';

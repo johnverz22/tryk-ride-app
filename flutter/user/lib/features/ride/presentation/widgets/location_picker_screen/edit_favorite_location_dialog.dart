@@ -75,7 +75,10 @@ class _EditFavoriteLocationDialogState
       if (latestState.errorMessage == null) {
         Navigator.pop(context); // Close dialog on success
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location updated successfully!')),
+          const SnackBar(
+            content: Text('Location updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -66,7 +66,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             label: 'Trips',
           ),
           BottomNavigationBarItem(
-            icon: Icon(_currentIndex == 2 ? Icons.menu : Icons.menu_outlined),
+            icon: Icon(
+              _currentIndex == 2
+                  ? Icons.monetization_on
+                  : Icons.monetization_on_outlined,
+            ),
             label: 'Earnings',
           ),
           BottomNavigationBarItem(

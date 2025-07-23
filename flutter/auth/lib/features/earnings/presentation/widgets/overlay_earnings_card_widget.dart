@@ -4,11 +4,6 @@ class EarningsCard extends StatelessWidget {
   final double cardHeight;
   const EarningsCard({super.key, required this.cardHeight});
 
-  // final EarningEntity earning;
-  // final String formatedDate;
-
-  // const EarningsCard({super.key, required this.earning, required this.formatedDate});
-
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -16,17 +11,15 @@ class EarningsCard extends StatelessWidget {
       width: 300,
       child: Card(
         color: Color(0xFFFCFCF7), // Background color
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
               IconButton(
                 padding: EdgeInsets.only(bottom: 20),
-                onPressed: () {}, 
-                icon: Icon(Icons.visibility, color: Colors.black)
+                onPressed: () {},
+                icon: Icon(Icons.visibility, color: Colors.black),
               ),
               Text(
                 'LAST TRIP',
@@ -44,12 +37,15 @@ class EarningsCard extends StatelessWidget {
               Spacer(),
               TextButton(
                 onPressed: () {},
-                child: 
-                Text(
+                child: Text(
                   'SEE EARNINGS ACTIVITY',
-                  style: TextStyle(fontSize: 16, color: Colors.black, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              )
+              ),
             ],
           ),
         ),

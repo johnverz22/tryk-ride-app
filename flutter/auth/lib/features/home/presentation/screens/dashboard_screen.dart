@@ -1,4 +1,4 @@
-import '../widgets/earnings_widget/earnings_widgets.dart';
+import '../../../earnings/presentation/widgets/earnings_widgets.dart';
 import 'package:flutter/material.dart';
 
 class DashboardScreen extends StatelessWidget {

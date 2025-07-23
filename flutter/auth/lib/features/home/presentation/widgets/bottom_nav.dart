@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/skeleton_app_bar_provider.dart';
+import '../providers/app_bar_provider.dart';
 
 class MainNavigation extends ConsumerWidget {
-
   const MainNavigation({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    
     // Get the current selected page from Riverpod
     final isOnline = ref.watch(switchProvider);
 
@@ -16,10 +14,7 @@ class MainNavigation extends ConsumerWidget {
     return BottomAppBar(
       child: Row(
         children: [
-          IconButton(
-            icon: Icon(Icons.menu),
-            onPressed: () {},
-          ),
+          IconButton(icon: Icon(Icons.menu), onPressed: () {}),
           Expanded(
             child: TextButton(
               style: ButtonStyle(
@@ -32,16 +27,17 @@ class MainNavigation extends ConsumerWidget {
               onPressed: () {
                 debugPrint("Banana");
               },
-              child: isOnline ? Text("Online", style: TextStyle(color: Colors.greenAccent[700]),) : Text("Offline", style: TextStyle(color: Colors.grey[800])),
+              child: isOnline
+                  ? Text(
+                      "Online",
+                      style: TextStyle(color: Colors.greenAccent[700]),
+                    )
+                  : Text("Offline", style: TextStyle(color: Colors.grey[800])),
             ),
           ),
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () {
-            },
-          ),
+          IconButton(icon: Icon(Icons.settings), onPressed: () {}),
         ],
-      )
+      ),
     );
   }
 }

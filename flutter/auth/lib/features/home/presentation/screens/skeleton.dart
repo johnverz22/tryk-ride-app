@@ -1,11 +1,11 @@
-import '../providers/skeleton_app_bar_provider.dart';
-import '../widgets/home_overlay_earnings_widget.dart';
-import '../widgets/skeleton_profile_drawer_widget.dart';
+import '../providers/app_bar_provider.dart';
+import '../../../earnings/presentation/screens/earnings_overlay.dart';
+import '../widgets/profile_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'home_screen.dart';
-import '../widgets/skeleton_app_bar_widget.dart';
-import '../widgets/skeleton_bottom_nav_widget.dart';
+import '../widgets/app_bar.dart';
+import '../widgets/bottom_nav.dart';
 
 class Skeleton extends ConsumerWidget {
   const Skeleton({super.key});

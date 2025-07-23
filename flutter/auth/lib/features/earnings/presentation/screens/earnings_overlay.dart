@@ -1,4 +1,4 @@
-import './overlay_earnings_card_widget.dart';
+import '../widgets/overlay_earnings_card_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
@@ -35,11 +35,12 @@ class OverlayEntryWidget extends ConsumerWidget {
                           left: 0,
                           right: 0,
                           child: Center(
+                            //Earnings Card
                             child: EarningsCard(cardHeight: cardHeight),
                           ),
                         ),
                       ],
-                    ); // Replace with your actual card widget
+                    );
                   },
                 ),
               ),

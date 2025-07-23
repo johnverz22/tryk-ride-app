@@ -1,4 +1,4 @@
-import '../providers/skeleton_app_bar_provider.dart';
+import '../providers/app_bar_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -67,6 +67,7 @@ class CustomUserAppBar extends ConsumerWidget implements PreferredSizeWidget {
             showOverlay(context);
           },
           child: Text(
+            // TODO: Replace with dynamic earnings value
             "\$345.00",
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),

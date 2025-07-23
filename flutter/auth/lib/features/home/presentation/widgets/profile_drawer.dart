@@ -1,6 +1,6 @@
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../screens/dashboard_screen.dart';
-import 'earnings_widget/earnings_widgets.dart';
+import '../../../earnings/presentation/widgets/earnings_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'loading_button.dart';

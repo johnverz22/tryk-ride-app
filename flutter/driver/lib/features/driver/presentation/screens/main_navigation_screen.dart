@@ -1,4 +1,3 @@
-import 'package:driver/features/driver/presentation/screens/navigation/dashboard_screen.dart';
 import 'package:driver/features/driver/presentation/screens/navigation/earnings_screen.dart';
 import 'package:driver/features/driver/presentation/screens/navigation/profile_screen.dart';
 import 'package:driver/features/driver/presentation/screens/navigation/trips_screen.dart';
@@ -22,6 +21,29 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     ProfileScreen(),
   ];
 
+  final List<NavigationDestination> _destinations = const [
+    NavigationDestination(
+      selectedIcon: Icon(Icons.home),
+      icon: Icon(Icons.home_outlined),
+      label: 'Home',
+    ),
+    NavigationDestination(
+      selectedIcon: Icon(Icons.card_travel),
+      icon: Icon(Icons.card_travel_outlined),
+      label: 'Trips',
+    ),
+    NavigationDestination(
+      selectedIcon: Icon(Icons.monetization_on),
+      icon: Icon(Icons.monetization_on_outlined),
+      label: 'Earnings',
+    ),
+    NavigationDestination(
+      selectedIcon: Icon(Icons.menu),
+      icon: Icon(Icons.menu_outlined),
+      label: 'Menu',
+    ),
+  ];
+
   void _onTap(int index) {
     setState(() {
       _currentIndex = index;
@@ -30,54 +52,57 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(
-          milliseconds: 300,
-        ), // Adjust duration as needed
-        // Use a ValueKey to tell AnimatedSwitcher when the child changes
-        child: SizedBox.expand(
-          // Use SizedBox.expand to ensure the child fills the available space
-          key: ValueKey<int>(_currentIndex), // Key changes with the index
-          child: _pages[_currentIndex],
+      body: IndexedStack(index: _currentIndex, children: _pages),
+
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: isDarkMode ? Colors.grey[900]! : Colors.grey[200]!,
+                width: 1.0,
+              ),
+            ),
+          ),
+          child: NavigationBarTheme(
+            data: NavigationBarThemeData(
+              indicatorColor: theme.colorScheme.secondary.withValues(alpha: .1),
+              indicatorShape: const StadiumBorder(),
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              iconTheme: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return IconThemeData(color: theme.colorScheme.secondary);
+                }
+                return IconThemeData(color: Colors.grey[600]);
+              }),
+              labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                final style = theme.textTheme.labelMedium;
+                if (states.contains(WidgetState.selected)) {
+                  return style?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.secondary,
+                  );
+                }
+                return style?.copyWith(color: Colors.grey[500]);
+              }),
+            ),
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: _onTap,
+              height: 65,
+              elevation: 0,
+              backgroundColor: isDarkMode
+                  ? const Color(0xFF1A1A1A)
+                  : Colors.white,
+              destinations: _destinations,
+            ),
+          ),
         ),
-        // Optional: Customize the transition. Default is a fade.
-        // transitionBuilder: (Widget child, Animation<double> animation) {
-        //   return FadeTransition(opacity: animation, child: child);
-        // },
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: _onTap,
-        selectedItemColor: Colors.pink,
-        unselectedItemColor: Colors.black,
-        type: BottomNavigationBarType.fixed,
-        items: [
-          BottomNavigationBarItem(
-            icon: Icon(_currentIndex == 0 ? Icons.home : Icons.home_outlined),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              _currentIndex == 1
-                  ? Icons.card_travel
-                  : Icons.card_travel_outlined,
-            ),
-            label: 'Trips',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(
-              _currentIndex == 2
-                  ? Icons.monetization_on
-                  : Icons.monetization_on_outlined,
-            ),
-            label: 'Earnings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(_currentIndex == 3 ? Icons.menu : Icons.menu_outlined),
-            label: 'Menu',
-          ),
-        ],
       ),
     );
   }

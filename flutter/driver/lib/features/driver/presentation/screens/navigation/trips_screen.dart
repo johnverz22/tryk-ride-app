@@ -1,11 +1,15 @@
+import 'package:driver/features/driver/presentation/providers/trip_list_provider.dart';
+import 'package:driver/features/driver/presentation/screens/navigation/trips/ride_tracking_screen.dart';
+import 'package:driver/features/driver/presentation/widgets/trips_screen/trip_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+
+// Remove the intl import if it's no longer used directly in this file
+// import 'package:intl/intl.dart';
 
 import '../../widgets/widgets.dart';
-import '../../providers/driver_provider.dart';
-
-import 'trips/ride_tracking_screen.dart';
+// Remove this as it's handled inside the card
+// import 'trips/ride_tracking_screen.dart';
 
 class TripsScreen extends ConsumerStatefulWidget {
   const TripsScreen({super.key});
@@ -26,7 +30,7 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: tripCategories.length, vsync: this);
-    _tabController.addListener(() => setState(() {})); // Rebuild on tab change
+    _tabController.addListener(() => setState(() {}));
     Future.microtask(() => _refreshTrips());
   }
 
@@ -37,7 +41,13 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
   }
 
   Future<void> _refreshTrips() async {
-    await ref.read(driverProvider.notifier).fetchTrips();
+    await ref.read(driverTripListProvider.notifier).fetchTrips();
+  }
+
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query;
+    });
   }
 
   void _showDateRangePicker() async {
@@ -53,216 +63,95 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
     }
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Completed':
-        return Colors.green;
-      case 'Cancelled':
-        return Colors.red;
-      default:
-        return Colors.orange;
-    }
-  }
-
   Widget _buildTripList(String category) {
-    final driverState = ref.watch(driverProvider);
+    final tripListState = ref.watch(driverTripListProvider);
 
-    // Loading State
-    if (driverState.isLoading && (driverState.value?.trips.isEmpty ?? true)) {
-      return const Center(
+    return tripListState.when(
+      loading: () => const Center(
         key: ValueKey('loading'),
         child: CircularProgressIndicator(),
-      );
-    }
-
-    // Error State
-    if (driverState.hasError && !driverState.hasValue) {
-      return Center(
-        key: const ValueKey('error'),
-        child: Text(driverState.error.toString()),
-      );
-    }
-
-    final trips = driverState.value?.trips ?? [];
-
-    // Filtering Logic
-    final filteredTrips = trips.where((trip) {
-      final tripStatus = trip['status']?['name'];
-      final pickup = (trip['pickup_address'] ?? '').toLowerCase();
-      final dropoff = (trip['dropoff_address'] ?? '').toLowerCase();
-      final rider = (trip['user']?['name'] ?? '').toLowerCase();
-      final query = _searchQuery.toLowerCase();
-
-      // Category Filter
-      bool categoryMatch = false;
-      if (category == 'Ongoing') {
-        categoryMatch = !['Completed', 'Cancelled'].contains(tripStatus);
-      } else {
-        categoryMatch = tripStatus == category;
-      }
-      if (!categoryMatch) return false;
-
-      // Search Filter
-      if (_searchQuery.isNotEmpty &&
-          !(pickup.contains(query) ||
-              dropoff.contains(query) ||
-              rider.contains(query))) {
-        return false;
-      }
-
-      // Date Range Filter
-      if (_selectedDateRange != null) {
-        final tripDate =
-            DateTime.tryParse(trip['accepted_at'] ?? '') ?? DateTime.now();
-        if (!(tripDate.isAfter(
-              _selectedDateRange!.start.subtract(const Duration(seconds: 1)),
-            ) &&
-            tripDate.isBefore(
-              _selectedDateRange!.end.add(const Duration(days: 1)),
-            ))) {
-          return false;
-        }
-      }
-
-      return true;
-    }).toList();
-
-    // Empty State
-    if (filteredTrips.isEmpty) {
-      return _EmptyTripPlaceholder(
-        key: ValueKey('empty_$category'),
-        category: category,
-      );
-    }
-
-    // Content List
-    return RefreshIndicator(
-      key: ValueKey('list_$category'),
-      onRefresh: _refreshTrips,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-        itemCount: filteredTrips.length,
-        itemBuilder: (context, index) {
-          return _buildTripCard(context, filteredTrips[index]);
-        },
       ),
-    );
-  }
-
-  Widget _buildTripCard(BuildContext context, Map<String, dynamic> trip) {
-    final pickupTime =
-        DateTime.tryParse(trip['accepted_at'] ?? '') ?? DateTime.now();
-    final date = DateFormat('EEE, MMM d, yyyy – h:mm a').format(pickupTime);
-    final status = trip['status']?['name'] ?? 'Unknown';
-
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => RideTrackingScreen(rideId: trip['id']),
-            ),
-          );
-        },
+      error: (error, stackTrace) => Center(
+        key: const ValueKey('error'),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    backgroundColor: Theme.of(
-                      context,
-                    ).primaryColor.withOpacity(0.1),
-                    child: Text(
-                      (trip['user']?['name'] ?? 'U').substring(0, 1),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          trip['user']?['name'] ?? 'Unknown Rider',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          date,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: Colors.grey.shade600),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Chip(
-                    label: Text(status),
-                    labelStyle: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    backgroundColor: _getStatusColor(status),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
-              _InfoRow(
-                icon: Icons.location_on,
-                iconColor: Colors.blue,
-                text: trip['pickup_address'] ?? 'Unknown Pickup',
-              ),
-              const SizedBox(height: 8),
-              _InfoRow(
-                icon: Icons.flag,
-                iconColor: Colors.green,
-                text: trip['dropoff_address'] ?? 'Unknown Destination',
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment:
-                    CrossAxisAlignment.center, // Align items vertically
-                children: [
-                  // THE FIX IS HERE: Wrap the _InfoRow in an Expanded widget.
-                  Expanded(
-                    child: _InfoRow(
-                      icon: Icons.payment,
-                      iconColor: Colors.grey.shade700,
-                      text: trip['payment_method'] ?? 'N/A',
-                    ),
-                  ),
-                  const SizedBox(width: 8), // Add some spacing
-                  Text(
-                    '₱${(trip['fare_amount'] ?? 0).toStringAsFixed(2)}',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          child: Text(
+            'Failed to load trips: $error',
+            textAlign: TextAlign.center,
           ),
         ),
       ),
+      data: (trips) {
+        // --- Filtering logic remains unchanged ---
+        final filteredTrips = trips.where((trip) {
+          final tripStatus = trip['status']?['name'];
+          final pickup = (trip['pickup_address'] ?? '').toLowerCase();
+          final dropoff = (trip['dropoff_address'] ?? '').toLowerCase();
+          final rider = (trip['user']?['name'] ?? '').toLowerCase();
+          final query = _searchQuery.toLowerCase();
+
+          bool categoryMatch = false;
+          if (category == 'Ongoing') {
+            categoryMatch = !['Completed', 'Cancelled'].contains(tripStatus);
+          } else {
+            categoryMatch = tripStatus == category;
+          }
+          if (!categoryMatch) return false;
+
+          if (_searchQuery.isNotEmpty &&
+              !(pickup.contains(query) ||
+                  dropoff.contains(query) ||
+                  rider.contains(query))) {
+            return false;
+          }
+
+          if (_selectedDateRange != null) {
+            final tripDate =
+                DateTime.tryParse(trip['accepted_at'] ?? '') ?? DateTime.now();
+            if (!(tripDate.isAfter(
+                  _selectedDateRange!.start.subtract(
+                    const Duration(seconds: 1),
+                  ),
+                ) &&
+                tripDate.isBefore(
+                  _selectedDateRange!.end.add(const Duration(days: 1)),
+                ))) {
+              return false;
+            }
+          }
+          return true;
+        }).toList();
+
+        if (filteredTrips.isEmpty) {
+          return _EmptyTripPlaceholder(
+            key: ValueKey('empty_$category'),
+            category: category,
+          );
+        }
+
+        return RefreshIndicator(
+          key: ValueKey('list_$category'),
+          onRefresh: _refreshTrips,
+          child: ListView.builder(
+            padding: const EdgeInsets.only(top: 8, bottom: 80),
+            itemCount: filteredTrips.length,
+            itemBuilder: (context, index) {
+              final trip = filteredTrips[index];
+              return DriverTripCard(
+                trip: trip,
+                onViewDetails: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => RideTrackingScreen(rideId: trip['id']),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -275,30 +164,27 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
       backgroundColor: Colors.grey[100],
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TripSearchBar(
-                      onChanged: (value) =>
-                          setState(() => _searchQuery = value),
-                      onFilterPressed: _showDateRangePicker,
+            Row(
+              children: [
+                Expanded(
+                  child: TripSearchBar(
+                    onChanged: (value) => _onSearchChanged,
+                    onFilterPressed: _showDateRangePicker,
+                  ),
+                ),
+                if (_selectedDateRange != null)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: IconButton(
+                      icon: const Icon(Icons.clear),
+                      tooltip: 'Clear date filter',
+                      onPressed: () =>
+                          setState(() => _selectedDateRange = null),
                     ),
                   ),
-                  if (_selectedDateRange != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child: IconButton(
-                        icon: const Icon(Icons.clear),
-                        tooltip: 'Clear date filter',
-                        onPressed: () =>
-                            setState(() => _selectedDateRange = null),
-                      ),
-                    ),
-                ],
-              ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -331,38 +217,16 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
               ),
             ),
             Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: _buildTripList(tripCategories[_tabController.index]),
+              child: TabBarView(
+                controller: _tabController,
+                children: tripCategories
+                    .map((cat) => _buildTripList(cat))
+                    .toList(),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String text;
-
-  const _InfoRow({
-    required this.icon,
-    required this.iconColor,
-    required this.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: iconColor, size: 20),
-        const SizedBox(width: 12),
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 15))),
-      ],
     );
   }
 }

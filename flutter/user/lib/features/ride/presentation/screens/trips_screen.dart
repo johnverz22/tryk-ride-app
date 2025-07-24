@@ -6,7 +6,7 @@ import 'package:user/features/ride/presentation/screens/ride_tracking_screen.dar
 
 import '../providers/trip_list_provider.dart';
 import '../../domain/entities/trip_entity.dart';
-import '../widgets/trips_screen/widgets.dart'; // This should export TripSearchBar, EmptyTripPlaceholder, TripCard
+import '../widgets/trips_screen/widgets.dart';
 
 class TripsScreen extends ConsumerStatefulWidget {
   const TripsScreen({super.key});
@@ -47,15 +47,14 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
     super.dispose();
   }
 
+  Future<void> _refreshTrips() async {
+    await ref.read(tripListProvider.notifier).loadTrips(isRefresh: true);
+  }
+
   void _onSearchChanged(String query) {
     setState(() {
       _searchQuery = query;
     });
-    // The filtering logic is handled in _buildTripList based on _searchQuery
-  }
-
-  Future<void> _refreshTrips() async {
-    await ref.read(tripListProvider.notifier).loadTrips(isRefresh: true);
   }
 
   void _showDateRangePicker() async {
@@ -150,7 +149,7 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
       key: ValueKey('list_$category'), // Unique key for each category's list
       onRefresh: _refreshTrips,
       child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(top: 8, bottom: 80),
         itemCount:
             filteredTrips.length +
             (tripListState.hasMore ? 1 : 0), // Add 1 for loading indicator
@@ -179,9 +178,6 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
                 ),
               );
             },
-            onRebook: () {
-              // TODO: Implement rebook logic
-            },
           );
         },
       ),
@@ -193,8 +189,8 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: const CustomUserAppBar(),
+      backgroundColor: Colors.grey[100],
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,16 +209,12 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
                     child: IconButton(
                       icon: const Icon(Icons.clear),
                       tooltip: 'Clear date filter',
-                      onPressed: () {
-                        setState(() {
-                          _selectedDateRange = null;
-                        });
-                      },
+                      onPressed: () =>
+                          setState(() => _selectedDateRange = null),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
@@ -253,13 +245,12 @@ class _TripsScreenState extends ConsumerState<TripsScreen>
                 ),
               ),
             ),
-            const SizedBox(height: 16),
             Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                // Use a ValueKey to ensure AnimatedSwitcher recognizes the child is changing
-                // when the tab category changes.
-                child: _buildTripList(tripCategories[_tabController.index]),
+              child: TabBarView(
+                controller: _tabController,
+                children: tripCategories
+                    .map((cat) => _buildTripList(cat))
+                    .toList(),
               ),
             ),
           ],

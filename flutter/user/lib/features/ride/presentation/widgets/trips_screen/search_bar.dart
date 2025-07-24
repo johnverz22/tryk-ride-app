@@ -27,9 +27,9 @@ class TripSearchBar extends StatelessWidget {
             hintStyle: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.grey[500],
             ),
-            prefixIcon: const Icon(Icons.search, size: 24),
+            prefixIcon: Icon(Icons.search, color: theme.primaryColor, size: 24),
             suffixIcon: IconButton(
-              icon: const Icon(Icons.filter_alt_outlined, size: 24),
+              icon: Icon(Icons.tune, color: theme.primaryColor, size: 24),
               onPressed: onFilterPressed,
               tooltip: 'Filter trips',
             ),

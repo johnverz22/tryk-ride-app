@@ -17,14 +17,14 @@ class DriverState {
   final String? token;
   final bool isOnline;
   final List<RideRequest> requestedRides;
-  final List<Map<String, dynamic>> trips;
+  // final List<Map<String, dynamic>> trips; // REMOVED
 
   const DriverState({
     this.driver,
     this.token,
     this.isOnline = false,
     this.requestedRides = const [],
-    this.trips = const [],
+    // this.trips = const [], // REMOVED
   });
 
   bool get isAuthenticated => driver != null && token != null;
@@ -34,14 +34,14 @@ class DriverState {
     String? token,
     bool? isOnline,
     List<RideRequest>? requestedRides,
-    List<Map<String, dynamic>>? trips,
+    // List<Map<String, dynamic>>? trips, // REMOVED
   }) {
     return DriverState(
       driver: driver ?? this.driver,
       token: token ?? this.token,
       isOnline: isOnline ?? this.isOnline,
       requestedRides: requestedRides ?? this.requestedRides,
-      trips: trips ?? this.trips,
+      // trips: trips ?? this.trips, // REMOVED
     );
   }
 }
@@ -68,6 +68,7 @@ class DriverNotifier extends AsyncNotifier<DriverState?> {
     return _loadInitialState();
   }
 
+  // ... (all other methods like _loadInitialState, _startRealtimeUpdates, toggleOnline, etc., remain exactly the same)
   Future<DriverState> _loadInitialState() async {
     final token = await _storage.read(key: 'token');
     final driverJson = await _storage.read(key: 'driver');
@@ -315,38 +316,8 @@ class DriverNotifier extends AsyncNotifier<DriverState?> {
     }
   }
 
-  Future<void> fetchTrips() async {
-    final current = state.value;
-    if (current == null || !current.isAuthenticated) return;
-
-    try {
-      final res = await http.get(
-        Uri.parse('$baseUrl/api/driver/trips'),
-        headers: _authHeaders(current.token!),
-      );
-
-      if (res.statusCode == 200) {
-        final decodedJson = jsonDecode(res.body);
-
-        List<dynamic> rawTripsList;
-
-        if (decodedJson is Map && decodedJson.containsKey('data')) {
-          rawTripsList = decodedJson['data'] as List<dynamic>;
-        } else if (decodedJson is List) {
-          rawTripsList = decodedJson;
-        } else {
-          debugPrint('❌ Fetch trips error: Unexpected JSON format.');
-          return;
-        }
-
-        final trips = List<Map<String, dynamic>>.from(rawTripsList);
-        state = AsyncData(current.copyWith(trips: trips));
-      }
-    } catch (e, stackTrace) {
-      debugPrint('❌ Fetch trips error: $e');
-      debugPrint('❌ StackTrace: $stackTrace');
-    }
-  }
+  //  REMOVED fetchTrips method
+  //  Future<void> fetchTrips() async { ... }
 
   Future<void> updateDriver(DriverModel updatedDriver) async {
     final current = state.value;

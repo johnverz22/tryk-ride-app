@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 class TripSearchBar extends StatelessWidget {
   final ValueChanged<String> onChanged;
-  final VoidCallback onFilterPressed;
+  final VoidCallback? onFilterPressed;
 
   const TripSearchBar({
     super.key,
     required this.onChanged,
-    required this.onFilterPressed,
+    this.onFilterPressed,
   });
 
   @override
@@ -15,40 +15,36 @@ class TripSearchBar extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              onChanged: onChanged,
-              style: const TextStyle(fontSize: 15),
-              decoration: InputDecoration(
-                hintText: 'Search by location or rider...',
-                prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      child: Material(
+        elevation: 1,
+        borderRadius: BorderRadius.circular(16),
+        child: TextField(
+          onChanged: onChanged,
+          style: theme.textTheme.bodyLarge,
+          decoration: InputDecoration(
+            hintText: 'Search by location or rider...',
+            hintStyle: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.grey[500],
+            ),
+            prefixIcon: Icon(Icons.search, color: theme.primaryColor, size: 24),
+            suffixIcon: IconButton(
+              icon: Icon(Icons.tune, color: theme.primaryColor, size: 24),
+              onPressed: onFilterPressed,
+              tooltip: 'Filter trips',
+            ),
+            filled: true,
+            fillColor: Colors.grey[50],
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 16,
+              horizontal: 16,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
             ),
           ),
-          const SizedBox(width: 12),
-          Material(
-            color: theme.primaryColor,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: onFilterPressed,
-              borderRadius: BorderRadius.circular(12),
-              child: const Padding(
-                padding: EdgeInsets.all(12),
-                child: Icon(Icons.tune, color: Colors.white, size: 20),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

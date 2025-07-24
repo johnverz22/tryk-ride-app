@@ -139,37 +139,32 @@ class _RideTrackingScreenState extends ConsumerState<RideTrackingScreen> {
     _socketService.init(widget.rideId, (eventData) async {
       if (!mounted) return;
 
-      final latRaw = eventData['latitude'];
-      final lngRaw = eventData['longitude'];
-      final updatedDriverData = eventData['driver'] as Map<String, dynamic>?;
+      final eventName = eventData['event'];
+
+      if (eventName.toString().contains('DriverLocationUpdated')) {
+        final payload = eventData['data'];
+        final latRaw = payload['latitude'];
+        final lngRaw = payload['longitude'];
+
+        final lat = double.tryParse(latRaw.toString());
+        final lng = double.tryParse(lngRaw.toString());
+
+        if (lat == null || lng == null) {
+          debugPrint('Invalid coordinates received. Discarding update.');
+          return;
+        }
+
+        final newDriverLatLng = LatLng(lat, lng);
+
+        setState(() {
+          _driverLocation = newDriverLatLng;
+        });
+
+        await _updatePolylines();
+        await _recenterMap(newDriverLatLng);
+      }
+
       final rideStatus = eventData['status']?['name']?.toString().toLowerCase();
-
-      final lat = latRaw is num
-          ? latRaw.toDouble()
-          : double.tryParse(latRaw.toString()) ??
-                _driverLocation?.latitude ??
-                0.0;
-      final lng = lngRaw is num
-          ? lngRaw.toDouble()
-          : double.tryParse(lngRaw.toString()) ??
-                _driverLocation?.longitude ??
-                0.0;
-
-      final newDriverLatLng = LatLng(lat, lng);
-
-      setState(() {
-        _driverLocation = newDriverLatLng;
-        if (updatedDriverData != null) {
-          _driver = {...?_driver, ...updatedDriverData};
-        }
-        if (rideStatus != null) {
-          _ride?['status'] = {'name': rideStatus};
-        }
-      });
-
-      await _updatePolylines();
-      await _recenterMap(newDriverLatLng);
-
       if (rideStatus == 'completed' || rideStatus == 'cancelled') {
         _socketService.disconnect();
         if (rideStatus == 'completed' && !_hasSubmittedRating) {

@@ -18,8 +18,6 @@ class DriverLocationUpdated implements ShouldBroadcast
     public $ride;
     public $latitude;
     public $longitude;
-    public $bearing; // Optional
-    public $speed;   // Optional
 
     /**
      * Create a new event instance.
@@ -36,8 +34,6 @@ class DriverLocationUpdated implements ShouldBroadcast
         $this->ride = $ride;
         $this->latitude = $latitude;
         $this->longitude = $longitude;
-        $this->bearing = $bearing;
-        $this->speed = $speed;
     }
 
     /**
@@ -75,14 +71,12 @@ class DriverLocationUpdated implements ShouldBroadcast
             'driver_id' => $this->driver->id,
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
-            'bearing' => $this->bearing,
-            'speed' => $this->speed,
             'timestamp' => now()->timestamp,
             'driver_info' => [
                 'name' => $this->driver->name,
-                'vehicle_model' => $this->driver->vehicle_model, // Example
-                'license_plate' => $this->driver->license_plate, // Example
-                'profile_picture' => $this->driver->profile_picture_url, // Example
+                'vehicle_model' => $this->driver->vehicle_model,
+                'license_plate' => $this->driver->license_plate,
+                'profile_picture' => $this->driver->profile_picture,
             ],
             'status' => [
                 'id' => $this->ride->status_id,

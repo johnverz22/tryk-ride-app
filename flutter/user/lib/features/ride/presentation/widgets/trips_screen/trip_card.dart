@@ -6,21 +6,14 @@ import 'package:user/features/ride/domain/entities/trip_entity.dart';
 class TripCard extends StatelessWidget {
   final TripEntity trip;
   final VoidCallback? onViewDetails;
-  final VoidCallback? onRebook;
 
-  const TripCard({
-    super.key,
-    required this.trip,
-    this.onViewDetails,
-    this.onRebook,
-  });
+  const TripCard({super.key, required this.trip, this.onViewDetails});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    // Determine the most relevant date to display
     final DateTime displayDate =
         trip.completedAt ??
         trip.canceledAt ??
@@ -40,7 +33,7 @@ class TripCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(theme, displayDate, trip.statusName),
+              _buildHeader(context, theme, displayDate, trip.statusName),
               const SizedBox(height: 16),
               _buildRouteInfo(theme),
               const SizedBox(height: 8),
@@ -55,13 +48,48 @@ class TripCard extends StatelessWidget {
   }
 
   // Header: Contains Date and Status Badge
-  Widget _buildHeader(ThemeData theme, DateTime displayDate, String status) {
+  Widget _buildHeader(
+    BuildContext context,
+    ThemeData theme,
+    DateTime displayDate,
+    String status,
+  ) {
+    final date = DateFormat('EEE, MMM d, yyyy – h:mm a').format(displayDate);
+    final String driver = trip.driverName ?? 'N/A';
+    final int? riderRating = trip.riderRating;
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          DateFormat('MMM dd, yyyy – hh:mm a').format(displayDate),
-          style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+        CircleAvatar(
+          backgroundColor: Theme.of(context).primaryColor.withValues(alpha: .1),
+          child: Text(
+            driver.substring(0, 1),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).primaryColor,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$driver ${riderRating != null ? '★ $riderRating' : ''}',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                date,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+              ),
+            ],
+          ),
         ),
         _StatusBadge(status: status),
       ],
@@ -73,14 +101,14 @@ class TripCard extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildRouteIndicator(),
+        _buildRouteIndicator(theme),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildLocationText(trip.pickupAddress, 'Pickup', theme),
-              const SizedBox(height: 24), // Space between pickup and dropoff
+              const SizedBox(height: 24),
               _buildLocationText(trip.dropoffAddress, 'Dropoff', theme),
             ],
           ),
@@ -91,36 +119,14 @@ class TripCard extends StatelessWidget {
 
   // Footer: Contains Fare, Driver info, Payment Method, and Action buttons
   Widget _buildFooter(ThemeData theme) {
-    final String driver = trip.driverName ?? 'N/A';
-    final int? riderRating = trip.riderRating;
     final String paymentMethod = trip.paymentMethod;
 
     return Column(
       children: [
         Row(
-          crossAxisAlignment:
-              CrossAxisAlignment.start, // Align items to the top
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // --- START: MODIFIED SECTION ---
-            // Group driver and payment info in a column
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildInfoChip(
-                  Icons.person_outline,
-                  '$driver ${riderRating != null ? '★ $riderRating' : ''}',
-                  theme,
-                ),
-                const SizedBox(height: 8),
-                _buildInfoChip(
-                  Icons.credit_card, // Icon for payment method
-                  'Paid via $paymentMethod',
-                  theme,
-                ),
-              ],
-            ),
-            // --- END: MODIFIED SECTION ---
+            _buildInfoChip(Icons.credit_card, 'Paid via $paymentMethod', theme),
             Text(
               currencyFormatter.format(trip.fareAmount),
               style: theme.textTheme.titleLarge?.copyWith(
@@ -130,7 +136,7 @@ class TripCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        _buildActionButtons(theme),
+        _buildActionButtons(),
       ],
     );
   }
@@ -157,14 +163,14 @@ class TripCard extends StatelessWidget {
     );
   }
 
-  // Visual indicator for the route (from -> to)
-  Widget _buildRouteIndicator() {
+  Widget _buildRouteIndicator(ThemeData theme) {
+    final themeColor = theme.primaryColor;
     return Column(
       children: [
-        const SizedBox(height: 4),
-        const Icon(Icons.trip_origin, color: Colors.green, size: 20),
-        Container(height: 30, width: 1, color: Colors.grey[300]),
-        const Icon(Icons.location_on, color: Colors.red, size: 20),
+        const SizedBox(height: 8),
+        Icon(Icons.trip_origin, color: themeColor, size: 20),
+        Container(height: 50, width: 1, color: Colors.grey[300]),
+        Icon(Icons.location_on, color: themeColor, size: 20),
       ],
     );
   }
@@ -175,19 +181,21 @@ class TripCard extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: Colors.grey[600]),
         const SizedBox(width: 6),
-        Text(text, style: theme.textTheme.bodyMedium),
+        Text(
+          text,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }
 
   // Action Buttons row
-  Widget _buildActionButtons(ThemeData theme) {
+  Widget _buildActionButtons() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        // Only show Rebook button if trip is completed and callback exists
-        if (trip.isCompleted && onRebook != null)
-          TextButton(onPressed: onRebook, child: const Text('Rebook')),
         const SizedBox(width: 8),
         FilledButton(
           onPressed: onViewDetails,
@@ -217,8 +225,11 @@ class _StatusBadge extends StatelessWidget {
         return (color: Colors.green.shade700, icon: Icons.check_circle);
       case 'cancelled':
         return (color: Colors.red.shade700, icon: Icons.cancel);
-      default: // Ongoing statuses
-        return (color: Colors.orange.shade700, icon: Icons.hourglass_top);
+      default:
+        return (
+          color: Colors.orange.shade700,
+          icon: Icons.access_time_filled_rounded,
+        );
     }
   }
 
@@ -228,7 +239,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: style.color.withOpacity(0.1),
+        color: style.color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(

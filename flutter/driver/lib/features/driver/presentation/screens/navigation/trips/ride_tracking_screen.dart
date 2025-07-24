@@ -6,8 +6,9 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:location/location.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../../../../core/services/auth_service.dart';
+import '../../../../../../core/services/auth_service.dart'; // Assuming this service exists
 
+// Enum for ride status remains the same
 enum RideStatus {
   accepted,
   driverEnRoute,
@@ -19,7 +20,6 @@ enum RideStatus {
 
 class RideTrackingScreen extends StatefulWidget {
   final int rideId;
-
   const RideTrackingScreen({super.key, required this.rideId});
 
   @override
@@ -27,33 +27,42 @@ class RideTrackingScreen extends StatefulWidget {
 }
 
 class _RideTrackingScreenState extends State<RideTrackingScreen> {
+  // Controllers and Services
   GoogleMapController? _mapController;
-  Timer? _pollingTimer;
+  final Location _location = Location();
+  final AuthService _authService = AuthService();
 
+  // Timers
+  Timer? _pollingTimer;
+  Timer? _waitTimer;
+
+  // State
   Map<String, dynamic>? _ride;
   LatLng? _pickup;
   LatLng? _dropoff;
   LatLng? _driverLocation;
-
   Set<Polyline> _polylines = {};
-  List<String> _navigationSteps = [];
   bool _isLoading = true;
+  List<String> _navigationSteps = [];
+
+  // Ride Metrics & Status
+  RideStatus _rideStatus = RideStatus.unknown;
   String? _distanceToDest;
   String? _etaToDest;
 
+  // Waiting Timer State
+  int _waitingSeconds = 0;
+  bool _isWaitingActive = false;
+  bool _waitHasBeenExtended = false;
+
+  // Environment Variables
   String? baseUrl = dotenv.env['BASE_URL'];
   String? googleMapsApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
-
-  int _waitingSeconds = 0;
-  Timer? _waitTimer;
-  bool _isWaiting = false;
-  bool _extended = false;
 
   @override
   void initState() {
     super.initState();
-    _loadRide();
-    _startPolling();
+    _initializeRide();
   }
 
   @override
@@ -64,78 +73,125 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     super.dispose();
   }
 
+  // --- Initialization and Polling ---
+  Future<void> _initializeRide() async {
+    await _updateRideDetails(isInitialLoad: true);
+    if (_rideStatus != RideStatus.completed &&
+        _rideStatus != RideStatus.cancelled) {
+      _startPolling();
+      await _startLocationUpdates();
+    }
+  }
+
   void _startPolling() {
-    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      _loadRide();
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _updateRideDetails();
     });
   }
 
-  Future<void> _navigateWithGoogleMaps() async {
-    // Validate locations
-    if (_pickup == null || _dropoff == null) {
-      debugPrint('Pickup or drop-off location is null!');
-      return;
-    }
+  // --- Core Logic: Ride and Location Updates ---
+  Future<void> _updateRideDetails({bool isInitialLoad = false}) async {
+    try {
+      final token = await _authService.getToken();
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/rides/${widget.rideId}'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/json',
+        },
+      );
 
-    final origin = _pickup!;
-    final destination = _dropoff!;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final status = _getRideStatus(data['status']?['name']);
 
-    // Log locations for debugging
-    debugPrint('Origin: ${origin.latitude}, ${origin.longitude}');
-    debugPrint(
-      'Destination: ${destination.latitude}, ${destination.longitude}',
-    );
+        setState(() {
+          _ride = data;
+          _rideStatus = status;
+          _pickup = LatLng(
+            double.parse(data['pickup_latitude'].toString()),
+            double.parse(data['pickup_longitude'].toString()),
+          );
+          _dropoff = LatLng(
+            double.parse(data['dropoff_latitude'].toString()),
+            double.parse(data['dropoff_longitude'].toString()),
+          );
 
-    final uri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1'
-      '&origin=${origin.latitude},${origin.longitude}'
-      '&destination=${destination.latitude},${destination.longitude}'
-      '&travelmode=driving'
-      '&dir_action=navigate',
-    );
+          if (data['driver_latitude'] != null) {
+            _driverLocation = LatLng(
+              double.parse(data['driver_latitude'].toString()),
+              double.parse(data['driver_longitude'].toString()),
+            );
+          }
 
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    } else {
-      throw 'Could not launch $uri';
+          if (isInitialLoad) _isLoading = false;
+        });
+
+        if (status == RideStatus.completed || status == RideStatus.cancelled) {
+          _pollingTimer?.cancel();
+        }
+
+        await _fetchRoute();
+      } else {
+        throw Exception('Failed to load ride: ${response.body}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading ride details: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
-  Future<void> _getCurrentDriverLocation() async {
-    final location = Location();
+  Future<void> _startLocationUpdates() async {
+    bool serviceEnabled = await _location.serviceEnabled();
+    if (!serviceEnabled) serviceEnabled = await _location.requestService();
+    if (!serviceEnabled) return;
 
-    bool serviceEnabled = await location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await location.requestService();
-      if (!serviceEnabled) return;
+    PermissionStatus permission = await _location.hasPermission();
+    if (permission == PermissionStatus.denied) {
+      permission = await _location.requestPermission();
+    }
+    if (permission != PermissionStatus.granted) return;
+
+    // Get initial location immediately
+    _updateAndSendLocation();
+
+    // Then continue updating periodically
+    _location.onLocationChanged.listen((LocationData currentLocation) {
+      if (currentLocation.latitude != null &&
+          currentLocation.longitude != null) {
+        final newLocation = LatLng(
+          currentLocation.latitude!,
+          currentLocation.longitude!,
+        );
+        _updateAndSendLocation(newLocation);
+      }
+    });
+  }
+
+  Future<void> _updateAndSendLocation([LatLng? location]) async {
+    LatLng? newLocation = location;
+    if (newLocation == null) {
+      final locData = await _location.getLocation();
+      newLocation = LatLng(locData.latitude!, locData.longitude!);
     }
 
-    PermissionStatus permissionGranted = await location.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) return;
-    }
-
-    final currentLocation = await location.getLocation();
-    if (currentLocation.latitude != null && currentLocation.longitude != null) {
-      final newLocation = LatLng(
-        currentLocation.latitude!,
-        currentLocation.longitude!,
-      );
-
-      setState(() {
-        _driverLocation = newLocation;
-      });
-
-      await _sendDriverLocationToServer(newLocation);
-      await _fetchRoute();
-      await _centerMap();
-    }
+    setState(() {
+      _driverLocation = newLocation;
+    });
+    _sendDriverLocationToServer(newLocation);
+    _fetchRoute();
   }
 
   Future<void> _sendDriverLocationToServer(LatLng location) async {
     try {
-      final token = await AuthService().getToken();
+      final token = await _authService.getToken();
       await http.post(
         Uri.parse('$baseUrl/api/rides/${widget.rideId}/update-location'),
         headers: {
@@ -152,199 +208,75 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     }
   }
 
-  Future<void> _loadRide() async {
+  Future<void> _updateRideStatus(
+    int statusId, {
+    String? cancellationReason,
+  }) async {
     try {
-      final token = await AuthService().getToken();
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/rides/${widget.rideId}'),
+      final token = await _authService.getToken();
+      final response = await http.post(
+        Uri.parse(
+          '$baseUrl/api/rides/${widget.rideId}/status',
+        ), // A single endpoint is cleaner
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
+        body: jsonEncode({'status_id': statusId}),
       );
-
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final pickup = LatLng(
-          double.tryParse(data['pickup_latitude'].toString()) ?? 0,
-          double.tryParse(data['pickup_longitude'].toString()) ?? 0,
-        );
-        final dropoff = LatLng(
-          double.tryParse(data['dropoff_latitude'].toString()) ?? 0,
-          double.tryParse(data['dropoff_longitude'].toString()) ?? 0,
-        );
-        final driver = LatLng(
-          double.tryParse(data['driver_latitude']?.toString() ?? '0') ?? 0,
-          double.tryParse(data['driver_longitude']?.toString() ?? '0') ?? 0,
-        );
-
-        setState(() {
-          _ride = data;
-          _pickup = pickup;
-          _dropoff = dropoff;
-          _driverLocation = driver;
-          _isLoading = false;
-        });
-
-        final status = _getRideStatus(data['status']?['name']);
-        if (status == RideStatus.completed || status == RideStatus.cancelled) {
-          _pollingTimer?.cancel();
+        // Stop waiting timer if ride starts
+        if (statusId == 4) {
+          // 'Ride in Progress'
+          _waitTimer?.cancel();
+          setState(() {
+            _isWaitingActive = false;
+            _waitingSeconds = 0;
+          });
         }
-
-        await _getCurrentDriverLocation();
-        await _fetchRoute();
+        await _updateRideDetails(); // Refresh data after successful update
       } else {
-        debugPrint('Failed to load ride details: ${response.statusCode}');
+        throw Exception(
+          jsonDecode(response.body)['message'] ?? 'Unknown error',
+        );
       }
     } catch (e) {
-      debugPrint('Error loading ride: $e');
-    }
-  }
-
-  RideStatus _getRideStatus(String? status) {
-    switch (status?.toLowerCase()) {
-      case 'accepted':
-        return RideStatus.accepted;
-      case 'driver en route':
-        return RideStatus.driverEnRoute;
-      case 'ride in progress':
-        return RideStatus.inProgress;
-      case 'completed':
-        return RideStatus.completed;
-      case 'cancelled':
-        return RideStatus.cancelled;
-      default:
-        return RideStatus.unknown;
-    }
-  }
-
-  Future<void> _markDriverEnRoute() async {
-    try {
-      final token = await AuthService().getToken();
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/rides/${widget.rideId}/start'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'status_id': 3}),
-      );
-
-      if (response.statusCode == 200) {
-        await _loadRide();
-      } else {
-        debugPrint('Failed to mark as en route: ${response.body}');
-      }
-    } catch (e) {
-      debugPrint('Error marking as en route: $e');
-    }
-  }
-
-  Future<void> _startRide() async {
-    try {
-      final token = await AuthService().getToken();
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/rides/${widget.rideId}/start'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'status_id': 4}),
-      );
-
-      if (response.statusCode == 200) {
-        _waitTimer?.cancel();
-        _isWaiting = false;
-        _waitingSeconds = 0;
-
-        await _loadRide();
-      } else {
-        debugPrint('Failed to start ride: ${response.body}');
-      }
-    } catch (e) {
-      debugPrint('Error starting ride: $e');
-    }
-  }
-
-  Future<void> _completeRide() async {
-    try {
-      final token = await AuthService().getToken();
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/rides/${widget.rideId}/complete'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'status_id': 5}),
-      );
-
-      if (response.statusCode == 200) {
-        await _loadRide();
-      } else {
-        debugPrint('Failed to complete ride: ${response.body}');
-      }
-    } catch (e) {
-      debugPrint('Error completing ride: $e');
-    }
-  }
-
-  Future<void> _centerMap() async {
-    if (_mapController != null && _driverLocation != null) {
-      await _mapController!.animateCamera(
-        CameraUpdate.newLatLng(_driverLocation!),
-      );
-    }
-  }
-
-  Set<Marker> _buildMarkers() {
-    final markers = <Marker>{};
-
-    if (_driverLocation != null) {
-      markers.add(
-        Marker(
-          markerId: const MarkerId('driver'),
-          position: _driverLocation!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-          infoWindow: const InfoWindow(title: 'Driver Location'),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update status: $e'),
+          backgroundColor: Colors.red,
         ),
       );
     }
-
-    if (_pickup != null) {
-      markers.add(
-        Marker(
-          markerId: const MarkerId('pickup'),
-          position: _pickup!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueGreen,
-          ),
-          infoWindow: const InfoWindow(title: 'Pickup'),
-        ),
-      );
-    }
-
-    if (_dropoff != null) {
-      markers.add(
-        Marker(
-          markerId: const MarkerId('dropoff'),
-          position: _dropoff!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          infoWindow: const InfoWindow(title: 'Dropoff'),
-        ),
-      );
-    }
-
-    return markers;
   }
 
+  // --- UI Actions ---
+  void _onStartWaiting() {
+    setState(() {
+      _isWaitingActive = true;
+      _waitingSeconds = 300; // 5 minutes
+    });
+    _waitTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_waitingSeconds > 0) {
+        setState(() => _waitingSeconds--);
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+  void _onExtendWaiting() {
+    setState(() {
+      _waitingSeconds += 120; // +2 minutes
+      _waitHasBeenExtended = true;
+    });
+  }
+
+  // --- Map and Route Logic ---
   Future<void> _fetchRoute() async {
+    // This logic remains largely the same, but it's called more efficiently now.
     if (_driverLocation == null || googleMapsApiKey == null) return;
-
-    final rideStatus = _getRideStatus(_ride?['status']?['name']);
+    final rideStatus = _rideStatus;
     LatLng? destination;
 
     switch (rideStatus) {
@@ -356,6 +288,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
         destination = _dropoff;
         break;
       default:
+        setState(() => _polylines = {});
         return;
     }
 
@@ -367,7 +300,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       '&destination=${destination.latitude},${destination.longitude}'
       '&key=$googleMapsApiKey',
     );
-
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -437,308 +369,311 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     return html.replaceAll(RegExp(r'<[^>]*>|&nbsp;'), '').trim();
   }
 
-  void _startWaitingTimer() {
-    _waitingSeconds = 3;
-    _isWaiting = true;
-    _waitTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() {
-        if (_waitingSeconds > 0) {
-          _waitingSeconds--;
-        } else {
-          timer.cancel();
-        }
-      });
-    });
-  }
-
-  void _extendWaitingTime() {
-    if (!_extended) {
-      setState(() {
-        _waitingSeconds += 120;
-        _extended = true;
-      });
-
-      // Restart the timer if it was canceled
-      if (_waitTimer?.isActive != true) {
-        _waitTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          setState(() {
-            if (_waitingSeconds > 0) {
-              _waitingSeconds--;
-            } else {
-              timer.cancel();
-            }
-          });
-        });
-      }
+  // --- Helpers ---
+  RideStatus _getRideStatus(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'accepted':
+        return RideStatus.accepted;
+      case 'driver en route':
+        return RideStatus.driverEnRoute;
+      case 'ride in progress':
+        return RideStatus.inProgress;
+      case 'completed':
+        return RideStatus.completed;
+      case 'cancelled':
+        return RideStatus.cancelled;
+      default:
+        return RideStatus.unknown;
     }
   }
 
   String _formatDuration(int seconds) {
     final minutes = seconds ~/ 60;
     final secs = seconds % 60;
-    return '$minutes:${secs.toString().padLeft(2, '0')}';
+    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
+  // --- Build Methods ---
   @override
   Widget build(BuildContext context) {
-    if (_isLoading || _ride == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    final rider = _ride?['user']?['name'] ?? 'Unknown';
-    final payment = _ride?['payment_method'] ?? 'Unknown';
-    final fare = _ride?['fare_amount'] ?? 0;
-    final statusStr = _ride?['status']?['name'] ?? 'Unknown';
-    final rideStatus = _getRideStatus(statusStr);
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Track Ride')),
-      body: Stack(
-        children: [
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: _pickup ?? const LatLng(0, 0),
-              zoom: 14,
+      appBar: AppBar(
+        title: Text(_isLoading ? 'Loading Ride...' : 'Ride Tracking'),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Stack(
+              children: [
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _pickup ?? const LatLng(0, 0),
+                    zoom: 15,
+                  ),
+                  markers: _buildMarkers(),
+                  polylines: _polylines,
+                  onMapCreated: (controller) => _mapController = controller,
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: true,
+                  padding: const EdgeInsets.only(
+                    bottom: 250,
+                  ), // Adjust padding for bottom sheet
+                ),
+                _buildBottomPanel(),
+              ],
             ),
-            markers: _buildMarkers(),
-            polylines: _polylines,
-            onMapCreated: (controller) => _mapController = controller,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
+    );
+  }
+
+  Widget _buildBottomPanel() {
+    final riderName = _ride?['user']?['name'] ?? 'Unknown';
+    final statusStr = _ride?['status']?['name'] ?? 'Unknown';
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.35,
+      minChildSize: 0.35,
+      maxChildSize: 0.8,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(16),
+            children: [
+              // Top handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              const SizedBox(height: 16),
+              _buildRiderInfo(riderName, statusStr),
+              const Divider(height: 32),
+              _buildTripDetails(),
+              const SizedBox(height: 16),
+              _buildActionButtons(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRiderInfo(String name, String status) {
+    return Row(
+      children: [
+        CircleAvatar(radius: 30, child: const Icon(Icons.person, size: 30)),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                'Status: $status',
+                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.message, color: Colors.blue),
+          onPressed: () {
+            /* TODO: Chat */
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.call, color: Colors.green),
+          onPressed: () {
+            /* TODO: Call */
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTripDetails() {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _infoTile(Icons.route, _distanceToDest ?? '--', 'Distance'),
+            _infoTile(Icons.timer, _etaToDest ?? '--', 'ETA'),
+            _infoTile(
+              Icons.money,
+              '₱${_ride?['fare_amount']?.toStringAsFixed(2) ?? '0.00'}',
+              'Fare',
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
+          onPressed: _navigateWithGoogleMaps,
+          icon: const Icon(Icons.navigation),
+          label: const Text('Navigate in Google Maps'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size.fromHeight(45),
+            backgroundColor: Colors.blue[800],
+            foregroundColor: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    switch (_rideStatus) {
+      case RideStatus.accepted:
+        return _actionButton(
+          title: "I've Arrived at Pickup",
+          onPressed: () => _updateRideStatus(3),
+        ); // status 3: Driver En Route
+
+      case RideStatus.driverEnRoute:
+        if (_isWaitingActive) {
+          return Column(
+            children: [
+              Text(
+                'Waiting for Rider: ${_formatDuration(_waitingSeconds)}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
                 children: [
-                  // Top Handle
-                  Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(10),
+                  Expanded(
+                    child: _actionButton(
+                      title: "Start Ride",
+                      onPressed: () => _updateRideStatus(4),
                     ),
-                  ),
-
-                  // Rider Info
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        child: const Icon(Icons.person, color: Colors.white),
+                  ), // status 4: In Progress
+                  if (!_waitHasBeenExtended) ...[
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _actionButton(
+                        title: "+2 min",
+                        onPressed: _onExtendWaiting,
+                        color: Colors.orange,
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              rider,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              'Status: $statusStr',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Address & Payment Info
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Pickup:',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Text(_ride?['pickup_address'] ?? 'Unknown'),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Dropoff:',
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Text(_ride?['dropoff_address'] ?? 'Unknown'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          const Text(
-                            'Payment',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(payment),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Fare',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text('₱${fare.toStringAsFixed(2)}'),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Distance & ETA Tiles
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      if (_distanceToDest != null)
-                        _infoTile(Icons.route, _distanceToDest!, 'Distance'),
-                      if (_etaToDest != null)
-                        _infoTile(Icons.timer, _etaToDest!, 'ETA'),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  ElevatedButton.icon(
-                    onPressed: _navigateWithGoogleMaps,
-                    icon: const Icon(Icons.navigation, color: Colors.white),
-                    label: const Text(
-                      'Navigate in Google Maps',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(45),
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-
-                  // Buttons by Ride Status
-                  if (rideStatus == RideStatus.accepted)
-                    ElevatedButton(
-                      onPressed: _markDriverEnRoute,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(45),
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text(
-                        'Start Ride',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-
-                  if (rideStatus == RideStatus.driverEnRoute && !_isWaiting)
-                    ElevatedButton(
-                      onPressed: _startWaitingTimer,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(45),
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                      ),
-                      child: const Text(
-                        "I'm Here (Wait for 5 minutes)",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-
-                  if (_isWaiting && rideStatus != RideStatus.inProgress) ...[
-                    Text('Waiting: ${_formatDuration(_waitingSeconds)}'),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        if (!_extended)
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _extendWaitingTime,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const Text('+2 min Extension'),
-                            ),
-                          ),
-                        if (!_extended &&
-                            rideStatus == RideStatus.driverEnRoute)
-                          const SizedBox(width: 12),
-                        if (rideStatus == RideStatus.driverEnRoute)
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: _startRide,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const Text(
-                                'Start Ride',
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          ),
-                      ],
                     ),
                   ],
-
-                  if (rideStatus == RideStatus.inProgress)
-                    ElevatedButton.icon(
-                      onPressed: _completeRide,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(45),
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
-                      ),
-                      icon: const Icon(Icons.check),
-                      label: const Text('Complete Ride'),
-                    ),
-
-                  const SizedBox(height: 12),
-
-                  if (_navigationSteps.isNotEmpty)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Directions:',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        ..._navigationSteps.map((s) => Text('• $s')),
-                      ],
-                    ),
                 ],
               ),
-            ),
+            ],
+          );
+        }
+        return _actionButton(
+          title: "Start Waiting Timer (5 min)",
+          onPressed: _onStartWaiting,
+        );
+
+      case RideStatus.inProgress:
+        return _actionButton(
+          title: "Complete Ride",
+          onPressed: () => _updateRideStatus(5),
+          color: Colors.green,
+        ); // status 5: Completed
+
+      case RideStatus.completed:
+        return const Text(
+          "Ride Completed",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.green,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
           ),
-        ],
+        );
+
+      case RideStatus.cancelled:
+        return const Text(
+          "Ride Cancelled",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.red,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _actionButton({
+    required String title,
+    required VoidCallback onPressed,
+    Color? color,
+  }) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size.fromHeight(45),
+        backgroundColor: color ?? Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
       ),
+      child: Text(title),
     );
+  }
+
+  Set<Marker> _buildMarkers() {
+    final markers = <Marker>{};
+
+    if (_driverLocation != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('driver'),
+          position: _driverLocation!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          infoWindow: const InfoWindow(title: 'Driver Location'),
+        ),
+      );
+    }
+
+    if (_pickup != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('pickup'),
+          position: _pickup!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
+          infoWindow: const InfoWindow(title: 'Pickup'),
+        ),
+      );
+    }
+
+    if (_dropoff != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('dropoff'),
+          position: _dropoff!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          infoWindow: const InfoWindow(title: 'Dropoff'),
+        ),
+      );
+    }
+
+    return markers;
   }
 
   Widget _infoTile(IconData icon, String value, String label) {
@@ -750,5 +685,36 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
         Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
       ],
     );
+  }
+
+  Future<void> _navigateWithGoogleMaps() async {
+    // Validate locations
+    if (_pickup == null || _dropoff == null) {
+      debugPrint('Pickup or drop-off location is null!');
+      return;
+    }
+
+    final origin = _pickup!;
+    final destination = _dropoff!;
+
+    // Log locations for debugging
+    debugPrint('Origin: ${origin.latitude}, ${origin.longitude}');
+    debugPrint(
+      'Destination: ${destination.latitude}, ${destination.longitude}',
+    );
+
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1'
+      '&origin=${origin.latitude},${origin.longitude}'
+      '&destination=${destination.latitude},${destination.longitude}'
+      '&travelmode=driving'
+      '&dir_action=navigate',
+    );
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      throw 'Could not launch $uri';
+    }
   }
 }

@@ -1,34 +1,42 @@
 import 'package:flutter/material.dart';
 
-class TripSearchBar extends StatelessWidget {
+class CustomSearchBar extends StatelessWidget {
   final ValueChanged<String> onChanged;
-  final VoidCallback? onFilterPressed;
+  final VoidCallback onFilterPressed;
 
-  const TripSearchBar({
+  const CustomSearchBar({
     super.key,
     required this.onChanged,
-    this.onFilterPressed,
+    required this.onFilterPressed,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: TextField(
         onChanged: onChanged,
         decoration: InputDecoration(
-          hintText: 'Search trips',
+          hintText: 'Search by location or name...',
           prefixIcon: const Icon(Icons.search),
           suffixIcon: IconButton(
-            icon: const Icon(Icons.filter_alt_outlined),
+            icon: const Icon(Icons.filter_list),
+            tooltip: 'Filter by date',
             onPressed: onFilterPressed,
           ),
           filled: true,
-          fillColor: Colors.grey[100],
-          contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 0,
+            horizontal: 20,
+          ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide(color: Colors.grey.shade300),
           ),
         ),
       ),

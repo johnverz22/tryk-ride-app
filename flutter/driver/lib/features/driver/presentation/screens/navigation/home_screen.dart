@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:driver/features/driver/presentation/providers/location_service_provider.dart';
+import 'package:driver/features/driver/presentation/screens/navigation/trips/ride_tracking_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:slide_to_act/slide_to_act.dart';
@@ -30,6 +32,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       vsync: this,
       duration: Duration(seconds: _remainingSeconds),
     );
+    ref.read(locationServiceProvider.notifier).fetchInitialLocation();
   }
 
   @override
@@ -93,6 +96,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             context: context,
             riderName: updatedRide.riderName ?? 'Rider',
             profilePicture: updatedRide.riderProfilePicture,
+            rideId: updatedRide.id,
           );
         }
       }
@@ -123,6 +127,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     required BuildContext context,
     required String riderName,
     required String? profilePicture,
+    required int rideId,
   }) async {
     final theme = Theme.of(context);
     final result = await showModalBottomSheet(
@@ -262,7 +267,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
 
     if (result == 'navigate_to_tracking') {
-      // TODO: Navigator.pushNamed(context, '/tracking');
+      if (!mounted) return;
+      // Navigate to the RideTrackingScreen with the accepted ride's ID
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => RideTrackingScreen(rideId: rideId),
+        ),
+      );
     }
   }
 
@@ -494,6 +506,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             context: context,
                             riderName: updatedRide.riderName ?? 'Rider',
                             profilePicture: updatedRide.riderProfilePicture,
+                            rideId: updatedRide.id,
                           );
                         } else {
                           // The notifier already handled the state, but we can show a message.

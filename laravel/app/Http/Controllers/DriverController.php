@@ -13,6 +13,7 @@ use App\Enums\RideStatus;
 use App\Services\DriverMatchingService;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Events\DriverLocationUpdated;
 
 class DriverController extends Controller
 {
@@ -166,31 +167,6 @@ class DriverController extends Controller
         ]);
     }
 
-    public function updateLocation(Request $request)
-    {
-        $user = $this->getAuthUser();
-        $profile = $this->getDriverProfile($user);
-
-        $validated = $request->validate([
-            'latitude'  => 'required|numeric|between:-90,90',
-            'longitude' => 'required|numeric|between:-180,180',
-            'is_online' => 'sometimes|boolean',
-        ]);
-
-        $profile->update([
-            'current_latitude' => $validated['latitude'],
-            'current_longitude' => $validated['longitude'],
-            'is_online' => $validated['is_online'] ?? $profile->is_online,
-        ]);
-
-        return response()->json([
-            'message' => 'Location updated',
-            'latitude' => $profile->current_latitude,
-            'longitude' => $profile->current_longitude,
-            'is_online' => $profile->is_online,
-        ]);
-    }
-
     public function requestRide(Request $request, DriverMatchingService $matcher)
     {
         $user = $this->getAuthUser();
@@ -204,7 +180,7 @@ class DriverController extends Controller
             'dropoff_address' => 'required|string|max:255',
         ]);
 
-        $drivers = $matcher->findNearbyDrivers(
+        $drivers = $matcher->findNextAvailableDriver(
             $validated['pickup_latitude'],
             $validated['pickup_longitude'],
             10
@@ -262,9 +238,7 @@ class DriverController extends Controller
             ])
             ->where('driver_id', $user->id)
             ->latest('requested_at')
-            ->get([
-                'id', 'user_id', 'ride_status_id', 'pickup_address', 'dropoff_address', 'requested_at'
-            ]);
+            ->get();
 
             Log::info('Fetched driver trips', [
                 'driver_id' => $user->id,
@@ -282,41 +256,105 @@ class DriverController extends Controller
     }
 
     public function earningsSummary(Request $request)
-{
-    $driver = $request->user();
+    {
+        $driver = $request->user();
 
-    // Validate query param
-    $range = $request->query('range', 'day'); // default: day
-    if (!in_array($range, ['day', 'week', 'month'])) {
-        return response()->json(['error' => 'Invalid range. Use day, week, or month.'], 400);
+        // Validate query param
+        $range = $request->query('range', 'day'); // default: day
+        if (!in_array($range, ['day', 'week', 'month'])) {
+            return response()->json(['error' => 'Invalid range. Use day, week, or month.'], 400);
+        }
+
+        // Define date range
+        $startDate = match ($range) {
+            'day' => Carbon::today(),
+            'week' => Carbon::now()->startOfWeek(),
+            'month' => Carbon::now()->startOfMonth(),
+        };
+        $endDate = Carbon::now();
+
+        // Get completed, paid rides
+        $rides = DB::table('rides')
+            ->where('driver_id', $driver->id)
+            ->where('is_paid', true)
+            ->whereNotNull('completed_at')
+            ->whereBetween('completed_at', [$startDate, $endDate])
+            ->get();
+
+        // Calculate stats
+        $totalTrips = $rides->count();
+        $totalEarnings = $rides->sum('fare_amount');
+        $averageFare = $totalTrips > 0 ? round($totalEarnings / $totalTrips, 2) : 0;
+
+        return response()->json([
+            'range' => $range,
+            'total_trips' => $totalTrips,
+            'average_fare' => $averageFare,
+            'total_earnings' => $totalEarnings,
+        ]);
     }
 
-    // Define date range
-    $startDate = match ($range) {
-        'day' => Carbon::today(),
-        'week' => Carbon::now()->startOfWeek(),
-        'month' => Carbon::now()->startOfMonth(),
-    };
-    $endDate = Carbon::now();
+    // public function updateLocation(Request $request)
+    // {
+    //     $user = $this->getAuthUser();
+    //     $profile = $this->getDriverProfile($user);
 
-    // Get completed, paid rides
-    $rides = DB::table('rides')
-        ->where('driver_id', $driver->id)
-        ->where('is_paid', true)
-        ->whereNotNull('completed_at')
-        ->whereBetween('completed_at', [$startDate, $endDate])
-        ->get();
+    //     $validated = $request->validate([
+    //         'latitude'  => 'required|numeric|between:-90,90',
+    //         'longitude' => 'required|numeric|between:-180,180',
+    //         'is_online' => 'sometimes|boolean',
+    //     ]);
 
-    // Calculate stats
-    $totalTrips = $rides->count();
-    $totalEarnings = $rides->sum('fare_amount');
-    $averageFare = $totalTrips > 0 ? round($totalEarnings / $totalTrips, 2) : 0;
+    //     $profile->update([
+    //         'current_latitude' => $validated['latitude'],
+    //         'current_longitude' => $validated['longitude'],
+    //         'is_online' => $validated['is_online'] ?? $profile->is_online,
+    //     ]);
 
-    return response()->json([
-        'range' => $range,
-        'total_trips' => $totalTrips,
-        'average_fare' => $averageFare,
-        'total_earnings' => $totalEarnings,
-    ]);
-}
+    //     return response()->json([
+    //         'message' => 'Location updated',
+    //         'latitude' => $profile->current_latitude,
+    //         'longitude' => $profile->current_longitude,
+    //         'is_online' => $profile->is_online,
+    //     ]);
+    // }
+
+    public function updateLocation(Request $request)
+    {
+        $user = $this->getAuthUser();  // Assuming this fetches the authenticated user
+        $driverProfile = $this->getDriverProfile($user); // This should return the authenticated driver's profile
+        
+        // Validate the incoming request data
+        $request->validate([
+            'ride_id' => 'required|exists:rides,id',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+        ]);
+        
+        // Assuming $driverProfile is the Driver model, fetch the ride associated with the driver
+        $ride = Ride::findOrFail($request->ride_id);
+        
+        // Check if the driver is associated with the ride, if not return an error
+        if ($ride->driver_id !== $driverProfile->id) {
+            return response()->json(['error' => 'This ride does not belong to the authenticated driver.'], 403);
+        }
+
+        // Update the driver's current location
+        if ($driverProfile) {
+            $driverProfile->update([
+                'current_latitude' => $request->latitude,
+                'current_longitude' => $request->longitude,
+            ]);
+        }
+
+        // Broadcasting the updated location using the event
+        broadcast(new DriverLocationUpdated(
+            $driverProfile,        // Pass the full driver model
+            $ride,                 // Pass the ride model
+            $request->latitude,   // Pass latitude
+            $request->longitude   // Pass longitude
+        ))->toOthers();  // Broadcast to others, excluding the sender
+        
+        return response()->json(['message' => 'Location updated successfully']);
+    }
 }

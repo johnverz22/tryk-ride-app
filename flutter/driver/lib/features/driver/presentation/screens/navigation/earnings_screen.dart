@@ -1,38 +1,77 @@
 import 'dart:convert';
+import 'dart:math'; // Required for the 'max' function on lists
+import 'package:driver/config/currency.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 // Assuming these are custom widgets from your project.
-// Ensure they are correctly implemented.
+// You must ensure they are correctly implemented and imported.
 import '../../widgets/widgets.dart';
 import 'earnings/withdraw_screen.dart';
 import 'earnings/earnings_history_screen.dart';
 import '../../providers/driver_provider.dart';
 
-// 🔹 Earnings Summary Model (Unchanged)
+//==============================================================================
+// 1. Data Model
+//==============================================================================
+
+/// 🔹 Represents the complete earnings summary for a given time range.
+/// It's designed to hold data for any of the charts.
 class EarningsSummary {
   final double totalEarnings;
   final int totalTrips;
   final double averageFare;
+  final double averageRating;
+
+  // Data for the charts, provided by the API based on the requested range.
+  final List<double> hourlyEarnings; // For the 'day' chart (24 data points)
+  final List<double> dailyEarnings; // For the 'week' chart (7 data points)
+  final List<double>
+  monthlyEarningsByWeek; // For the 'month' chart (4-5 data points)
 
   EarningsSummary({
     required this.totalEarnings,
     required this.totalTrips,
     required this.averageFare,
+    required this.averageRating,
+    required this.hourlyEarnings,
+    required this.dailyEarnings,
+    required this.monthlyEarningsByWeek,
   });
 
+  /// 🔹 Factory constructor to parse the JSON from the API.
   factory EarningsSummary.fromJson(Map<String, dynamic> json) {
+    // Helper function to safely parse lists of doubles from a dynamic JSON list.
+    List<double> toDoubleList(dynamic jsonList) {
+      if (jsonList is List) {
+        return List<double>.from(jsonList.map((e) => (e ?? 0).toDouble()));
+      }
+      return []; // Return an empty list if the key is missing or not a list.
+    }
+
     return EarningsSummary(
       totalEarnings: (json['total_earnings'] ?? 0).toDouble(),
       totalTrips: json['total_trips'] ?? 0,
       averageFare: (json['average_fare'] ?? 0).toDouble(),
+      averageRating: (json['average_rating'] ?? 0).toDouble(),
+      // Parse all potential data arrays. The API will only send one of these
+      // depending on the 'range' parameter.
+      hourlyEarnings: toDoubleList(json['hourly_earnings']),
+      dailyEarnings: toDoubleList(json['daily_earnings']),
+      monthlyEarningsByWeek: toDoubleList(json['monthly_earnings_by_week']),
     );
   }
 }
 
-// 🔹 Earnings Summary Provider (Unchanged)
+//==============================================================================
+// 2. Data Provider
+//==============================================================================
+
+/// 🔹 Riverpod provider to fetch earnings summary from the API.
+/// It takes a 'range' ('day', 'week', 'month') and returns the corresponding data.
 final earningsSummaryProvider = FutureProvider.family<EarningsSummary, String>((
   ref,
   range,
@@ -56,14 +95,19 @@ final earningsSummaryProvider = FutureProvider.family<EarningsSummary, String>((
     },
   );
 
+  // 🔹 No more hardcoded data. We either succeed and parse, or throw an error.
   if (response.statusCode == 200) {
     return EarningsSummary.fromJson(jsonDecode(response.body));
   } else {
+    // The UI's .when() will catch this error and display the error view.
     throw Exception('Failed to load earnings: ${response.body}');
   }
 });
 
-// 🔹 [FIXED & REFACTORED] Earnings Screen with State and TabController
+//==============================================================================
+// 3. UI (Screen Widget)
+//==============================================================================
+
 class EarningsScreen extends ConsumerStatefulWidget {
   const EarningsScreen({super.key});
 
@@ -82,12 +126,21 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
     _tabController = TabController(
       length: _ranges.length,
       vsync: this,
-      initialIndex: 1,
+      initialIndex: 1, // Start on 'This Week'
     );
+    // Add a listener to rebuild the UI when the tab changes, which will
+    // cause Riverpod to re-fetch data for the new range.
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
+    // Clean up the listener and controller to prevent memory leaks.
+    _tabController.removeListener(() {});
     _tabController.dispose();
     super.dispose();
   }
@@ -97,16 +150,16 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    // The selected range is now managed by the stateful widget's TabController
+    // The selected range is now dynamically read from the TabController's index.
     final selectedRange = _ranges[_tabController.index];
     final earningsAsync = ref.watch(earningsSummaryProvider(selectedRange));
 
     return Scaffold(
-      appBar: CustomUserAppBar(), // No parameters passed
+      appBar: CustomUserAppBar(),
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Column(
         children: [
-          // The TabBar is placed here, within the body.
+          // The TabBar to switch between different time ranges.
           Container(
             color: theme.scaffoldBackgroundColor,
             child: TabBar(
@@ -120,51 +173,39 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
                 Tab(text: 'This Week'),
                 Tab(text: 'This Month'),
               ],
-              onTap: (index) {
-                // When a tab is tapped, we call setState to rebuild the widget.
-                // This will re-watch the provider with the new 'selectedRange'.
-                setState(() {});
-              },
             ),
           ),
-          // Use an Expanded widget to allow the ListView to fill the remaining space.
+
+          // The main content area that reacts to the provider's state.
           Expanded(
             child: earningsAsync.when(
               loading: () => Center(
                 child: CircularProgressIndicator(color: colorScheme.primary),
               ),
-              error: (err, _) {
-                // 🔹 [ADDED] Wrap error view with RefreshIndicator
-                // This allows the user to pull-to-refresh even from an error state.
-                return RefreshIndicator(
-                  color: colorScheme.primary,
-                  onRefresh: () => ref.refresh(
-                    earningsSummaryProvider(selectedRange).future,
-                  ),
-                  child: ListView(
-                    children: [
-                      Container(
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.all(24),
-                        height: MediaQuery.of(context).size.height * 0.5,
-                        child: Text(
-                          'An error occurred.\nPull down to try again.\n\n($err)',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: colorScheme.onSurface.withOpacity(0.7),
-                          ),
+              error: (err, _) => RefreshIndicator(
+                color: colorScheme.primary,
+                onRefresh: () =>
+                    ref.refresh(earningsSummaryProvider(selectedRange).future),
+                child: ListView(
+                  children: [
+                    Container(
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.all(24),
+                      height: MediaQuery.of(context).size.height * 0.6,
+                      child: Text(
+                        'An error occurred.\nPull down to try again.\n\n($err)',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
-                    ],
-                  ),
-                );
-              },
+                    ),
+                  ],
+                ),
+              ),
               data: (summary) {
-                // 🔹 [ADDED] Wrap the main content with RefreshIndicator
                 return RefreshIndicator(
                   color: colorScheme.primary,
-                  // onRefresh requires a Future. ref.refresh invalidates the provider
-                  // and returns the new future, which is perfect for this use case.
                   onRefresh: () => ref.refresh(
                     earningsSummaryProvider(selectedRange).future,
                   ),
@@ -172,21 +213,20 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     children: [
                       const SizedBox(height: 16),
-
-                      // Pass the dynamic range to the header card
                       _buildHeaderCard(
                         context,
                         summary,
                         colorScheme,
                         selectedRange,
                       ),
+                      const SizedBox(height: 16),
+
+                      // 🔹 This widget now dynamically builds the correct chart.
+                      _buildChart(summary, colorScheme, selectedRange),
 
                       const SizedBox(height: 24),
-
                       _buildTripStats(summary),
-
                       const SizedBox(height: 32),
-
                       SectionHeaderWithSeeAll(
                         title: 'Recent Payments',
                         onSeeAll: () => Navigator.push(
@@ -197,6 +237,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
                         ),
                       ),
                       const SizedBox(height: 12),
+                      // This is still example data, replace with a real transaction list.
                       ...List.generate(
                         3,
                         (index) => TransactionItem(
@@ -207,9 +248,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
                           onTap: () {},
                         ),
                       ),
-
                       const SizedBox(height: 32),
-
                       SectionHeaderWithSeeAll(
                         title: 'Bonuses & Promotions',
                         onSeeAll: () {},
@@ -235,13 +274,10 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
                           ],
                         ),
                       ),
-
                       const SizedBox(height: 32),
-
                       const SectionTitle('Upcoming Payout'),
                       const SizedBox(height: 12),
                       _buildUpcomingPayout(summary, theme),
-
                       const SizedBox(height: 48),
                     ],
                   ),
@@ -254,6 +290,327 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
     );
   }
 
+  //============================================================================
+  // 4. Widget Builders
+  //============================================================================
+
+  /// 🔹 Main chart builder that selects the correct chart type based on the range.
+  Widget _buildChart(
+    EarningsSummary summary,
+    ColorScheme colorScheme,
+    String range,
+  ) {
+    return switch (range) {
+      'day' => _buildHourlyChart(summary, colorScheme),
+      'week' => _buildDailyChart(summary, colorScheme),
+      'month' => _buildMonthlyChart(summary, colorScheme),
+      _ => const SizedBox.shrink(), // Fallback for safety
+    };
+  }
+
+  /// 🔹 Builds a Line Chart for the 'Today' view, showing earnings by the hour.
+  Widget _buildHourlyChart(EarningsSummary summary, ColorScheme colorScheme) {
+    if (summary.hourlyEarnings.isEmpty) return const SizedBox.shrink();
+
+    final spots = <FlSpot>[];
+    for (int i = 0; i < summary.hourlyEarnings.length; i++) {
+      spots.add(FlSpot(i.toDouble(), summary.hourlyEarnings[i]));
+    }
+
+    return Column(
+      children: [
+        const SectionTitle('Earnings by Hour'),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 200,
+          child: LineChart(
+            LineChartData(
+              gridData: const FlGridData(show: false),
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                leftTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    interval:
+                        3, // Show a label every 3 hours (12A, 3A, 6A, 9A, 12P, 3P, 6P, 9P)
+                    getTitlesWidget: (value, meta) {
+                      final style = TextStyle(
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      );
+                      String text;
+                      switch (value.toInt()) {
+                        case 0:
+                          text = '12A';
+                          break;
+                        case 3:
+                          text = '3AM';
+                          break;
+                        case 6:
+                          text = '6AM';
+                          break;
+                        case 9:
+                          text = '9AM';
+                          break;
+                        case 12:
+                          text = '12P';
+                          break;
+                        case 15:
+                          text = '3PM';
+                          break;
+                        case 18:
+                          text = '6PM';
+                          break;
+                        case 21:
+                          text = '9PM';
+                          break;
+                        default:
+                          return const SizedBox.shrink(); // Hide other labels
+                      }
+                      return SideTitleWidget(
+                        meta: meta,
+                        child: Text(text, style: style),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots,
+                  isCurved: true,
+                  color: colorScheme.primary,
+                  barWidth: 4,
+                  isStrokeCapRound: true,
+                  dotData: const FlDotData(show: false),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    gradient: LinearGradient(
+                      colors: [
+                        colorScheme.primary.withOpacity(0.4),
+                        colorScheme.primary.withOpacity(0.0),
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 🔹 Builds a Bar Chart for the 'This Week' view, showing earnings per day.
+  Widget _buildDailyChart(EarningsSummary summary, ColorScheme colorScheme) {
+    if (summary.dailyEarnings.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionTitle('Daily Breakdown'),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 200,
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY:
+                  summary.dailyEarnings.reduce(max) *
+                  1.2, // Dynamic max Y with 20% padding
+              barTouchData: BarTouchData(
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    return BarTooltipItem(
+                      currencyFormatter.format(rod.toY),
+                      TextStyle(
+                        color: colorScheme.onSecondary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, meta) {
+                      final style = TextStyle(
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      );
+                      String text;
+                      switch (value.toInt()) {
+                        case 0:
+                          text = 'M';
+                          break;
+                        case 1:
+                          text = 'T';
+                          break;
+                        case 2:
+                          text = 'W';
+                          break;
+                        case 3:
+                          text = 'T';
+                          break;
+                        case 4:
+                          text = 'F';
+                          break;
+                        case 5:
+                          text = 'S';
+                          break;
+                        case 6:
+                          text = 'S';
+                          break;
+                        default:
+                          text = '';
+                          break;
+                      }
+                      return SideTitleWidget(
+                        meta: meta,
+                        child: Text(text, style: style),
+                      );
+                    },
+                    reservedSize: 38,
+                  ),
+                ),
+                leftTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+              ),
+              borderData: FlBorderData(show: false),
+              gridData: const FlGridData(show: false),
+              barGroups: List.generate(summary.dailyEarnings.length, (index) {
+                return BarChartGroupData(
+                  x: index,
+                  barRods: [
+                    BarChartRodData(
+                      toY: summary.dailyEarnings[index],
+                      color: colorScheme.primary,
+                      width: 22,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(6),
+                        topRight: Radius.circular(6),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 🔹 Builds a Bar Chart for the 'This Month' view, showing earnings per week.
+  Widget _buildMonthlyChart(EarningsSummary summary, ColorScheme colorScheme) {
+    if (summary.monthlyEarningsByWeek.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionTitle('Weekly Breakdown'),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 200,
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: summary.monthlyEarningsByWeek.reduce(max) * 1.2,
+              barTouchData: BarTouchData(
+                touchTooltipData: BarTouchTooltipData(
+                  getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    return BarTooltipItem(
+                      currencyFormatter.format(rod.toY),
+                      TextStyle(
+                        color: colorScheme.onSecondary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    );
+                  },
+                ),
+              ),
+              titlesData: FlTitlesData(
+                show: true,
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (value, meta) {
+                      final style = TextStyle(
+                        color: colorScheme.onSurface.withOpacity(0.7),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      );
+                      final text = 'Week ${value.toInt() + 1}';
+                      return SideTitleWidget(
+                        meta: meta,
+                        child: Text(text, style: style),
+                      );
+                    },
+                    reservedSize: 38,
+                  ),
+                ),
+                leftTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+              ),
+              borderData: FlBorderData(show: false),
+              gridData: const FlGridData(show: false),
+              barGroups: List.generate(summary.monthlyEarningsByWeek.length, (
+                index,
+              ) {
+                return BarChartGroupData(
+                  x: index,
+                  barRods: [
+                    BarChartRodData(
+                      toY: summary.monthlyEarningsByWeek[index],
+                      color: colorScheme.primary,
+                      width: 35, // Wider bars for the monthly view
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(8),
+                        topRight: Radius.circular(8),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Builds the main header card displaying total earnings.
   Widget _buildHeaderCard(
     BuildContext context,
     EarningsSummary summary,
@@ -293,7 +650,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            '₱${summary.totalEarnings.toStringAsFixed(2)}',
+            currencyFormatter.format(summary.totalEarnings),
             style: TextStyle(
               color: colorScheme.onPrimary,
               fontSize: 48,
@@ -328,6 +685,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
     );
   }
 
+  /// Builds the row of statistic tiles (Trips, Avg Fare, Rating).
   Widget _buildTripStats(EarningsSummary summary) {
     return Row(
       children: [
@@ -342,15 +700,15 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
         Expanded(
           child: ModernTripStatTile(
             label: 'Avg Fare',
-            value: '₱${summary.averageFare.toStringAsFixed(2)}',
+            value: currencyFormatter.format(summary.averageFare),
             icon: Icons.account_balance_wallet_rounded,
           ),
         ),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: ModernTripStatTile(
             label: 'Rating',
-            value: '4.92',
+            value: summary.averageRating.toStringAsFixed(1),
             icon: Icons.star_rounded,
           ),
         ),
@@ -358,6 +716,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
     );
   }
 
+  /// Builds the upcoming payout information card.
   Widget _buildUpcomingPayout(EarningsSummary summary, ThemeData theme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -378,7 +737,7 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
             ),
           ),
           Text(
-            '₱${summary.totalEarnings.toStringAsFixed(2)} • Monday',
+            '${currencyFormatter.format(summary.totalEarnings)} • Monday',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: theme.colorScheme.primary,
@@ -391,7 +750,6 @@ class _EarningsScreenState extends ConsumerState<EarningsScreen>
   }
 }
 
-// 🔹 [REFACTORED] Custom Trip Stat Tile (Theme-Compliant)
 class ModernTripStatTile extends StatelessWidget {
   final String label;
   final String value;
@@ -443,7 +801,6 @@ class ModernTripStatTile extends StatelessWidget {
   }
 }
 
-// 🔹 [REFACTORED] Custom Promotion Card (Theme-Compliant Gradient)
 class ModernPromotionCard extends StatelessWidget {
   final String title;
   final String subtitle;

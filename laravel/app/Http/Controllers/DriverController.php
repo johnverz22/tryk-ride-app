@@ -259,65 +259,102 @@ class DriverController extends Controller
     {
         $driver = $request->user();
 
-        // Validate query param
-        $range = $request->query('range', 'day');
+        // 🔹 Validate the 'range' parameter, defaulting to 'week' if not provided.
+        $range = $request->query('range', 'week');
         if (!in_array($range, ['day', 'week', 'month'])) {
             return response()->json(['error' => 'Invalid range. Use day, week, or month.'], 400);
         }
 
-        // Define date range
-        $startDate = match ($range) {
-            'day' => Carbon::today(),
-            'week' => Carbon::now()->startOfWeek(),
-            'month' => Carbon::now()->startOfMonth(),
-        };
-        $endDate = Carbon::now();
+        $now = Carbon::now();
 
-        // Get completed, paid rides
-        $rides = DB::table('rides')
-            ->where('driver_id', $driver->id)
+        // 🔹 Define the date range for the main query.
+        $startDate = match ($range) {
+            'day'   => $now->copy()->startOfDay(),
+            'week'  => $now->copy()->startOfWeek(Carbon::MONDAY), // Explicitly set Monday as start of the week
+            'month' => $now->copy()->startOfMonth(),
+        };
+
+        // Always query up to the current moment to include all completed rides.
+        $endDate = $now->copy();
+
+        // 🔹 Fetch all relevant rides in a single, efficient query.
+        $rides = Ride::where('driver_id', $driver->id)
             ->where('is_paid', true)
             ->whereNotNull('completed_at')
             ->whereBetween('completed_at', [$startDate, $endDate])
             ->get();
 
-        // Calculate stats
+        // --- 1. Calculate Base Statistics ---
         $totalTrips = $rides->count();
         $totalEarnings = $rides->sum('fare_amount');
         $averageFare = $totalTrips > 0 ? round($totalEarnings / $totalTrips, 2) : 0;
+        // Calculate rating only on rides that actually have a rating to avoid diluting the average.
+        $averageRating = $rides->whereNotNull('rider_rating')->avg('rider_rating');
 
-        return response()->json([
-            'range' => $range,
+
+        // --- 2. Prepare Chart-Specific Data ---
+        $chartData = [];
+
+        switch ($range) {
+            case 'day':
+                // Group rides by the hour of the day (0-23).
+                $ridesByHour = $rides->groupBy(fn($ride) => $ride->completed_at->hour);
+
+                // Initialize an array of 24 hours with 0.0 earnings.
+                $hourlyEarnings = array_fill(0, 24, 0.0);
+
+                // Populate the array with the summed fare for each hour that has earnings.
+                foreach ($ridesByHour as $hour => $ridesInHour) {
+                    $hourlyEarnings[$hour] = round($ridesInHour->sum('fare_amount'), 2);
+                }
+                $chartData['hourly_earnings'] = $hourlyEarnings;
+                break;
+
+            case 'week':
+                // Group rides by the day of the week (0=Mon, 1=Tue, ..., 6=Sun).
+                $ridesByDay = $rides->groupBy(fn($ride) => $ride->completed_at->dayOfWeekIso - 1);
+
+                // Initialize an array of 7 days with 0.0 earnings.
+                $dailyEarnings = array_fill(0, 7, 0.0);
+
+                // Populate the array for each day that has earnings.
+                foreach ($ridesByDay as $dayIndex => $ridesInDay) {
+                    $dailyEarnings[$dayIndex] = round($ridesInDay->sum('fare_amount'), 2);
+                }
+                $chartData['daily_earnings'] = $dailyEarnings;
+                break;
+
+            case 'month':
+                // Group rides by the week number within the current month (0-indexed).
+                $ridesByWeek = $rides->groupBy(fn($ride) => $ride->completed_at->weekOfMonth - 1);
+
+                // Determine the total number of weeks in the current month to create the array.
+                $weeksInMonth = $now->copy()->endOfMonth()->weekOfMonth;
+                // Initialize an array for each week with 0.0 earnings.
+                $monthlyEarningsByWeek = array_fill(0, $weeksInMonth, 0.0);
+
+                // Populate the array for each week that has earnings.
+                foreach ($ridesByWeek as $weekIndex => $ridesInWeek) {
+                    $monthlyEarningsByWeek[$weekIndex] = round($ridesInWeek->sum('fare_amount'), 2);
+                }
+                $chartData['monthly_earnings_by_week'] = $monthlyEarningsByWeek;
+                break;
+        }
+
+        // --- 3. Construct and Return the Final JSON Response ---
+        $baseResponse = [
+            'total_earnings' => $totalEarnings,
             'total_trips' => $totalTrips,
             'average_fare' => $averageFare,
-            'total_earnings' => $totalEarnings,
-        ]);
+            // Ensure rating is a number, defaulting to 0 if null.
+            'average_rating' => round($averageRating ?? 0, 1),
+        ];
+
+        // Merge the base stats with the dynamically generated chart data.
+        $finalResponse = array_merge($baseResponse, $chartData);
+        
+        return response()->json($finalResponse);
     }
-
-    // public function updateLocation(Request $request)
-    // {
-    //     $user = $this->getAuthUser();
-    //     $profile = $this->getDriverProfile($user);
-
-    //     $validated = $request->validate([
-    //         'latitude'  => 'required|numeric|between:-90,90',
-    //         'longitude' => 'required|numeric|between:-180,180',
-    //         'is_online' => 'sometimes|boolean',
-    //     ]);
-
-    //     $profile->update([
-    //         'current_latitude' => $validated['latitude'],
-    //         'current_longitude' => $validated['longitude'],
-    //         'is_online' => $validated['is_online'] ?? $profile->is_online,
-    //     ]);
-
-    //     return response()->json([
-    //         'message' => 'Location updated',
-    //         'latitude' => $profile->current_latitude,
-    //         'longitude' => $profile->current_longitude,
-    //         'is_online' => $profile->is_online,
-    //     ]);
-    // }
 
     public function updateLocation(Request $request)
     {

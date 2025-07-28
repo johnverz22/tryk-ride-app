@@ -37,7 +37,7 @@ class TransactionItem extends StatelessWidget {
           ),
           child: Icon(
             Icons.directions_car,
-            color: isPositive ? Colors.green : Colors.red,
+            color: Theme.of(context).primaryColor,
           ),
         ),
         title: Text(title),

@@ -77,4 +77,19 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasMany(PaymentMethod::class);
     }
+
+    public function updateAverageRating()
+    {
+        $ratings = $this->user->ridesAsRider()
+                            ->whereNotNull('driver_rating')
+                            ->pluck('driver_rating');
+
+        if ($ratings->isNotEmpty()) {
+            $this->average_rating = $ratings->avg();
+        } else {
+            $this->average_rating = 0;
+        }
+
+        $this->save();
+    }
 }

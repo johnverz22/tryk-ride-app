@@ -305,30 +305,78 @@ class RideController extends Controller
         ]);
     }
 
-    public function rateRide(Request $request, Ride $ride)
+    /**
+     * Allows a driver to rate the rider for a completed ride.
+     */
+    public function rateRider(Request $request, Ride $ride)
     {
         $request->validate([
             'rating' => 'required|integer|min:1|max:5',
             'review' => 'nullable|string|max:1000',
         ]);
 
-        // Optional: Check if the user is authorized to rate this ride
+        // 1. Authorization: Ensure the authenticated user is the driver of this ride.
+        if ($ride->driver_id !== Auth::id()) {
+            return response()->json(['message' => 'Unauthorized. You are not the driver for this ride.'], 403);
+        }
+
+        // Optional: You might also want to ensure the ride is completed.
+        if ($ride->status->name !== 'Completed') {
+            return response()->json(['message' => 'You can only rate completed rides.'], 400);
+        }
+
+        // 2. Prevent Duplicate Rating: Check if the driver has already rated.
+        if ($ride->driver_rating !== null) {
+            return response()->json(['message' => 'You have already rated this rider for this trip.'], 400);
+        }
+
+        // 3. Update the ride with the driver's rating for the rider.
+        $ride->update([
+            'driver_rating' => $request->input('rating'),
+            'driver_review' => $request->input('review'),
+        ]);
+
+        // 4. Update the User's (Rider's) average rating.
+        //    This assumes you have a similar method on the User's profile model.
+        $ride->user?->profile?->updateAverageRating();
+
+        return response()->json(['message' => 'Rider rating submitted successfully.']);
+    }
+
+    /**
+     * Allows a rider (user) to rate the driver for a completed ride.
+     */
+    public function rateDriver(Request $request, Ride $ride)
+    {
+        $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+            'review' => 'nullable|string|max:1000',
+        ]);
+
+        // Authorization: Check if the authenticated user is the rider for this ride.
         if ($ride->user_id !== Auth::id()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return response()->json(['message' => 'Unauthorized. You are not the rider for this ride.'], 403);
+        }
+
+        // Optional: Check if ride is completed
+        if ($ride->status->name !== 'Completed') {
+            return response()->json(['message' => 'You can only rate completed rides.'], 400);
         }
 
         // Prevent duplicate rating
         if ($ride->rider_rating !== null) {
-            return response()->json(['message' => 'You have already rated this ride.'], 400);
+            return response()->json(['message' => 'You have already rated this driver for this trip.'], 400);
         }
 
+        // Update the ride with the rider's rating for the driver.
         $ride->update([
             'rider_rating' => $request->input('rating'),
             'rider_review' => $request->input('review'),
         ]);
 
+        // Update the Driver's average rating.
         $ride->driver?->profile?->updateAverageRating();
 
-        return response()->json(['message' => 'Rating submitted successfully.']);
+        return response()->json(['message' => 'Driver rating submitted successfully.']);
     }
 }

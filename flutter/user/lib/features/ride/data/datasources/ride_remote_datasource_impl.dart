@@ -175,7 +175,7 @@ class RideRemoteDatasourceImpl implements RideRemoteDatasource {
   Future<void> submitRideRating(int rideId, int rating, String? review) async {
     try {
       final response = await dio.post(
-        '/api/rides/$rideId/rate',
+        '/api/rides/$rideId/rate-driver',
         data: {'rating': rating, 'review': review},
       );
 

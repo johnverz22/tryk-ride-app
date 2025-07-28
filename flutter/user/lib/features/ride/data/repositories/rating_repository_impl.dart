@@ -34,7 +34,7 @@ class RatingRepositoryImpl implements RatingRepository {
       }
 
       final response = await client.post(
-        Uri.parse('$baseUrl/api/rides/$rideId/rate'),
+        Uri.parse('$baseUrl/api/rides/$rideId/rate-driver'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',

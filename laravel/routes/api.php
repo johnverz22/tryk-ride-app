@@ -49,7 +49,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/rides/{id}/driver-location', [Controllers\DriverController::class, 'getLocation']);
     Route::post('/rides/{id}/start', [Controllers\RideController::class, 'start']);
     Route::patch('/rides/{ride}/reject', [Controllers\RideController::class, 'reject']);
-    Route::post('/rides/{ride}/rate', [Controllers\RideController::class, 'rateRide']);
+    Route::post('/rides/{ride}/rate-driver', [Controllers\RideController::class, 'rateDriver']);
+    Route::post('/rides/{ride}/rate-rider', [Controllers\RideController::class, 'rateRider']);
 
     // ── Payment Methods ──
     Route::get('/payment-info', [Controllers\PaymentController::class, 'index']);

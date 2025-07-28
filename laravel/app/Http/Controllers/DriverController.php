@@ -260,7 +260,7 @@ class DriverController extends Controller
         $driver = $request->user();
 
         // Validate query param
-        $range = $request->query('range', 'day'); // default: day
+        $range = $request->query('range', 'day');
         if (!in_array($range, ['day', 'week', 'month'])) {
             return response()->json(['error' => 'Invalid range. Use day, week, or month.'], 400);
         }

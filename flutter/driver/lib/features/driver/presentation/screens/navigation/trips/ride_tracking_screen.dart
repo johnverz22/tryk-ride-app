@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -27,38 +28,44 @@ class RideTrackingScreen extends StatefulWidget {
 }
 
 class _RideTrackingScreenState extends State<RideTrackingScreen> {
-  // Controllers and Services
+  // --- Controllers and Services ---
   GoogleMapController? _mapController;
   final Location _location = Location();
   final AuthService _authService = AuthService();
+  final TextEditingController _reviewController = TextEditingController();
 
-  // Timers
+  // --- Timers ---
   Timer? _pollingTimer;
   Timer? _waitTimer;
 
-  // State
+  // --- State ---
   Map<String, dynamic>? _ride;
   LatLng? _pickup;
   LatLng? _dropoff;
   LatLng? _driverLocation;
   Set<Polyline> _polylines = {};
   bool _isLoading = true;
-  List<String> _navigationSteps = [];
 
-  // Ride Metrics & Status
+  // --- Ride Metrics & Status ---
   RideStatus _rideStatus = RideStatus.unknown;
   String? _distanceToDest;
   String? _etaToDest;
 
-  // Waiting Timer State
+  // --- Waiting Timer State ---
   int _waitingSeconds = 0;
   bool _isWaitingActive = false;
   bool _waitHasBeenExtended = false;
 
-  // Environment Variables
+  // --- RATING STATE FOR RIDER ---
+  double _selectedRating = 0;
+  bool _showRatingForm = false;
+  bool _hasSubmittedRating = false;
+
+  // --- Environment Variables ---
   String? baseUrl = dotenv.env['BASE_URL'];
   String? googleMapsApiKey = dotenv.env['GOOGLE_MAPS_API_KEY'];
 
+  // --- Core Logic (initState, dispose, API calls, etc.) ---
   @override
   void initState() {
     super.initState();
@@ -70,10 +77,10 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     _pollingTimer?.cancel();
     _waitTimer?.cancel();
     _mapController?.dispose();
+    _reviewController.dispose();
     super.dispose();
   }
 
-  // --- Initialization and Polling ---
   Future<void> _initializeRide() async {
     await _updateRideDetails(isInitialLoad: true);
     if (_rideStatus != RideStatus.completed &&
@@ -90,7 +97,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     });
   }
 
-  // --- Core Logic: Ride and Location Updates ---
   Future<void> _updateRideDetails({bool isInitialLoad = false}) async {
     try {
       final token = await _authService.getToken();
@@ -105,6 +111,8 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final status = _getRideStatus(data['status']?['name']);
+
+        if (!mounted) return;
 
         setState(() {
           _ride = data;
@@ -125,7 +133,24 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
             );
           }
 
-          if (isInitialLoad) _isLoading = false;
+          // Check if driver has already rated the rider
+          if (data['driver_rating'] != null) {
+            _hasSubmittedRating = true;
+            _selectedRating = (data['driver_rating'] as num).toDouble();
+            _reviewController.text = data['driver_review'] ?? '';
+          }
+
+          if (isInitialLoad) {
+            final distanceKm = data['distance_km'];
+            if (distanceKm != null) {
+              _distanceToDest = '$distanceKm km';
+            }
+            final durationMinutes = data['duration_minutes'];
+            if (durationMinutes != null) {
+              _etaToDest = '${durationMinutes.ceil()} min';
+            }
+            _isLoading = false;
+          }
         });
 
         if (status == RideStatus.completed || status == RideStatus.cancelled) {
@@ -142,7 +167,7 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error loading ride details: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
     }
@@ -159,10 +184,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     }
     if (permission != PermissionStatus.granted) return;
 
-    // Get initial location immediately
-    _updateAndSendLocation();
-
-    // Then continue updating periodically
     _location.onLocationChanged.listen((LocationData currentLocation) {
       if (currentLocation.latitude != null &&
           currentLocation.longitude != null) {
@@ -175,18 +196,17 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     });
   }
 
-  Future<void> _updateAndSendLocation([LatLng? location]) async {
-    LatLng? newLocation = location;
-    if (newLocation == null) {
-      final locData = await _location.getLocation();
-      newLocation = LatLng(locData.latitude!, locData.longitude!);
-    }
+  Future<void> _updateAndSendLocation(LatLng location) async {
+    if (!mounted) return;
 
     setState(() {
-      _driverLocation = newLocation;
+      _driverLocation = location;
     });
-    _sendDriverLocationToServer(newLocation);
-    _fetchRoute();
+
+    _mapController?.animateCamera(CameraUpdate.newLatLng(location));
+
+    await _sendDriverLocationToServer(location);
+    await _fetchRoute();
   }
 
   Future<void> _sendDriverLocationToServer(LatLng location) async {
@@ -208,16 +228,11 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     }
   }
 
-  Future<void> _updateRideStatus(
-    int statusId, {
-    String? cancellationReason,
-  }) async {
+  Future<void> _updateRideStatus(int statusId) async {
     try {
       final token = await _authService.getToken();
       final response = await http.post(
-        Uri.parse(
-          '$baseUrl/api/rides/${widget.rideId}/status',
-        ), // A single endpoint is cleaner
+        Uri.parse('$baseUrl/api/rides/${widget.rideId}/status'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -225,22 +240,21 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
         body: jsonEncode({'status_id': statusId}),
       );
       if (response.statusCode == 200) {
-        // Stop waiting timer if ride starts
         if (statusId == 4) {
-          // 'Ride in Progress'
           _waitTimer?.cancel();
           setState(() {
             _isWaitingActive = false;
             _waitingSeconds = 0;
           });
         }
-        await _updateRideDetails(); // Refresh data after successful update
+        await _updateRideDetails();
       } else {
         throw Exception(
           jsonDecode(response.body)['message'] ?? 'Unknown error',
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update status: $e'),
@@ -250,15 +264,14 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     }
   }
 
-  // --- UI Actions ---
   void _onStartWaiting() {
     setState(() {
       _isWaitingActive = true;
-      _waitingSeconds = 300; // 5 minutes
+      _waitingSeconds = 300;
     });
     _waitTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_waitingSeconds > 0) {
-        setState(() => _waitingSeconds--);
+        if (mounted) setState(() => _waitingSeconds--);
       } else {
         timer.cancel();
       }
@@ -267,19 +280,69 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
 
   void _onExtendWaiting() {
     setState(() {
-      _waitingSeconds += 120; // +2 minutes
+      _waitingSeconds += 120;
       _waitHasBeenExtended = true;
     });
   }
 
-  // --- Map and Route Logic ---
-  Future<void> _fetchRoute() async {
-    // This logic remains largely the same, but it's called more efficiently now.
-    if (_driverLocation == null || googleMapsApiKey == null) return;
-    final rideStatus = _rideStatus;
-    LatLng? destination;
+  Future<void> _submitRiderRating() async {
+    if (_selectedRating == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a star rating.')),
+      );
+      return;
+    }
 
-    switch (rideStatus) {
+    final token = await _authService.getToken();
+    try {
+      final response = await http.post(
+        Uri.parse(
+          '$baseUrl/api/rides/${widget.rideId}/rate-rider',
+        ), // Assumed endpoint
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'rating': _selectedRating.toInt(),
+          'review': _reviewController.text.trim(),
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        if (!mounted) return;
+        setState(() {
+          _hasSubmittedRating = true;
+          _showRatingForm = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Rider rating submitted!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        throw Exception(
+          jsonDecode(response.body)['message'] ?? 'Failed to submit rating',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _fetchRoute() async {
+    if (_driverLocation == null || googleMapsApiKey == null || !mounted) return;
+
+    LatLng? destination;
+    switch (_rideStatus) {
       case RideStatus.accepted:
       case RideStatus.driverEnRoute:
         destination = _pickup;
@@ -288,17 +351,14 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
         destination = _dropoff;
         break;
       default:
-        setState(() => _polylines = {});
+        if (mounted) setState(() => _polylines = {});
         return;
     }
 
     if (destination == null) return;
 
     final url = Uri.parse(
-      'https://maps.googleapis.com/maps/api/directions/json'
-      '?origin=${_driverLocation!.latitude},${_driverLocation!.longitude}'
-      '&destination=${destination.latitude},${destination.longitude}'
-      '&key=$googleMapsApiKey',
+      'https://maps.googleapis.com/maps/api/directions/json?origin=${_driverLocation!.latitude},${_driverLocation!.longitude}&destination=${destination.latitude},${destination.longitude}&key=$googleMapsApiKey',
     );
     try {
       final response = await http.get(url);
@@ -308,26 +368,22 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
           final points = data['routes'][0]['overview_polyline']['points'];
           final decodedPoints = _decodePolyline(points);
           final leg = data['routes'][0]['legs'][0];
-          final steps = leg['steps'] as List;
 
+          if (!mounted) return;
           setState(() {
-            _distanceToDest = leg['distance']['text'];
             _etaToDest = leg['duration']['text'];
-            _navigationSteps = steps
-                .map<String>((s) => _stripHtml(s['html_instructions']))
-                .toList();
             _polylines = {
               Polyline(
                 polylineId: const PolylineId('route'),
                 points: decodedPoints,
                 color: Theme.of(context).colorScheme.primary,
-                width: 4,
+                width: 5,
+                startCap: Cap.roundCap,
+                endCap: Cap.roundCap,
               ),
             };
           });
         }
-      } else {
-        debugPrint('Failed to fetch directions: ${response.body}');
       }
     } catch (e) {
       debugPrint('Error fetching route: $e');
@@ -338,7 +394,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     List<LatLng> points = [];
     int index = 0, len = encoded.length;
     int lat = 0, lng = 0;
-
     while (index < len) {
       int b, shift = 0, result = 0;
       do {
@@ -348,7 +403,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       } while (b >= 0x20);
       int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
       lat += dlat;
-
       shift = 0;
       result = 0;
       do {
@@ -358,18 +412,11 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
       } while (b >= 0x20);
       int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
       lng += dlng;
-
       points.add(LatLng(lat / 1e5, lng / 1e5));
     }
-
     return points;
   }
 
-  String _stripHtml(String html) {
-    return html.replaceAll(RegExp(r'<[^>]*>|&nbsp;'), '').trim();
-  }
-
-  // --- Helpers ---
   RideStatus _getRideStatus(String? status) {
     switch (status?.toLowerCase()) {
       case 'accepted':
@@ -393,15 +440,32 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
-  // --- Build Methods ---
+  // --- [FINALIZED] Build Methods ---
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(_isLoading ? 'Loading Ride...' : 'Ride Tracking'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: InkWell(
+            onTap: () => Navigator.of(context).pop(),
+            child: CircleAvatar(
+              backgroundColor: theme.colorScheme.surface.withOpacity(0.9),
+              child: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
+            ),
+          ),
+        ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: CircularProgressIndicator(
+                color: theme.colorScheme.primary,
+              ),
+            )
           : Stack(
               children: [
                 GoogleMap(
@@ -412,11 +476,10 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
                   markers: _buildMarkers(),
                   polylines: _polylines,
                   onMapCreated: (controller) => _mapController = controller,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
-                  padding: const EdgeInsets.only(
-                    bottom: 250,
-                  ), // Adjust padding for bottom sheet
+                  myLocationEnabled: false,
+                  myLocationButtonEnabled: false,
+                  padding: const EdgeInsets.only(bottom: 280),
+                  zoomControlsEnabled: false,
                 ),
                 _buildBottomPanel(),
               ],
@@ -425,41 +488,47 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
   }
 
   Widget _buildBottomPanel() {
-    final riderName = _ride?['user']?['name'] ?? 'Unknown';
-    final statusStr = _ride?['status']?['name'] ?? 'Unknown';
+    final theme = Theme.of(context);
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.35,
-      minChildSize: 0.35,
-      maxChildSize: 0.8,
+      initialChildSize: 0.4,
+      minChildSize: 0.4,
+      maxChildSize: 0.6,
       builder: (context, scrollController) {
         return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
           ),
           child: ListView(
             controller: scrollController,
-            padding: const EdgeInsets.all(16),
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             children: [
-              // Top handle
               Center(
                 child: Container(
                   width: 40,
                   height: 5,
+                  margin: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: theme.dividerColor,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
+              _buildRiderHeader(),
               const SizedBox(height: 16),
-              _buildRiderInfo(riderName, statusStr),
-              const Divider(height: 32),
-              _buildTripDetails(),
-              const SizedBox(height: 16),
+              _buildTripInfoCard(),
+              const SizedBox(height: 20),
               _buildActionButtons(),
+              const SizedBox(height: 20),
             ],
           ),
         );
@@ -467,188 +536,292 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
     );
   }
 
-  Widget _buildRiderInfo(String name, String status) {
+  Widget _buildRiderHeader() {
+    final riderName = _ride?['user']?['name'] ?? 'Rider';
+    final photoUrl = _ride?['user']?['photo_url'] as String?;
+    final isPhotoValid = photoUrl != null && photoUrl.trim().isNotEmpty;
+    final statusStr = _ride?['status']?['name'] ?? 'Loading...';
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+
     return Row(
       children: [
-        CircleAvatar(radius: 30, child: const Icon(Icons.person, size: 30)),
+        CircleAvatar(
+          radius: 32,
+          backgroundColor: theme.colorScheme.primaryContainer,
+          backgroundImage: isPhotoValid ? NetworkImage(photoUrl) : null,
+          child: !isPhotoValid
+              ? Icon(
+                  Icons.person_rounded,
+                  size: 32,
+                  color: theme.colorScheme.onPrimaryContainer,
+                )
+              : null,
+        ),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 18,
+                riderName,
+                style: textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const SizedBox(height: 4),
               Text(
-                'Status: $status',
-                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                statusStr,
+                style: textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
         ),
-        IconButton(
-          icon: const Icon(Icons.message, color: Colors.blue),
-          onPressed: () {
-            /* TODO: Chat */
-          },
-        ),
-        IconButton(
-          icon: const Icon(Icons.call, color: Colors.green),
-          onPressed: () {
-            /* TODO: Call */
-          },
-        ),
+        _contactButton(Icons.message_rounded, () {
+          /* Chat */
+        }),
+        const SizedBox(width: 8),
+        _contactButton(Icons.call_rounded, () async {
+          final phoneNumber = _ride?['user']?['phone_number'];
+          if (phoneNumber != null) {
+            final uri = Uri.parse('tel:$phoneNumber');
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri);
+            }
+          }
+        }),
       ],
     );
   }
 
-  Widget _buildTripDetails() {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _infoTile(Icons.route, _distanceToDest ?? '--', 'Distance'),
-            _infoTile(Icons.timer, _etaToDest ?? '--', 'ETA'),
-            _infoTile(
-              Icons.money,
-              '₱${_ride?['fare_amount']?.toStringAsFixed(2) ?? '0.00'}',
-              'Fare',
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        ElevatedButton.icon(
-          onPressed: _navigateWithGoogleMaps,
-          icon: const Icon(Icons.navigation),
-          label: const Text('Navigate in Google Maps'),
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size.fromHeight(45),
-            backgroundColor: Colors.blue[800],
-            foregroundColor: Colors.white,
+  Widget _contactButton(IconData icon, VoidCallback onPressed) {
+    final theme = Theme.of(context);
+    return IconButton(
+      style: IconButton.styleFrom(
+        backgroundColor: theme.colorScheme.primaryContainer,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        padding: const EdgeInsets.all(12),
+      ),
+      icon: Icon(icon, color: theme.colorScheme.onPrimaryContainer, size: 24),
+      onPressed: onPressed,
+    );
+  }
+
+  Widget _buildTripInfoCard() {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _infoTile(Icons.route_rounded, _distanceToDest ?? '--', 'Distance'),
+          _infoTile(Icons.timer_rounded, _etaToDest ?? '--', 'ETA'),
+          _infoTile(
+            Icons.wallet_rounded,
+            '₱${_ride?['fare_amount']?.toStringAsFixed(2) ?? '0.00'}',
+            'Fare',
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildActionButtons() {
+    final theme = Theme.of(context);
+    final List<Widget> actionWidgets = [];
+
+    // Always show navigation button if the ride is active
+    if (_rideStatus == RideStatus.accepted ||
+        _rideStatus == RideStatus.driverEnRoute ||
+        _rideStatus == RideStatus.inProgress) {
+      actionWidgets.add(
+        _actionButton(
+          title: 'Navigate in Google Maps',
+          onPressed: _navigateWithGoogleMaps,
+          icon: Icons.navigation_rounded,
+        ),
+      );
+      actionWidgets.add(const SizedBox(height: 12));
+    }
+
     switch (_rideStatus) {
       case RideStatus.accepted:
-        return _actionButton(
-          title: "I've Arrived at Pickup",
-          onPressed: () => _updateRideStatus(3),
-        ); // status 3: Driver En Route
+        actionWidgets.add(
+          _actionButton(
+            title: "I've Arrived at Pickup",
+            onPressed: () => _updateRideStatus(3),
+          ),
+        );
+        break;
 
       case RideStatus.driverEnRoute:
         if (_isWaitingActive) {
-          return Column(
-            children: [
-              Text(
-                'Waiting for Rider: ${_formatDuration(_waitingSeconds)}',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+          actionWidgets.add(
+            Column(
+              children: [
+                Text('Waiting for Rider', style: theme.textTheme.titleMedium),
+                Text(
+                  _formatDuration(_waitingSeconds),
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _actionButton(
-                      title: "Start Ride",
-                      onPressed: () => _updateRideStatus(4),
-                    ),
-                  ), // status 4: In Progress
-                  if (!_waitHasBeenExtended) ...[
-                    const SizedBox(width: 8),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
                     Expanded(
                       child: _actionButton(
-                        title: "+2 min",
-                        onPressed: _onExtendWaiting,
-                        color: Colors.orange,
+                        title: "Start Ride",
+                        onPressed: () => _updateRideStatus(4),
                       ),
                     ),
+                    if (!_waitHasBeenExtended) ...[
+                      const SizedBox(width: 12),
+                      _actionButton(
+                        title: "+2 min",
+                        onPressed: _onExtendWaiting,
+                        color: theme.colorScheme.tertiary,
+                        textColor: theme.colorScheme.onTertiary,
+                      ),
+                    ],
                   ],
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
+          );
+        } else {
+          actionWidgets.add(
+            _actionButton(
+              title: "Start Waiting Timer",
+              onPressed: _onStartWaiting,
+            ),
           );
         }
-        return _actionButton(
-          title: "Start Waiting Timer (5 min)",
-          onPressed: _onStartWaiting,
-        );
+        break;
 
       case RideStatus.inProgress:
-        return _actionButton(
-          title: "Complete Ride",
-          onPressed: () => _updateRideStatus(5),
-          color: Colors.green,
-        ); // status 5: Completed
+        actionWidgets.add(
+          _actionButton(
+            title: "Complete Ride",
+            onPressed: () => _updateRideStatus(5),
+            color: const Color(0xFF28a745),
+            textColor: Colors.white,
+          ),
+        );
+        break;
 
       case RideStatus.completed:
-        return const Text(
-          "Ride Completed",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.green,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        );
+        if (_hasSubmittedRating) {
+          actionWidgets.add(
+            SubmittedRatingCard(
+              rating: _selectedRating,
+              review: _reviewController.text,
+              title: "Rating Submitted",
+            ),
+          );
+        } else if (_showRatingForm) {
+          actionWidgets.add(
+            RatingSection(
+              isLoading:
+                  false, // You can link this to a provider if you have one
+              selectedRating: _selectedRating,
+              reviewController: _reviewController,
+              onRatingSelected: (rating) =>
+                  setState(() => _selectedRating = rating),
+              onSubmit: _submitRiderRating,
+              title: "How was the rider?",
+            ),
+          );
+        } else {
+          // Show the "Rate Rider" button
+          actionWidgets.add(
+            _actionButton(
+              title: "Rate Rider",
+              onPressed: () => setState(() => _showRatingForm = true),
+              icon: Icons.star_outline_rounded,
+            ),
+          );
+        }
+        break;
 
       case RideStatus.cancelled:
-        return const Text(
-          "Ride Cancelled",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.red,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+        actionWidgets.add(
+          _statusText("Ride Cancelled", theme.colorScheme.error),
         );
+        break;
 
       default:
-        return const SizedBox.shrink();
+        break;
     }
+
+    return Column(children: actionWidgets);
+  }
+
+  Widget _statusText(String text, Color color) {
+    return Text(
+      text,
+      textAlign: TextAlign.center,
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+        color: color,
+        fontWeight: FontWeight.bold,
+      ),
+    );
   }
 
   Widget _actionButton({
     required String title,
     required VoidCallback onPressed,
     Color? color,
+    Color? textColor,
+    IconData? icon,
   }) {
+    final theme = Theme.of(context);
+    final buttonContent = icon != null
+        ? [Icon(icon, size: 20), const SizedBox(width: 8), Text(title)]
+        : [Text(title)];
+
     return ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
-        minimumSize: const Size.fromHeight(45),
-        backgroundColor: color ?? Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
+        minimumSize: const Size.fromHeight(52),
+        backgroundColor: color ?? theme.colorScheme.primary,
+        foregroundColor: textColor ?? theme.colorScheme.onPrimary,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        elevation: 2,
       ),
-      child: Text(title),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: buttonContent,
+      ),
     );
   }
 
   Set<Marker> _buildMarkers() {
     final markers = <Marker>{};
-
     if (_driverLocation != null) {
       markers.add(
         Marker(
           markerId: const MarkerId('driver'),
           position: _driverLocation!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-          infoWindow: const InfoWindow(title: 'Driver Location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueAzure,
+          ),
+          infoWindow: const InfoWindow(title: 'My Location'),
+          anchor: const Offset(0.5, 0.5),
+          flat: true,
         ),
       );
     }
-
     if (_pickup != null) {
       markers.add(
         Marker(
@@ -661,7 +834,6 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
         ),
       );
     }
-
     if (_dropoff != null) {
       markers.add(
         Marker(
@@ -672,49 +844,243 @@ class _RideTrackingScreenState extends State<RideTrackingScreen> {
         ),
       );
     }
-
     return markers;
   }
 
   Widget _infoTile(IconData icon, String value, String label) {
-    return Column(
-      children: [
-        Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-      ],
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(icon, color: theme.colorScheme.primary, size: 28),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Future<void> _navigateWithGoogleMaps() async {
-    // Validate locations
-    if (_pickup == null || _dropoff == null) {
-      debugPrint('Pickup or drop-off location is null!');
+    final LatLng? destination = _rideStatus == RideStatus.inProgress
+        ? _dropoff
+        : _pickup;
+    if (destination == null) {
+      debugPrint('Destination is null!');
       return;
     }
 
-    final origin = _pickup!;
-    final destination = _dropoff!;
-
-    // Log locations for debugging
-    debugPrint('Origin: ${origin.latitude}, ${origin.longitude}');
-    debugPrint(
-      'Destination: ${destination.latitude}, ${destination.longitude}',
-    );
-
     final uri = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1'
-      '&origin=${origin.latitude},${origin.longitude}'
-      '&destination=${destination.latitude},${destination.longitude}'
-      '&travelmode=driving'
-      '&dir_action=navigate',
+      'https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}&travelmode=driving&dir_action=navigate',
     );
 
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     } else {
-      throw 'Could not launch $uri';
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Could not open Google Maps.'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
+  }
+}
+
+// --- RATING WIDGETS ---
+// These can be moved to a separate file for better organization.
+
+class SubmittedRatingCard extends StatelessWidget {
+  final double rating;
+  final String? review;
+  final String title;
+
+  const SubmittedRatingCard({
+    super.key,
+    required this.rating,
+    this.review,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+
+    return Container(
+      padding: const EdgeInsets.all(20.0),
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        borderRadius: BorderRadius.circular(24.0),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.check_circle_outline_rounded,
+                color: Colors.green.shade600,
+                size: 26,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Row(
+                children: List.generate(5, (index) {
+                  return Icon(
+                    index < rating
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    color: Colors.amber.shade600,
+                    size: 36,
+                  );
+                }),
+              ),
+            ],
+          ),
+          if (review != null && review!.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.only(left: 16),
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: theme.colorScheme.primary.withOpacity(0.5),
+                    width: 4.0,
+                  ),
+                ),
+              ),
+              child: Text(
+                '“$review”',
+                style: textTheme.bodyLarge?.copyWith(
+                  fontStyle: FontStyle.italic,
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class RatingSection extends StatelessWidget {
+  final bool isLoading;
+  final double selectedRating;
+  final TextEditingController reviewController;
+  final ValueChanged<double> onRatingSelected;
+  final VoidCallback onSubmit;
+  final String title;
+
+  const RatingSection({
+    super.key,
+    required this.isLoading,
+    required this.selectedRating,
+    required this.reviewController,
+    required this.onRatingSelected,
+    required this.onSubmit,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (index) {
+              return IconButton(
+                onPressed: () => onRatingSelected(index + 1.0),
+                icon: Icon(
+                  index < selectedRating
+                      ? Icons.star_rounded
+                      : Icons.star_border_rounded,
+                  color: Colors.amber,
+                  size: 40,
+                ),
+              );
+            }),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: reviewController,
+          maxLines: 3,
+          textCapitalization: TextCapitalization.sentences,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: "Add a review (optional)",
+            filled: true,
+            fillColor: theme.scaffoldBackgroundColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: theme.dividerColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: theme.dividerColor),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (isLoading)
+          const Center(child: CircularProgressIndicator())
+        else
+          ElevatedButton(
+            onPressed: onSubmit,
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            child: const Text("Submit Rating"),
+          ),
+      ],
+    );
   }
 }

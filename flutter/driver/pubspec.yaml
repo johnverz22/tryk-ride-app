@@ -43,6 +43,7 @@ dependencies:
   google_maps_flutter_android: ^2.17.0
   google_maps_flutter_platform_interface: ^2.12.1
   slide_to_act: ^2.0.2
+  fl_chart: ^1.0.0
 
 dev_dependencies:
   flutter_test:

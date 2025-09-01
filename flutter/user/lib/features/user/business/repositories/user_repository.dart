@@ -1,11 +1,12 @@
 import 'package:dartz/dartz.dart';
-import '../../../../../core/errors/failure.dart';
-import '../../../../../core/params/params.dart';
 import '../entities/user_entity.dart';
-
+import '../usecases/get_user_usecase.dart';
+import '../../../../core/errors/failures.dart';
 
 abstract class UserRepository {
-  Future<Either<Failure, UserEntity>> getUser({
-    required UserParams userParams,
-  });
+  Future<Either<Failure, UserData>> login(String email, String password);
+  Future<Either<Failure, UserData>> getStoredUser();
+  Future<Either<Failure, UserEntity>> updateUser(UserEntity user);
+  Future<void> logout();
+  Future<Either<Failure, String>> refreshToken();
 }

@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'core/di/injection_container.dart' as di;
+import 'core/config/app_config.dart';
 import 'features/user/presentation/pages/screens/main_navigation_screen.dart';
 import 'features/user/presentation/pages/screens/auth/auth_screen.dart';
-import 'features/user/presentation/providers/user_provider.dart';
+import 'features/user/presentation/viewmodels/user_viewmodel.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // 🚀 PLUG AND PLAY: Configuration-driven initialization
+  await di.init(
+    enableLoadBalancer: AppConfig.enableLoadBalancer,
+    enableMessageQueue: AppConfig.enableMessageQueue,
+    loadBalancerStrategy: AppConfig.loadBalancerStrategy,
+    messageQueueType: AppConfig.messageQueueType,
+  );
+  
   runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => UserProvider()),
-      ],
+    ChangeNotifierProvider(
+      create: (_) => di.sl<UserViewModel>(),
       child: const MainApp(),
     ),
   );
@@ -18,27 +28,20 @@ void main() {
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
-  Future<bool> checkLoggedIn(UserProvider userProvider) async {
-    await userProvider.loadUserData();
-    return userProvider.token != null;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-
-    return FutureBuilder<bool>(
-      future: checkLoggedIn(userProvider),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const MaterialApp(
-            home: Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            ),
-          );
-        }
-
-        final loggedIn = snapshot.data ?? false;
+    return Consumer<UserViewModel>(
+      builder: (context, userViewModel, _) {
+        return FutureBuilder(
+          future: userViewModel.loadUser(),
+          builder: (context, snapshot) {
+            if (userViewModel.isLoading) {
+              return const MaterialApp(
+                home: Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                ),
+              );
+            }
 
         return MaterialApp(
           title: 'Tryk',
@@ -66,7 +69,10 @@ class MainApp extends StatelessWidget {
             '/auth': (context) => const AuthScreen(),
             // Add other routes as needed
           },
-          home: loggedIn ? const MainNavigationScreen() : const AuthScreen(),
+          home: userViewModel.isAuthenticated ? const MainNavigationScreen() : const AuthScreen(),
+        );
+      },
+    );
         );
       },
     );

@@ -75,6 +75,24 @@ class UserModel extends UserEntity {
     };
   }
 
+  factory UserModel.fromEntity(UserEntity entity) {
+    return UserModel(
+      id: entity.id,
+      name: entity.name,
+      email: entity.email,
+      phone: entity.phone,
+      profilePhotoUrl: entity.profilePhotoUrl,
+      role: entity.role,
+      isVerified: entity.isVerified,
+      walletBalance: entity.walletBalance,
+      defaultPaymentMethod: entity.defaultPaymentMethod,
+      createdAt: entity.createdAt,
+      updatedAt: entity.updatedAt,
+      lastLoginAt: entity.lastLoginAt,
+      location: null, // Model-specific field
+    );
+  }
+
   UserModel copyWith({
     String? id,
     String? name,
